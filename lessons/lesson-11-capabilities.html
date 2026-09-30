@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 11 · Capabilities</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.68; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:44px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--teal); margin:52px 0 4px; display:flex; align-items:center; gap:10px;}
+  .eyebrow::before{content:""; width:16px; height:1px; background:var(--teal); opacity:.6}
+  h2{font-family:var(--mono); font-weight:600; font-size:22px; margin:6px 0 18px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--gold); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+  .step.verify{background:var(--teal)}
+
+  figure.src{margin:14px 0 8px; border:1px solid var(--gold-dim); border-radius:8px; overflow:hidden; background:var(--well)}
+  figure.src .tab{font-family:var(--mono); font-size:12px; color:var(--gold); background:linear-gradient(180deg,#1c1a12,#141109); border-bottom:1px solid var(--gold-dim); padding:8px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  figure.src .tab .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none}
+  figure.src .tab .path{overflow-wrap:anywhere}
+  figure.src .tab .repo{color:var(--faint); margin-left:auto; font-size:11px}
+  figure.src pre{margin:0; padding:16px 16px; overflow-x:auto}
+  figure.src.spec .tab{color:#cdb87a}
+  pre,code{font-family:var(--mono)}
+  pre{font-size:13px; line-height:1.6; color:#d7d2c4}
+  pre .kw{color:var(--rose)} pre .fn{color:var(--teal)} pre .cmt{color:var(--faint); font-style:italic}
+  pre .str{color:var(--gold)} pre .field{color:var(--gold)}
+  .keyline{background:rgba(224,177,81,.10); border-left:2px solid var(--gold); display:block; padding-left:8px; margin-left:-10px}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{padding:14px 16px; color:#bfe6df; font-size:13px}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:16px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0 0 10px}.keybox p:last-child{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  .capgrid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:20px 0}
+  .capcol{border:1px solid var(--rule); border-radius:8px; padding:14px 16px; background:var(--panel)}
+  .capcol.keep{border-color:var(--teal-dim)} .capcol.drop{border-color:var(--rose-dim)}
+  .capcol h4{font-family:var(--mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase; margin:0 0 10px}
+  .capcol.keep h4{color:var(--teal)} .capcol.drop h4{color:var(--rose)}
+  .capcol .cap{font-family:var(--mono); font-size:12px; color:var(--dim); line-height:1.7}
+  .capcol .cap b{color:var(--bone)}
+  @media(max-width:620px){.capgrid{grid-template-columns:1fr}}
+
+  table.sets{width:100%; border-collapse:collapse; margin:18px 0; font-size:14.5px}
+  table.sets th,table.sets td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--rule); vertical-align:top}
+  table.sets th{font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint)}
+  table.sets td.s{font-family:var(--mono); font-size:12.5px; color:var(--gold); white-space:nowrap}
+  table.sets td.p{font-family:var(--mono); font-size:11.5px; color:var(--teal)}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:70px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  .lead{font-size:20px; line-height:1.6; color:var(--bone)}
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:40px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-10-cgroups-v2.html">← Lesson 10</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-12-seccomp.html">Lesson 12 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part II — Kernel primitives</div>
+  <div class="lesson-no">11</div>
+  <h1>Capabilities: root, chopped into ~40 separate powers</h1>
+  <p class="dek">Lesson 7 left a cliffhanger — container root <em>is</em> host root by default, held back by "capabilities." This is that wall. Capabilities split the monolith of root into individual privileges, and Docker hands your container just 14 of them.</p>
+</header>
+
+<p class="lead">Here's the promise we're keeping from Lesson 7: even though a default container's root is genuinely host uid 0, it is nowhere near as dangerous as real root — because Docker has stripped it of most of root's actual powers. The mechanism that makes "root" divisible is Linux <strong>capabilities</strong>. Once you see the exact 14 Docker keeps and the ~26 it throws away, "container root" stops being a scary phrase and becomes a precise, inspectable thing.</p>
+
+<div class="eyebrow">The intuition</div>
+<h2>Why "root" needed to be broken up</h2>
+
+<p>Classic Unix has a binary model of privilege: you are either root (uid 0), able to do <em>everything</em> — reboot the machine, load kernel modules, override every file permission, reconfigure the network, trace any process — or you are an ordinary user who can do almost none of it. There's no middle. That's a disaster for least-privilege. A web server needs exactly one privileged thing: to bind port 80. Under the old model, to get that, you had to run it as full root — and now a bug in your web server is a bug that can reboot the host.</p>
+
+<p>Capabilities fix this by shattering "the power of root" into around forty independent privileges, each guarding one category of operation. Binding a low port is <code class="inl">CAP_NET_BIND_SERVICE</code>. Loading a kernel module is <code class="inl">CAP_SYS_MODULE</code>. Overriding file permissions is <code class="inl">CAP_DAC_OVERRIDE</code>. The kernel's privileged checks no longer ask "is this uid 0?" — they ask "does this process hold the specific capability for <em>this</em> action?" Now you can give a process exactly the powers it needs and withhold the rest. Docker uses this to defang container-root.</p>
+
+<div class="eyebrow">Mechanism 1</div>
+<h2>A capability gates one class of operation</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Every operation that used to require "being root" is now tied to a named capability. The kernel checks the process's <em>capability</em>, not its uid. A few that matter, to make it concrete: <code class="inl">CAP_CHOWN</code> lets you change a file's owner; <code class="inl">CAP_DAC_OVERRIDE</code> lets you bypass all file read/write/execute permission checks; <code class="inl">CAP_NET_BIND_SERVICE</code> lets you bind ports below 1024; <code class="inl">CAP_KILL</code> lets you signal processes you don't own. And the dangerous ones: <code class="inl">CAP_SYS_ADMIN</code> is a sprawling grab-bag (mounting filesystems and much more — so broad it's nicknamed "the new root"); <code class="inl">CAP_SYS_MODULE</code> loads kernel code and is game-over for the host; <code class="inl">CAP_SYS_PTRACE</code> inspects and manipulates other processes; <code class="inl">CAP_SYS_BOOT</code> reboots the machine.</p>
+
+<aside class="note"><b>How many are there?</b> The count grows with the kernel — it's whatever <code class="inl">CAP_LAST_CAP</code> is on your system, currently around 40. The exact number matters less than the model: privileges are itemized, and you grant them individually.</aside>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 2</div>
+<h2>Docker's default: keep 14, drop the rest</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>When Docker runs a container, it does not hand it the full set of capabilities even though the process is uid 0. It grants a fixed, curated list of 14 — the ones ordinary software legitimately needs — and drops everything else. This single list is the practical meaning of "container root is safer than real root."</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">daemon/pkg/oci/caps/defaults.go — DefaultCapabilities()</span><span class="repo">moby/moby</span></div>
+<pre>return []string{
+<span class="keyline">    "CAP_CHOWN",       "CAP_DAC_OVERRIDE", "CAP_FSETID",  "CAP_FOWNER",</span>
+<span class="keyline">    "CAP_MKNOD",       "CAP_NET_RAW",      "CAP_SETGID",  "CAP_SETUID",</span>
+<span class="keyline">    "CAP_SETFCAP",     "CAP_SETPCAP",      "CAP_NET_BIND_SERVICE",</span>
+<span class="keyline">    "CAP_SYS_CHROOT",  "CAP_KILL",         "CAP_AUDIT_WRITE",</span>
+}</pre>
+</figure>
+
+<div class="capgrid">
+  <div class="capcol keep">
+    <h4>✓ Kept (the 14) — everyday needs</h4>
+    <div class="cap">
+      <b>files:</b> CHOWN, DAC_OVERRIDE, FOWNER, FSETID<br>
+      <b>identity:</b> SETUID, SETGID, SETPCAP, SETFCAP<br>
+      <b>network:</b> NET_BIND_SERVICE, NET_RAW<br>
+      <b>misc:</b> MKNOD, SYS_CHROOT, KILL, AUDIT_WRITE
+    </div>
+  </div>
+  <div class="capcol drop">
+    <h4>✗ Dropped — the dangerous powers</h4>
+    <div class="cap">
+      <b>SYS_ADMIN</b> — mount, "the new root"<br>
+      <b>SYS_MODULE</b> — load kernel code<br>
+      <b>SYS_PTRACE</b> — inspect other processes<br>
+      <b>NET_ADMIN</b> — reconfigure networking<br>
+      <b>SYS_TIME</b> — set the system clock<br>
+      <b>SYS_BOOT</b> — reboot &nbsp;·&nbsp; …and ~20 more
+    </div>
+  </div>
+</div>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>These 14 let normal programs work: change ownership of their files, drop privileges (<code class="inl">SETUID</code>/<code class="inl">SETGID</code>), bind port 80 (<code class="inl">NET_BIND_SERVICE</code>), <code class="inl">chroot</code>, kill their children. What's <em>absent</em> is the point: no <code class="inl">SYS_ADMIN</code>, no <code class="inl">SYS_MODULE</code>, no <code class="inl">NET_ADMIN</code>, no <code class="inl">SYS_TIME</code>, no <code class="inl">SYS_BOOT</code>. So container-root can't mount arbitrary filesystems, load a rootkit module, rewrite the host firewall, change the clock, or reboot the box — even though it's uid 0. You adjust the list with <code class="inl">--cap-drop</code> (remove more) and <code class="inl">--cap-add</code> (grant back a specific one); <code class="inl">--privileged</code> grants them <em>all</em> and is the big red button that undoes this entire lesson.</p>
+</div>
+
+<aside class="note"><b>The one debated inclusion.</b> <code class="inl">CAP_NET_RAW</code> is in the default set so tools like <code class="inl">ping</code> work — but it also permits crafting raw packets and ARP spoofing on the container's network. Many hardened setups drop it explicitly (<code class="inl">--cap-drop NET_RAW</code>). It's a deliberate convenience-vs-safety trade the maintainers chose, and worth knowing you can reverse.</aside>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 3</div>
+<h2>Not one list but five sets</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>A process doesn't carry a single "capabilities" value — it carries <strong>five sets</strong>. Five sounds like a lot, so start with the one fact that makes them all fall into place:</p>
+
+<p style="font-size:19px; border-left:3px solid var(--teal); padding-left:16px; color:#fff">When the kernel checks a permission, it looks at <em>exactly one</em> set — <strong>effective</strong>. The other four sets exist only to control what is allowed to get <em>into</em> effective — now, and after you run a new program.</p>
+
+<p>So don't try to hold five things in your head. Hold one — effective is the live set the kernel reads — and treat the rest as the plumbing around it. Here's a toolbox analogy that maps cleanly onto all five.</p>
+
+<h3 style="color:var(--teal)">Group A — what you can use <em>right now</em> (three sets)</h3>
+<p>Picture your process as a worker, and each capability as a tool. Three sets describe your tools at this instant:</p>
+<p style="margin-left:8px"><strong>effective</strong> = the tools <em>in your hands</em>. The guard (kernel) only ever checks your hands. Screwdriver in hand → you may turn the screw. This is the only set that decides an action.<br>
+<strong>permitted</strong> = the tools in your <em>toolbox</em>. You may freely move a tool from the box into your hands (permitted → effective) whenever you need it — but you can't hold a tool that isn't in your box.<br>
+<strong>bounding</strong> = the <em>catalog of tools you're ever allowed to own</em>. If a tool isn't in the catalog, it can never enter your toolbox — not even if you visit the supply room (run a <code class="inl">setuid</code>-root program). Cross a tool off the catalog and it's gone <em>forever</em>, for you and every process you start.</p>
+
+<p>These three nest: what's in your hands is a subset of what's in your box, which is capped by the catalog.</p>
+
+<div style="font-family:var(--mono); font-size:13px; background:var(--panel); border:1px solid var(--rule); border-radius:10px; padding:20px; margin:20px 0">
+  <div style="border:1px solid var(--rose-dim); border-radius:8px; padding:12px 14px; color:var(--rose)">
+    <b>bounding</b> · the ceiling — a cap outside this can NEVER be held (dropping is irreversible)
+    <div style="border:1px solid var(--gold-dim); border-radius:8px; padding:12px 14px; margin-top:12px; color:var(--gold)">
+      <b>permitted</b> · what you're allowed to switch on
+      <div style="border:1px solid var(--teal-dim); border-radius:8px; padding:12px 14px; margin-top:12px; color:var(--teal); background:#0a1614">
+        <b>effective</b> · what's switched ON this instant &nbsp;←&nbsp; <span style="color:#fff">the kernel checks only this</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<aside class="note"><b>Why split effective from permitted at all?</b> So a careful program can keep a powerful tool in its box but <em>out of its hands</em> until the exact moment it's needed, then put it back. If a bug strikes while the tool is in the box (permitted) but not in hand (effective), the kernel check fails — the power wasn't active. It's defense in depth. (Docker doesn't bother with this subtlety — it puts the same 14 in both — but it's why the two sets exist.)</aside>
+
+<h3 style="color:var(--gold)">Group B — what you keep when you <em>start a new program</em> (two sets)</h3>
+<p>Running a new program with <code class="inl">execve()</code> normally wipes your tools — you walk into a new job and hand everything in at the door. Two sets control which tools you carry <em>through</em> that door:</p>
+<p style="margin-left:8px"><strong>inheritable</strong> = the old, awkward mechanism. It only works if the program file you're running <em>also</em> has matching "inheritable" bits stamped on it. On its own it usually does nothing, which is why you'll almost always see it empty.<br>
+<strong>ambient</strong> = the modern fix (Linux 4.3+). Tools in the ambient set are simply <em>kept through the door</em> when you exec an ordinary program — no cooperation from the file needed. This is the set that actually lets a non-root process hold onto a capability across <code class="inl">exec</code>.</p>
+<p>For a container this pair matters because the container's first process <code class="inl">exec</code>s <em>your</em> program — so the 14 caps need to survive that exec, which is what ambient guarantees.</p>
+
+<span class="step">Step 2 · The source</span>
+<p>The runtime-spec carries all five as separate arrays in <code class="inl">config.json</code>, which is how Docker's 14 reach runc:</p>
+<figure class="src spec">
+  <div class="tab"><span class="dot"></span><span class="path">config.md — process.capabilities</span><span class="repo">opencontainers/runtime-spec</span></div>
+<pre>"capabilities": {
+<span class="keyline">    "bounding":    [ ... ],   // the catalog — the hard ceiling</span>
+<span class="keyline">    "permitted":   [ ... ],   // the toolbox — what you may switch on</span>
+<span class="keyline">    "effective":   [ ... ],   // in-hand — what's active now (kernel checks this)</span>
+    "inheritable": [ ... ],   // legacy: survives exec only with file cooperation
+    "ambient":     [ ... ]    // modern: survives exec of an ordinary program
+}</pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">If you remember one thing</div>
+  <p>The kernel only checks <strong>effective</strong>. <strong>permitted</strong> is the pool effective can draw from; <strong>bounding</strong> is the irreversible ceiling nothing can exceed; <strong>inheritable</strong>/<strong>ambient</strong> decide what carries across running a new program. Docker fills all five with the same 14, so in a container they look identical — but the meaningful one is <code class="inl">bounding</code>: because a cap dropped from bounding can <em>never</em> come back for that process or its children, the ~26 capabilities Docker left out are locked out for good, no trick inside the container can reacquire them.</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 4</div>
+<h2>How runc installs them</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>runc reads the five arrays from <code class="inl">config.json</code> and applies them to the container's process just before it starts. Each set uses a different kernel operation — dropping from the bounding set, setting the thread's permitted/effective/inheritable in one call, and raising ambient caps individually — but from your side it's just "these five lists become the process's five sets."</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">libcontainer/capabilities/capabilities.go</span><span class="repo">opencontainers/runc</span></div>
+<pre><span class="keyline">capability.BOUNDING:    capSlice(capConfig.Bounding, ...)   // load each set from config</span>
+<span class="keyline">capability.EFFECTIVE:   capSlice(capConfig.Effective, ...)</span>
+capability.INHERITABLE: capSlice(capConfig.Inheritable, ...)
+capability.PERMITTED:   capSlice(capConfig.Permitted, ...)
+capability.AMBIENT:     capSlice(capConfig.Ambient, ...)
+...
+func (c *Caps) ApplyCaps() error {
+<span class="keyline">    c.pid.Apply(capability.CAPS | capability.BOUNDS)   // set thread caps + drop bounding</span>
+    ...
+<span class="keyline">    capability.SetAmbient(true, a)                      // raise ambient caps</span>
+}</pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>Five sets in, five sets applied. <code class="inl">Apply(CAPS | BOUNDS)</code> writes the thread's permitted/effective/inheritable and drops everything not in the bounding whitelist; <code class="inl">SetAmbient</code> raises the ambient ones. By the time your container's process runs its first instruction, its capability sets already reflect Docker's 14 — the powers were removed <em>before</em> your code ever executed.</p>
+</div>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<p>Read a container's live capability sets as hex bitmasks, decode them, and watch a dropped capability actually block an operation:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> docker run --rm alpine grep Cap /proc/self/status
+<span class="o">CapInh: 0000000000000000</span>
+<span class="o">CapPrm: <span class="hl">00000000a80425fb</span></span>       <span class="o"># permitted — the 14, as a bitmask</span>
+<span class="o">CapEff: 00000000a80425fb</span>       <span class="o"># effective — same 14 active</span>
+<span class="o">CapBnd: 00000000a80425fb</span>       <span class="o"># bounding — the hard ceiling: also just the 14</span>
+
+<span class="p">$</span> capsh --decode=00000000a80425fb
+<span class="o">0x...=cap_chown,cap_dac_override,...,cap_net_bind_service,cap_sys_chroot,...</span>  <span class="o"># the list, by name</span>
+
+<span class="p">$</span> <span class="o"># SYS_TIME was dropped → setting the clock fails even as "root":</span>
+<span class="p">$</span> docker run --rm alpine date -s '2020-01-01'
+<span class="o">date: can't set date: Operation not permitted</span>     <span class="o"># EPERM — no CAP_SYS_TIME</span>
+
+<span class="p">$</span> <span class="o"># grant it back explicitly, and now it's allowed:</span>
+<span class="p">$</span> docker run --rm --cap-add SYS_TIME alpine date -s '2020-01-01'
+<span class="o">Wed Jan  1 00:00:00 UTC 2020</span>                       <span class="o"># the cap is the difference</span>
+
+<span class="p">$</span> <span class="o"># the big red button — ALL caps:</span>
+<span class="p">$</span> docker run --rm --privileged alpine grep CapEff /proc/self/status
+<span class="o">CapEff: <span class="hl">000001ffffffffff</span></span>       <span class="o"># every bit set — full root power restored</span></pre>
+</figure>
+
+<hr class="soft">
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>"Containers drop privileges so root inside is fake" is half-right and half-wrong. The uid really is 0 (Lesson 7), but the <em>powers</em> attached to it are cut to 14 — that's the real safety, and it's a concrete, listable set, not magic. Two consequences: (1) <code class="inl">--privileged</code> re-grants <em>all</em> capabilities (bitmask <code class="inl">000001ffffffffff</code>), erasing this wall entirely — it should be rare and deliberate. (2) Even the default 14 aren't nothing: <code class="inl">CAP_DAC_OVERRIDE</code> bypasses file permissions and <code class="inl">CAP_NET_RAW</code> enables spoofing, so a locked-down container often drops further with <code class="inl">--cap-drop ALL</code> and adds back only what it needs. Capabilities are a dial, and the default is a sensible middle, not the safest possible setting.</p>
+</aside>
+
+<div class="eyebrow">Where we are</div>
+<h2>Summary</h2>
+<p>Capabilities break the all-or-nothing power of root into ~40 named privileges, each gating one class of operation, so the kernel checks "do you hold <em>this</em> capability?" instead of "are you uid 0?". Docker grants a container a fixed set of <strong>14</strong> (<code class="inl">DefaultCapabilities()</code>) and drops the rest — notably <code class="inl">SYS_ADMIN</code>, <code class="inl">SYS_MODULE</code>, <code class="inl">NET_ADMIN</code>, <code class="inl">SYS_TIME</code>, <code class="inl">SYS_BOOT</code> — which is the concrete reason default container-root can't wreck the host. Each process carries <strong>five sets</strong> — permitted, effective, bounding, inheritable, ambient — with bounding as the irreversible ceiling; the runtime-spec ships all five in <code class="inl">config.json</code> and runc applies them before your code runs. Tune with <code class="inl">--cap-add</code>/<code class="inl">--cap-drop</code>; <code class="inl">--privileged</code> restores everything. This is the first of three security primitives that harden the shared-kernel wall; next is <strong>seccomp</strong>, which restricts not <em>privileged operations</em> but the syscalls a container may make at all.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 07 · Container-root = host root</span>
+  <span class="xref"><b>forward →</b> Lesson 12 · seccomp</span>
+  <span class="xref"><b>forward →</b> Lesson 46 · Security capstone</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">10 · cgroups v2</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">12 · seccomp</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

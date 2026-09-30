@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lesson 26 · Dockerfile Instructions in Depth</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.7; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:36px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .oneline{border:1px solid var(--teal-dim); background:linear-gradient(180deg,#0b1615,#0a1210); border-radius:10px; padding:18px 20px; margin:30px 0 8px}
+  .oneline .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); display:block; margin-bottom:8px}
+  .oneline p{margin:0; font-size:20px; line-height:1.5; color:#fff}
+
+  .concept{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:48px 0 4px; display:flex; align-items:center; gap:10px;}
+  .concept .num{width:24px;height:24px;border-radius:50%;border:1px solid var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  h2{font-family:var(--mono); font-weight:600; font-size:21px; margin:8px 0 16px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  .term{color:var(--teal); font-weight:600}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+  .plain{color:var(--dim); font-size:16px; border-left:2px solid var(--rule); padding-left:14px; margin:0 0 18px}
+  .plain b{color:var(--teal); font-weight:600}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--teal); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  table.ref{width:100%; border-collapse:collapse; margin:18px 0; font-size:14px}
+  table.ref th{font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); text-align:left; padding:8px 10px; border-bottom:1px solid var(--rule)}
+  table.ref td{padding:9px 10px; border-bottom:1px solid var(--rule); vertical-align:top}
+  table.ref td.i{font-family:var(--mono); color:var(--gold); font-size:13px; white-space:nowrap}
+  table.ref td.k{font-family:var(--mono); font-size:12px}
+  table.ref .op{color:var(--teal)} table.ref .cfg{color:#b3a6ec} table.ref .arg{color:var(--rose)}
+  table.ref td.l{font-size:13px; color:var(--dim)}
+  table.ref tr.grp td{background:var(--well); font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--teal); padding:6px 10px}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:20px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  .recap{border:1px solid var(--teal-dim); border-radius:10px; background:#0a1210; padding:20px 22px; margin:30px 0}
+  .recap h3{font-family:var(--mono); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:0 0 14px}
+  .recap ul{margin:0; padding-left:20px} .recap li{margin:0 0 10px; color:var(--bone)} .recap li:last-child{margin:0}
+  .recap li b{color:#fff}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:60px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:38px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-25-buildkit-llb-solver.html">← Lesson 25</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-27-multi-stage-builds.html">Lesson 27 →</a></span></nav>
+<div class="wrap">
+<header class="top">
+<div class="course-tag">Docker, From the Source · Part IV — Building &amp; running</div>
+<div class="lesson-no">26</div>
+<span class="pill">core</span>
+<h1>Every Dockerfile instruction, and what it compiles to</h1>
+<p class="dek">Seventeen instructions look like a lot to memorize — until you see that each does exactly one of three things. Once you know which, every instruction's layer, cache, and runtime behavior follows.</p>
+</header>
+<div class="oneline">
+<span class="lbl">The idea in one sentence</span>
+<p>Every Dockerfile instruction does one of three things: add a filesystem operation to the graph, change the image's config, or set a build-time variable — and everything else about it follows from which.</p>
+</div>
+<div class="concept"><span class="num">1</span> Start here</div>
+<h2>The three kinds of instruction</h2>
+<p class="plain"><b>Plain version:</b> don't memorize seventeen behaviors — memorize three categories, then place each instruction in one.</p>
+<p>In the BuildKit frontend (Lesson 25), every instruction is handled by a <code class="inl">dispatch*</code> function (<span class="srcref">dockerfile2llb/convert.go</span>), and each one does exactly one of three things: it adds an <strong>LLB op</strong> that changes the filesystem (so it produces a layer), it mutates the <strong>image config</strong> (metadata only — no filesystem layer), or it sets a build-time <strong>ARG</strong> (affects the build, never the final image). Sort every instruction into one of these buckets and its behavior — does it add a layer? does it bust cache? does it appear at runtime? — becomes predictable.</p>
+<aside class="note"><b>Parser directives are not instructions.</b> <code class="inl"># syntax=</code>, <code class="inl"># escape=</code>, and <code class="inl"># check=</code> alter how the Dockerfile frontend parses or validates the file. They must appear at the top, create no layer, and do not appear as build steps. They sit above the three instruction categories rather than inside them.</aside><div class="concept"><span class="num">2</span> Kind one</div>
+<h2>Graph-building instructions (these make layers)</h2>
+<p class="plain"><b>Plain version:</b> these five actually change the filesystem — they're the ones that add content and cost size.</p>
+<p>The instructions that emit LLB filesystem ops: <code class="inl">FROM</code> resolves a base image (a <code class="inl">SourceOp</code>) and starts a stage; <code class="inl">RUN</code> runs a command in a container (an <code class="inl">ExecOp</code>); <code class="inl">COPY</code> and <code class="inl">ADD</code> copy files in (a <code class="inl">FileOp</code>); and <code class="inl">WORKDIR</code> is a hybrid — it sets the config's working directory <em>and</em> creates that directory if missing (a small <code class="inl">FileOp</code> mkdir). These are the only instructions that change what's on disk.</p>
+<p>Two distinctions worth nailing here. <strong>COPY vs ADD:</strong> <code class="inl">COPY</code> is a plain file copy from the build context (or from another stage with <code class="inl">--from</code>); <code class="inl">ADD</code> does the same <em>plus</em> fetches remote URLs and auto-extracts local tar archives. Because that extra behavior is surprising, the guidance is to prefer <code class="inl">COPY</code> unless you specifically need the extraction. <strong>RUN mounts:</strong> as Lesson 25 showed, <code class="inl">RUN --mount=type=cache</code> and <code class="inl">--mount=type=secret</code> attach to that one <code class="inl">ExecOp</code>.</p>
+<div class="concept"><span class="num">3</span> Kind two</div>
+<h2>Config-only instructions (no layer, pure metadata)</h2>
+<p class="plain"><b>Plain version:</b> these just set fields in the image config from Lesson 18 — they add a history entry but no filesystem layer.</p>
+<p>The largest group mutates the image config and produces no filesystem change: <code class="inl">ENV</code>, <code class="inl">USER</code>, <code class="inl">EXPOSE</code>, <code class="inl">ENTRYPOINT</code>, <code class="inl">CMD</code>, <code class="inl">LABEL</code>, <code class="inl">HEALTHCHECK</code>, <code class="inl">VOLUME</code>, <code class="inl">STOPSIGNAL</code>, <code class="inl">SHELL</code>, <code class="inl">ONBUILD</code>, and the deprecated <code class="inl">MAINTAINER</code>. They set exactly the config fields you met in Lesson 18. A few carry real subtlety:</p>
+<p><strong>ENTRYPOINT vs CMD:</strong> <code class="inl">ENTRYPOINT</code> is the fixed command; <code class="inl">CMD</code> supplies <em>default arguments</em> appended to it (or, if there's no <code class="inl">ENTRYPOINT</code>, <code class="inl">CMD</code> is the default command itself). So <code class="inl">ENTRYPOINT ["nginx"]</code> + <code class="inl">CMD ["-g","daemon off;"]</code> runs <code class="inl">nginx -g "daemon off;"</code>, and <code class="inl">docker run img --version</code> replaces just the <code class="inl">CMD</code> part. <strong>ENV</strong> both persists into the final image <em>and</em> is visible to later build instructions. <strong>SHELL</strong> changes the shell used for shell-form commands. <strong>ONBUILD</strong> stores triggers that fire only when your image is later used as a base. The rest — <code class="inl">EXPOSE</code>, <code class="inl">VOLUME</code>, <code class="inl">LABEL</code>, <code class="inl">HEALTHCHECK</code>, <code class="inl">STOPSIGNAL</code> — are pure declarations read at runtime.</p>
+<div class="concept"><span class="num">4</span> Kind three</div>
+<h2>ARG: the build-time-only variable</h2>
+<p class="plain"><b>Plain version:</b> ARG is a variable that exists <em>during</em> the build and then vanishes — it never lands in the image, but it does affect caching.</p>
+<p><code class="inl">ARG</code> (<span class="srcref">dispatchArg</span>) is the odd one out: it declares a variable available <em>during the build</em> (settable with <code class="inl">--build-arg</code>), but it is <strong>not</strong> written into the final image config. It's scoped per stage, and an <code class="inl">ARG</code> before the first <code class="inl">FROM</code> is special (available to <code class="inl">FROM</code> lines). Crucially, an <code class="inl">ARG</code>'s value feeds the <strong>cache key</strong> of the instructions that use it — change the arg, bust that part of the cache. The contrast to remember: <code class="inl">ENV</code> persists into the image (and leaks to runtime); <code class="inl">ARG</code> is build-only. But note — <code class="inl">ARG</code> values are visible in the build <em>history</em>, so they are <strong>not</strong> a way to pass secrets; that's what secret mounts (Lesson 25) are for.</p>
+<div class="concept"><span class="num">5</span> Cross-cutting</div>
+<h2>Shell form vs exec form</h2>
+<p class="plain"><b>Plain version:</b> writing a command as a string runs it through a shell; writing it as a JSON array runs it directly. This matters for signals.</p>
+<p>Three instructions — <code class="inl">RUN</code>, <code class="inl">CMD</code>, <code class="inl">ENTRYPOINT</code> — accept two forms. <em>Shell form</em> (<code class="inl">RUN apt-get update</code>) wraps the command in a shell: <code class="inl">/bin/sh -c "…"</code> (or whatever <code class="inl">SHELL</code> is set to). <em>Exec form</em> (<code class="inl">RUN ["apt-get","update"]</code>) executes the binary directly, with no shell. The difference bites at runtime: with shell form as your entrypoint, your process runs as a <em>child</em> of <code class="inl">sh</code>, so it isn't PID 1 and won't receive signals like <code class="inl">SIGTERM</code> directly — the source of "my container ignores <code class="inl">docker stop</code>." Exec form makes your process PID 1. We'll dig into exactly why in Lesson 28.</p>
+<table class="ref">
+<thead><tr><th>Instruction</th><th>Compiles to</th><th>FS layer?</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="3">graph ops — change the filesystem</td></tr>
+<tr><td class="i">FROM</td><td class="k"><span class="op">SourceOp</span> · resolve base, start stage</td><td class="l">base</td></tr>
+<tr><td class="i">RUN</td><td class="k"><span class="op">ExecOp</span> · run in a container</td><td class="l">yes</td></tr>
+<tr><td class="i">COPY</td><td class="k"><span class="op">FileOp</span> · copy from context / stage</td><td class="l">yes</td></tr>
+<tr><td class="i">ADD</td><td class="k"><span class="op">FileOp</span> · + URL fetch, tar extract</td><td class="l">yes</td></tr>
+<tr><td class="i">WORKDIR</td><td class="k"><span class="op">FileOp</span> mkdir <span style="color:var(--faint)">+ config</span></td><td class="l">if created</td></tr>
+<tr class="grp"><td colspan="3">config only — metadata, no filesystem</td></tr>
+<tr><td class="i">ENV</td><td class="k"><span class="cfg">config.Env</span> (+ build env)</td><td class="l">no</td></tr>
+<tr><td class="i">ENTRYPOINT</td><td class="k"><span class="cfg">config.Entrypoint</span></td><td class="l">no</td></tr>
+<tr><td class="i">CMD</td><td class="k"><span class="cfg">config.Cmd</span> (default args)</td><td class="l">no</td></tr>
+<tr><td class="i">USER</td><td class="k"><span class="cfg">config.User</span></td><td class="l">no</td></tr>
+<tr><td class="i">EXPOSE</td><td class="k"><span class="cfg">config.ExposedPorts</span></td><td class="l">no</td></tr>
+<tr><td class="i">VOLUME</td><td class="k"><span class="cfg">config.Volumes</span></td><td class="l">no</td></tr>
+<tr><td class="i">LABEL</td><td class="k"><span class="cfg">config.Labels</span></td><td class="l">no</td></tr>
+<tr><td class="i">HEALTHCHECK</td><td class="k"><span class="cfg">config.Healthcheck</span></td><td class="l">no</td></tr>
+<tr><td class="i">STOPSIGNAL</td><td class="k"><span class="cfg">config.StopSignal</span></td><td class="l">no</td></tr>
+<tr><td class="i">SHELL</td><td class="k"><span class="cfg">config.Shell</span></td><td class="l">no</td></tr>
+<tr><td class="i">ONBUILD</td><td class="k"><span class="cfg">config.OnBuild</span> triggers</td><td class="l">no</td></tr>
+<tr class="grp"><td colspan="3">build-time only</td></tr>
+<tr><td class="i">ARG</td><td class="k"><span class="arg">build variable</span> · affects cache key</td><td class="l">never in image</td></tr>
+</tbody>
+</table>
+<aside class="note"><b>Deprecated but still part of the grammar:</b> <code class="inl">MAINTAINER</code> writes author metadata and creates no filesystem layer. Prefer <code class="inl">LABEL org.opencontainers.image.authors=…</code> for new Dockerfiles.</aside>
+
+<span class="step">Inspect it yourself</span>
+<p>See which instructions added layers vs. only config, and the entrypoint/cmd split:</p>
+<figure class="inspect">
+<div class="tab">host shell</div>
+<pre><span class="p">$</span> <span class="o"># history: layer instructions have size; config ones are 0B</span>
+<span class="p">$</span> docker history demo --no-trunc --format '{{.Size}}  {{.CreatedBy}}'
+<span class="o">4.4MB  RUN apk add curl        <span class="hl"># graph op</span></span>
+<span class="o">2.1MB  COPY app /app           <span class="hl"># graph op</span></span>
+<span class="o">0B     ENV PORT=80             <span class="hl"># config only</span></span>
+<span class="o">0B     CMD ["/app"]            <span class="hl"># config only</span></span>
+
+<span class="p">$</span> <span class="o"># the entrypoint + cmd split lives in the config:</span>
+<span class="p">$</span> docker inspect demo -f 'ENTRYPOINT={{.Config.Entrypoint}}  CMD={{.Config.Cmd}}'
+<span class="o">ENTRYPOINT=[nginx]  CMD=[-g daemon off;]</span>
+
+<span class="p">$</span> <span class="o"># ARG is NOT in the image config (build-only):</span>
+<span class="p">$</span> docker build --build-arg VER=1.2 -t demo . &amp;&amp; docker inspect demo -f '{{.Config.Env}}'
+<span class="o">[PATH=…]                       <span class="hl"># no VER — ARG didn't persist</span></span></pre>
+</figure>
+<div class="recap">
+<h3>Check yourself</h3>
+<ul>
+<li>Every instruction is one of three kinds: <b>graph op</b> (filesystem/layer), <b>config</b> (metadata/no layer), or <b>ARG</b> (build-only).</li>
+<li>Graph ops: <b>FROM, RUN, COPY, ADD, WORKDIR</b> — the only ones that change disk. <code class="inl">ADD</code> also fetches URLs / extracts tars (prefer <code class="inl">COPY</code>).</li>
+<li>Config-only: <b>ENV, ENTRYPOINT, CMD, USER, EXPOSE, VOLUME, LABEL, HEALTHCHECK, STOPSIGNAL, SHELL, ONBUILD</b>, plus deprecated <b>MAINTAINER</b>.</li>
+<li><b>ENTRYPOINT</b> = fixed command; <b>CMD</b> = default args appended (or the default command alone).</li>
+<li><b>ARG</b> is build-time only, affects the cache key, never enters the image — and isn't safe for secrets.</li>
+<li><b>Shell form</b> wraps in <code class="inl">/bin/sh -c</code> (not PID 1); <b>exec form</b> (JSON array) runs directly (PID 1, gets signals).</li>
+</ul>
+</div>
+<aside class="correction">
+<span class="lbl">Where this corrects the familiar version</span>
+<p>Three common mix-ups. <code class="inl">ADD</code> is not "COPY but nicer" — its URL/tar magic is why <code class="inl">COPY</code> is preferred. <code class="inl">ARG</code> and <code class="inl">ENV</code> are not interchangeable — <code class="inl">ARG</code> vanishes after the build (and leaks into history, so never a secret), while <code class="inl">ENV</code> persists into the running container. And shell-vs-exec form isn't cosmetic — shell form leaves your program as a child of <code class="inl">sh</code>, which is the usual reason <code class="inl">docker stop</code> seems ignored. Sort each instruction into its kind and these stop being surprises.</p>
+</aside>
+<div style="font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:44px 0 4px">Where we are</div>
+<h2>Summary</h2>
+<p>Every Dockerfile instruction resolves to one of three effects: a <strong>graph op</strong> that changes the filesystem (<code class="inl">FROM</code>, <code class="inl">RUN</code>, <code class="inl">COPY</code>, <code class="inl">ADD</code>, <code class="inl">WORKDIR</code> — the layer-makers), a <strong>config mutation</strong> that sets image metadata with no layer (<code class="inl">ENV</code>, <code class="inl">ENTRYPOINT</code>/<code class="inl">CMD</code>, <code class="inl">USER</code>, <code class="inl">EXPOSE</code>, and the rest), or an <strong>ARG</strong> that lives only during the build and feeds cache keys. Layered on top is the shell-vs-exec form choice for <code class="inl">RUN</code>/<code class="inl">CMD</code>/<code class="inl">ENTRYPOINT</code>, which decides whether your process becomes PID 1. Parser directives sit above those categories, and deprecated <code class="inl">MAINTAINER</code> remains only for compatibility. Knowing an instruction's kind predicts its size, cache, and runtime behavior. Next, Lesson 27 uses these to build <strong>multi-stage</strong> images — the pattern that keeps build tools out of your final image.</p>
+<div class="xrefs">
+<span class="xref"><b>back ←</b> Lesson 18 · image config fields</span>
+<span class="xref"><b>back ←</b> Lesson 25 · frontend → LLB</span>
+<span class="xref"><b>forward →</b> Lesson 27 · multi-stage builds</span>
+<span class="xref"><b>forward →</b> Lesson 28 · PID 1 &amp; signals</span>
+</div>
+<footer class="nav">
+<div class="card prev">
+<span class="k">← Previous</span>
+<span class="ti">25 · BuildKit, LLB &amp; the solver</span>
+</div>
+<div class="card next">
+<span class="k">Next →</span>
+<span class="ti">27 · Multi-stage builds</span>
+</div>
+</footer>
+</div>
+</body>
+</html>

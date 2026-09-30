@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 02 · The Architecture</title>
+<style>
+  /* ============================================================
+     DOCKER FROM SOURCE — shared visual system (v1)
+     gold = fetched primary source · teal = inspect/xref · rose = corrects folklore
+     ============================================================ */
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone);
+    font-family:var(--serif); font-size:18px; line-height:1.65; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:44px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  h1{font-family:var(--mono); font-weight:600; font-size:27px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--teal); margin:52px 0 4px; display:flex; align-items:center; gap:10px;}
+  .eyebrow::before{content:""; width:16px; height:1px; background:var(--teal); opacity:.6}
+  h2{font-family:var(--mono); font-weight:600; font-size:22px; margin:6px 0 18px; color:var(--bone); letter-spacing:-.01em;}
+  h3{font-family:var(--mono); font-weight:600; font-size:16px; color:var(--gold); margin:30px 0 10px}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  a{color:var(--teal); text-decoration:none; border-bottom:1px solid var(--teal-dim)}
+  a:hover{border-bottom-color:var(--teal)}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--gold); display:inline-block; padding:3px 9px; border-radius:3px; margin:40px 0 10px; font-weight:600;}
+  .step.verify{background:var(--teal)}
+
+  figure.src{margin:14px 0 8px; border:1px solid var(--gold-dim); border-radius:8px; overflow:hidden; background:var(--well)}
+  figure.src .tab{font-family:var(--mono); font-size:12px; color:var(--gold); background:linear-gradient(180deg,#1c1a12,#141109); border-bottom:1px solid var(--gold-dim); padding:8px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  figure.src .tab .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none}
+  figure.src .tab .path{overflow-wrap:anywhere}
+  figure.src .tab .repo{color:var(--faint); margin-left:auto; font-size:11px}
+  figure.src pre{margin:0; padding:16px 16px; overflow-x:auto}
+  figure.src.spec .tab{color:#cdb87a}
+  pre,code{font-family:var(--mono)}
+  pre{font-size:13.5px; line-height:1.6; color:#d7d2c4}
+  pre .kw{color:var(--rose)} pre .fn{color:var(--teal)} pre .cmt{color:var(--faint); font-style:italic}
+  pre .str{color:var(--gold)} pre .field{color:var(--gold)} pre .num{color:#c1a3ea}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px; display:flex; align-items:center; gap:8px;}
+  figure.inspect pre{padding:14px 16px; color:#bfe6df; font-size:13px}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+
+  ul.lines{list-style:none; padding:0; margin:14px 0 8px; border-left:2px solid var(--rule)}
+  ul.lines li{padding:7px 0 7px 16px; margin:0; font-size:16.5px; color:var(--bone)}
+  ul.lines li .t{font-family:var(--mono); font-size:.82em; color:var(--gold); background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; margin-right:4px; white-space:nowrap}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:70px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  .lead{font-size:20px; line-height:1.6; color:var(--bone)}
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:40px 0}
+
+  /* the chain diagram, monospace and quiet */
+  .chain{font-family:var(--mono); font-size:13px; line-height:1.75; color:var(--dim);
+    background:var(--panel); border:1px solid var(--rule); border-radius:8px; padding:18px 20px; margin:24px 0; overflow-x:auto}
+  .chain .who{color:var(--gold)} .chain .sock{color:var(--teal)} .chain .note{color:var(--faint)}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-01-what-containerization-is.html">← Lesson 01</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-03-contexts-remote-daemons.html">Lesson 03 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part I — Foundations</div>
+  <div class="lesson-no">02</div>
+  <h1>The architecture: what actually happens when you type <code style="font-size:.8em">docker&nbsp;run</code></h1>
+  <p class="dek">Five programs, two sockets, and a surprising punchline: none of the programs you'd expect is the one holding your container. We follow the request all the way down and read the source at each handoff.</p>
+</header>
+
+<p class="lead">In Lesson 1 we established that a container is just a host process placed in a configured environment. This lesson answers the obvious next question: <em>which program builds that environment and starts that process?</em> The honest answer is "not the one you think," and the path there explains why Docker is split into the pieces it is.</p>
+
+<div class="eyebrow">The intuition</div>
+<h2>Why isn't Docker just one program?</h2>
+
+<p>Imagine the simplest possible design: a single program called <code class="inl">docker</code>. You run it, it sets up namespaces and cgroups, it starts your process, and it stays running to babysit that process. Clean — until you think about two things.</p>
+
+<p><strong>First, upgrades and crashes.</strong> If that one program is also the parent of every running container, then the moment you upgrade Docker or it crashes, every container on the machine dies with it. That's unacceptable on a server running production workloads. You want to be able to restart the management software <em>without</em> killing the workloads it manages.</p>
+
+<p><strong>Second, two totally different jobs are mixed together.</strong> One job is "a thing you type commands into" — short-lived, runs in your terminal, exits. The other is "a thing that persists and supervises containers" — long-running, starts at boot, never attached to a terminal. Cramming both into one binary is like making your text editor also be the operating system.</p>
+
+<p>So the very first split is forced on us: a <strong>thin client you run</strong> (the <code class="inl">docker</code> command) and a <strong>long-lived daemon that persists</strong> (<code class="inl">dockerd</code>). The client's entire job is to translate what you typed into a request and send it to the daemon. Everything real happens in the daemon. Let's prove that from the source, because it's more literal than you'd guess.</p>
+
+<div class="eyebrow">Mechanism 1</div>
+<h2>The <code style="font-size:.85em">docker</code> command is an HTTP client. That's all it is.</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>When two programs on the same machine need to talk, one common way is a <strong>Unix domain socket</strong>: a special file on disk that acts like a two-way pipe. One program listens on it; another connects to it and they exchange bytes. Docker uses exactly this. The daemon <code class="inl">dockerd</code> listens on a socket file, and the <code class="inl">docker</code> client connects to it and speaks <strong>HTTP</strong> — the same request/response protocol your browser uses to talk to a website. The daemon exposes a <em>REST API</em>: a set of URLs like <code class="inl">/containers/create</code> that you POST to in order to make things happen.</p>
+<p>Here is the client's built-in default for <em>where</em> that socket lives:</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">client/client_unix.go</span><span class="repo">moby/moby</span></div>
+<pre><span class="cmt">// DefaultDockerHost defines OS-specific default host if the DOCKER_HOST</span>
+<span class="cmt">// (EnvOverrideHost) environment variable is unset or empty.</span>
+const DefaultDockerHost = <span class="str">"unix:///var/run/docker.sock"</span></pre>
+</figure>
+
+<p>And the daemon's side is a list of ordinary HTTP routes. This is a slice of them, straight from the container router:</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">daemon/server/router/container/container.go</span><span class="repo">moby/moby</span></div>
+<pre>router.NewGetRoute(<span class="str">"/containers/json"</span>,               c.getContainersJSON),
+router.NewPostRoute(<span class="str">"/containers/create"</span>,           c.postContainersCreate),
+router.NewPostRoute(<span class="str">"/containers/{name:.*}/start"</span>,   c.postContainersStart),
+router.NewPostRoute(<span class="str">"/containers/{name:.*}/stop"</span>,    c.postContainersStop),
+router.NewPostRoute(<span class="str">"/containers/{name:.*}/kill"</span>,    c.postContainersKill),</pre>
+</figure>
+
+<span class="step">Step 3 · Read it line by line</span>
+<ul class="lines">
+  <li><span class="t">unix:///var/run/docker.sock</span> The client's default target. The <code class="inl">unix://</code> scheme means "connect to this socket file," not a network address. Set the <code class="inl">DOCKER_HOST</code> environment variable and the client will talk to a socket somewhere else — including a remote machine — without any other change. That's how one <code class="inl">docker</code> command controls a daemon on another host.</li>
+  <li><span class="t">NewPostRoute("/containers/create", …)</span> A URL and the daemon function that handles it. POSTing to this path with a JSON body <em>creates</em> a container (sets up its config) but does not start it.</li>
+  <li><span class="t">NewPostRoute("/containers/{name}/start", …)</span> A <em>separate</em> route that actually starts a created container. The <code class="inl">{name:.*}</code> is a wildcard capturing the container's id or name from the URL.</li>
+  <li><span class="t">NewGetRoute("/containers/json", …)</span> A GET route that lists containers — this is literally what <code class="inl">docker ps</code> calls.</li>
+</ul>
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>Two folk beliefs fall here. First, "the <code class="inl">docker</code> command runs your container" — it doesn't; it serializes your flags into an HTTP request and sends it. All the logic lives in the daemon. Second, "<code class="inl">docker run</code> is one operation" — it isn't. There is no <code class="inl">/containers/run</code> route. <code class="inl">docker run</code> is the client making <em>two</em> calls in sequence: <code class="inl">POST /containers/create</code>, then <code class="inl">POST /containers/{id}/start</code>. That's precisely why the separate commands <code class="inl">docker create</code> and <code class="inl">docker start</code> exist — they're the two halves exposed individually.</p>
+</aside>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<p>Because the "API" is just HTTP over a socket, you can talk to the daemon with <code class="inl">curl</code> and no <code class="inl">docker</code> binary at all. If this works, you've proven the client is nothing special:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> ls -l /var/run/docker.sock
+<span class="o">srw-rw---- 1 root docker 0 ... /var/run/docker.sock</span>   <span class="o"># the "s" = socket</span>
+
+<span class="p">$</span> curl -s --unix-socket /var/run/docker.sock \
+        http://localhost/v1.55/containers/json | head -c 120
+<span class="o">[{"Id":"a1b2c3...","Names":["/proof"],"Image":"alpine",...</span>
+
+<span class="p">$</span> <span class="o"># same list docker ps shows — you just made the API call by hand.</span></pre>
+</figure>
+<p>The <code class="inl">v1.55</code> in the path is the API version the daemon speaks (declared in moby's <code class="inl">api/swagger.yaml</code> as <code class="inl">version: "1.55"</code>). One aside the source makes clear: because HTTP normally needs a <code class="inl">Host:</code> header but a Unix socket has no hostname, moby hard-codes a placeholder — <code class="inl">DummyHost = "api.moby.localhost"</code> in <code class="inl">client/client.go</code> — <em>"a valid formatted hostname for local connections which should never be resolved."</em> A small detail, but it confirms beyond doubt that this channel is real HTTP.</p>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 2</div>
+<h2>dockerd doesn't run containers either — it hands off to containerd</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>So the daemon receives your request. Does <em>it</em> create the namespaces and start the process? No — and for the same restart-survival reason as before, one level deeper. Docker's daemon has a lot of high-level jobs: building images, managing networks and volumes, serving that REST API, handling authentication. The Docker maintainers separated the low-level job of "supervise the lifecycle of containers" into its own daemon called <strong>containerd</strong>, so that piece could be standardized, reused by non-Docker tools, and — critically — kept stable while the higher-level daemon churns.</p>
+<p>So <code class="inl">dockerd</code> is itself a <em>client</em> of a second daemon. It connects to containerd over containerd's <em>own</em> socket, using a defined API (this one is gRPC — same idea as the REST API above, a request/response protocol, just a different wire format). Here is where that second socket lives:</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">defaults/defaults_linux.go</span><span class="repo">containerd/containerd</span></div>
+<pre><span class="cmt">// DefaultAddress is the default unix socket address</span>
+DefaultAddress = <span class="str">"/run/containerd/containerd.sock"</span></pre>
+</figure>
+
+<span class="step">Step 3 · Read it line by line</span>
+<ul class="lines">
+  <li><span class="t">/run/containerd/containerd.sock</span> A <em>second</em> Unix socket, distinct from <code class="inl">docker.sock</code>. dockerd opens this and issues commands like "create a container from this bundle," "start it," "tell me when it exits." containerd owns everything about the running container from here down.</li>
+</ul>
+<aside class="note"><b>Two sockets, two boundaries of responsibility.</b> <code class="inl">docker.sock</code> is <em>you → dockerd</em>. <code class="inl">containerd.sock</code> is <em>dockerd → containerd</em>. Each is a clean seam where one program stops and delegates to the next. Keep them straight; the first is the one with the famous security footgun we'll dissect in Lesson 46.</aside>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 3</div>
+<h2>containerd launches one <em>shim</em> per container — and computes its name from a string</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Now the pattern should feel familiar, because containerd does the same move one final time. It does <em>not</em> hold your container as a child of the containerd process — that would resurrect the original problem, where restarting containerd kills every container. Instead, for each container it launches a small, separate helper process called a <strong>shim</strong>, and lets <em>that</em> be the container's parent. containerd can then come and go; the shim stays, holding the container. (The full story of how the shim outlives its parent is Lesson 5 — here we only need to know that a separate shim process is spawned per container.)</p>
+<p>The interesting mechanism is <em>which</em> shim gets launched. containerd supports pluggable runtimes, each identified by a dotted string like <code class="inl">io.containerd.runc.v2</code>. It turns that string into an actual executable filename with a tiny function. Once you see it, the naming convention <code class="inl">containerd-shim-runc-v2</code> stops being magic:</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">pkg/shim/util.go</span><span class="repo">containerd/containerd</span></div>
+<pre><span class="kw">func</span> <span class="fn">BinaryName</span>(runtime string) string {
+    <span class="cmt">// runtime name should format like $prefix.name.version</span>
+    parts := strings.Split(runtime, <span class="str">"."</span>)
+    <span class="kw">if</span> len(parts) &lt; 2 || parts[0] == <span class="str">""</span> {
+        <span class="kw">return</span> <span class="str">""</span>
+    }
+    <span class="kw">return</span> fmt.Sprintf(shimBinaryFormat, parts[len(parts)-2], parts[len(parts)-1])
+}</pre>
+</figure>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">pkg/shim/util_unix.go</span><span class="repo">containerd/containerd</span></div>
+<pre>shimBinaryFormat = <span class="str">"containerd-shim-%s-%s"</span></pre>
+</figure>
+<p>And containerd then runs that binary as an ordinary external command — it shells out, it doesn't call a library:</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">pkg/shim/util.go</span><span class="repo">containerd/containerd</span></div>
+<pre>cmd := exec.CommandContext(ctx, config.RuntimePath, args...)</pre>
+</figure>
+
+<span class="step">Step 3 · Read it line by line</span>
+<ul class="lines">
+  <li><span class="t">strings.Split(runtime, ".")</span> Take <code class="inl">io.containerd.runc.v2</code> and split on dots → the list <code class="inl">["io","containerd","runc","v2"]</code>.</li>
+  <li><span class="t">parts[len(parts)-2], parts[len(parts)-1]</span> Grab the <em>last two</em> pieces: <code class="inl">"runc"</code> and <code class="inl">"v2"</code>. The prefix (<code class="inl">io.containerd</code>) is just a namespace and gets ignored for the filename.</li>
+  <li><span class="t">"containerd-shim-%s-%s"</span> Fill those two pieces into the template → <code class="inl">containerd-shim-runc-v2</code>. That's the exact binary you'll find in the process list. Mystery solved: the name is generated, not hard-coded.</li>
+  <li><span class="t">exec.CommandContext(ctx, …)</span> Go's way of running an external program. This proves the shim is a <em>separate process</em> that containerd spawns, not code running inside containerd. Separate process = survives containerd restart.</li>
+</ul>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<p>Start a container, then inspect the processes. The fixed relationship is that the container process is supervised by a shim. Do <em>not</em> infer containerd's control relationship from the shim's PPID: runtime-v2 uses a socket API, and the serving shim is deliberately able to survive containerd.</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> docker run -d --name tree alpine sleep 600
+<span class="p">$</span> pid=$(docker inspect -f '{{.State.Pid}}' tree)
+<span class="p">$</span> shim=$(ps -o ppid= -p "$pid" | tr -d ' ')
+<span class="p">$</span> ps -o pid,ppid,comm -p "$shim" -p "$pid"
+<span class="o">    PID    PPID COMMAND</span>
+<span class="o">   4120       … containerd-shim-runc-v2</span>   <span class="o"># serving shim; adopter/PPID can vary</span>
+<span class="o">   4141    4120 sleep</span>                     <span class="o"># your process is supervised by the shim</span></pre>
+</figure>
+<p>The second row is the load-bearing one: the container process is a child of the serving shim. The shim itself was bootstrapped by containerd, but containerd controls it through the runtime-v2 socket API rather than relying on a durable parent-child relationship. On many hosts the serving shim is adopted by PID 1; a configured child subreaper can change the displayed PPID without changing the architecture. Lesson 5 traces that bootstrap and reconnection path.</p>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 4</div>
+<h2>The shim calls runc — and runc immediately exits</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>One layer remains. The shim itself still doesn't know how to build namespaces and cgroups; it delegates that to the OCI runtime, <code class="inl">runc</code> (the program from Lesson 1). But <code class="inl">runc</code> is not a daemon and not a supervisor — it is a <strong>command-line tool that does one job and exits</strong>. It creates the container process, hands control back, and terminates. After that, <code class="inl">runc</code> is gone from the process list entirely. This is the final twist that makes the whole "who runs your container?" question so counterintuitive.</p>
+<p>You can see runc's short-lived, command-per-action nature in the list of subcommands it registers:</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">main.go</span><span class="repo">opencontainers/runc</span></div>
+<pre>app.Commands = []cli.Command{
+    createCommand,
+    deleteCommand,
+    execCommand,
+    killCommand,
+    runCommand,
+    startCommand,
+    <span class="cmt">// … one command per lifecycle action, then the process exits</span>
+}</pre>
+</figure>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">create.go</span><span class="repo">opencontainers/runc</span></div>
+<pre>Name:  <span class="str">"create"</span>,
+Usage: <span class="str">"create a container"</span>,
+Description: `The create command creates an instance of a container for a
+bundle. The bundle is a directory with a specification file named
+"config.json" and a root filesystem.`,</pre>
+</figure>
+
+<span class="step">Step 3 · Read it line by line</span>
+<ul class="lines">
+  <li><span class="t">createCommand / startCommand</span> Two separate subcommands — the same create/start split we saw at the very top of the stack in Docker's REST API, now at the very bottom. The shim invokes <code class="inl">runc create</code> then <code class="inl">runc start</code>.</li>
+  <li><span class="t">runCommand</span> A convenience that does create+start in one shot — but each is still a fire-and-exit invocation, not a resident process.</li>
+  <li><span class="t">"creates an instance … for a bundle"</span> runc's input is a <strong>bundle</strong>: a directory containing a <code class="inl">config.json</code> plus the root filesystem. That <code class="inl">config.json</code> is the OCI runtime spec we'll read field-by-field in Lesson 21; for now, just know it's the file that tells runc exactly which namespaces, cgroups, and mounts to set up.</li>
+  <li><span class="t">the comment's implication</span> runc's model is one command → one action → exit. Nothing about it stays running to babysit the container. The babysitter is the shim above it.</li>
+</ul>
+
+<aside class="correction">
+  <span class="lbl">The punchline · who runs your container?</span>
+  <p>Follow the whole chain and every candidate disqualifies itself. The <code class="inl">docker</code> CLI sent an HTTP request and exited. <code class="inl">dockerd</code> forwarded it to containerd and moved on. <code class="inl">containerd</code> spawned a shim and moved on. <code class="inl">runc</code> built the container and <em>exited</em>. The process that is actually left holding your container — its real parent, the thing that would notice it die and report the exit code back up — is the humble <strong>shim</strong>, the one component nobody talks about. "Docker runs your container" is wrong at all four layers; the true answer is "a runtime shim supervises it, and everything above drives that shim through APIs."</p>
+</aside>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<p>Confirm runc has vanished while your container keeps running:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> docker ps --format '{{.Names}} {{.Status}}'
+<span class="o">tree  Up 2 minutes</span>                <span class="o"># container very much alive</span>
+<span class="p">$</span> ps -eo comm | grep -c '^runc$'
+<span class="o">0</span>                                <span class="o"># runc is nowhere — it did its job and exited</span>
+
+<span class="p">$</span> <span class="o"># who is the container's parent? the shim, not runc/containerd/dockerd:</span>
+<span class="p">$</span> pid=$(docker inspect -f '{{.State.Pid}}' tree)
+<span class="p">$</span> ps -o comm= -p $(ps -o ppid= -p $pid)
+<span class="o">containerd-shim-runc-v2</span></pre>
+</figure>
+
+<hr class="soft">
+
+<div class="eyebrow">Where we are</div>
+<h2>The chain, in one view</h2>
+<div class="chain">
+<span class="who">docker</span> <span class="note">(CLI, you run it, then it exits)</span>
+   │  HTTP over <span class="sock">unix:///var/run/docker.sock</span>
+   ▼
+<span class="who">dockerd</span> <span class="note">(daemon: images, networks, volumes, the REST API, build)</span>
+   │  gRPC over <span class="sock">/run/containerd/containerd.sock</span>
+   ▼
+<span class="who">containerd</span> <span class="note">(higher-level task manager; bootstraps or locates a shim service)</span>
+   │  exec.CommandContext(...)  → name computed by BinaryName()
+   ▼
+<span class="who">containerd-shim-runc-v2</span> <span class="note">(supervises one container or a runtime-defined group; Docker commonly uses one per container)</span>
+   │  runs the CLI:  runc create → runc start
+   ▼
+<span class="who">runc</span> <span class="note">(builds namespaces/cgroups from config.json, starts your process, EXITS)</span>
+   ▼
+<span class="who">your process</span> <span class="note">(a normal host process, child of the shim)</span>
+</div>
+<p>Every arrow in that diagram is a deliberate seam, and every seam exists for the same reason: so the layer above can be restarted or replaced without killing what runs below it. You typed one command; it descended through five programs and two sockets to become a single <code class="inl">clone()</code> parented by a shim. Next lesson we zoom in on the piece that turns out to be doing the real long-term work — the shim — and see how it manages to outlive the very daemon that started it.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 01 · A container is just a process</span>
+  <span class="xref"><b>forward →</b> Lesson 05 · The shim in depth</span>
+  <span class="xref"><b>forward →</b> Lesson 21 · config.json, field by field</span>
+  <span class="xref"><b>forward →</b> Lesson 46 · Why docker.sock = root</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">01 · What containerization is</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">03 · Docker contexts & remote daemons</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

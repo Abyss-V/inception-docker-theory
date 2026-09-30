@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 12 · seccomp</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.68; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:44px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--teal); margin:52px 0 4px; display:flex; align-items:center; gap:10px;}
+  .eyebrow::before{content:""; width:16px; height:1px; background:var(--teal); opacity:.6}
+  h2{font-family:var(--mono); font-weight:600; font-size:22px; margin:6px 0 18px; color:var(--bone); letter-spacing:-.01em;}
+  h3{font-family:var(--mono); font-weight:600; font-size:16px; margin:26px 0 8px}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--gold); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+  .step.verify{background:var(--teal)}
+
+  figure.src{margin:14px 0 8px; border:1px solid var(--gold-dim); border-radius:8px; overflow:hidden; background:var(--well)}
+  figure.src .tab{font-family:var(--mono); font-size:12px; color:var(--gold); background:linear-gradient(180deg,#1c1a12,#141109); border-bottom:1px solid var(--gold-dim); padding:8px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  figure.src .tab .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none}
+  figure.src .tab .path{overflow-wrap:anywhere}
+  figure.src .tab .repo{color:var(--faint); margin-left:auto; font-size:11px}
+  figure.src pre{margin:0; padding:16px 16px; overflow-x:auto}
+  figure.src.spec .tab{color:#cdb87a}
+  pre,code{font-family:var(--mono)}
+  pre{font-size:13px; line-height:1.6; color:#d7d2c4}
+  pre .kw{color:var(--rose)} pre .fn{color:var(--teal)} pre .cmt{color:var(--faint); font-style:italic}
+  pre .str{color:var(--gold)} pre .field{color:var(--gold)}
+  .keyline{background:rgba(224,177,81,.10); border-left:2px solid var(--gold); display:block; padding-left:8px; margin-left:-10px}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{padding:14px 16px; color:#bfe6df; font-size:13px}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:16px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0 0 10px}.keybox p:last-child{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  .blocked{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:20px 0}
+  .bcard{border:1px solid var(--rose-dim); border-radius:8px; padding:13px 15px; background:linear-gradient(180deg,#160f11,#120c0e)}
+  .bcard h4{font-family:var(--mono); font-size:12px; letter-spacing:.08em; color:var(--rose); margin:0 0 8px}
+  .bcard .s{font-family:var(--mono); font-size:12px; color:var(--dim); line-height:1.7}
+  .bcard .s b{color:var(--bone)}
+  @media(max-width:620px){.blocked{grid-template-columns:1fr}}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:70px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  .lead{font-size:20px; line-height:1.6; color:var(--bone)}
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:40px 0}
+
+  .flow{font-family:var(--mono); font-size:12.5px; line-height:1.8; color:var(--dim); background:var(--panel); border:1px solid var(--rule); border-radius:8px; padding:18px 20px; margin:22px 0; overflow-x:auto}
+  .flow .a{color:var(--teal)} .flow .d{color:var(--rose)} .flow .c{color:var(--faint)}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-11-capabilities.html">← Lesson 11</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-13-apparmor-selinux.html">Lesson 13 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part II — Kernel primitives</div>
+  <div class="lesson-no">12</div>
+  <h1>seccomp: bricking up the syscalls a container never uses</h1>
+  <p class="dek">Capabilities restrict privileged <em>operations</em>. seccomp restricts something more basic — which system calls a process may make <em>at all</em> — shrinking the kernel's attack surface. And Docker's default profile is cleverly wired to move in lockstep with capabilities.</p>
+</header>
+
+<p class="lead">Recall the shared-kernel wall from Lesson 1: a container's only real boundary is the host kernel, and every <strong>syscall</strong> is a door through it. The kernel offers around 350 syscalls; a typical container uses maybe a fifth of them. The rest are doors nobody in the container walks through — but a bug behind any one of them is a potential escape. <strong>seccomp</strong> ("secure computing mode") lets you brick up the unused doors, so a kernel vulnerability in a syscall your container never calls simply can't be reached. This is a different axis of defense from capabilities, and the two turn out to be wired together.</p>
+
+<div class="eyebrow">The intuition</div>
+<h2>Two different questions: "may you?" vs "can you even ask?"</h2>
+
+<p>Capabilities (Lesson 11) answer "are you <em>permitted</em> to perform this privileged operation?" — the kernel lets the syscall run, then checks a capability partway through. seccomp answers a more fundamental question, earlier: "are you allowed to make this syscall <em>at all</em>?" If a syscall is denied by seccomp, the kernel never even executes its logic — the call is rejected at the door.</p>
+
+<p>Why does that matter if capabilities already guard the dangerous stuff? Because plenty of syscalls are dangerous <em>despite</em> not needing a capability — the danger is a <em>bug</em> in the syscall's implementation, not the operation itself. Kernel exploits routinely live in obscure, rarely-audited syscalls (old keyring calls, <code class="inl">userfaultfd</code>, exotic filesystem calls). Your container doesn't need those, so the safest thing is to make them un-callable. seccomp is attack-surface reduction: fewer reachable doors, fewer places a kernel bug can bite.</p>
+
+<div class="eyebrow">Mechanism 1</div>
+<h2>A filter the kernel runs on every single syscall</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>seccomp works by installing a tiny <strong>BPF program</strong> — a little decision tree that runs in the kernel — as a syscall filter. Once installed, the kernel runs this program <em>on every syscall the process makes</em>, before executing it. The program is handed the syscall number (and, if you want, the raw argument values) and returns a verdict: <code class="inl">ALLOW</code> (proceed), <code class="inl">ERRNO</code> (reject, return an error code), <code class="inl">KILL</code> (terminate the process), <code class="inl">TRAP</code>, <code class="inl">LOG</code>, or <code class="inl">NOTIFY</code> (hand off to a supervisor). The filter is a one-way ratchet: once set it can't be removed, and every child process inherits it.</p>
+<p>There's one enabling rule worth knowing. An unprivileged process may only install a seccomp filter if it has first set the <code class="inl">no_new_privs</code> flag — a promise to the kernel that this process can never gain privileges via a setuid binary. Without that promise, you could use a filter to trick a setuid-root program into misbehaving, so the kernel forbids it. runc sets both:</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">libcontainer/seccomp/seccomp_linux.go &nbsp;+&nbsp; process.go</span><span class="repo">opencontainers/runc</span></div>
+<pre><span class="cmt">// InitSeccomp installs the seccomp filters to be used in the container</span>
+<span class="keyline">func InitSeccomp(config *configs.Seccomp) (int, error) { ... }</span>
+<span class="cmt">// and no_new_privs is set first — required to install a filter unprivileged</span>
+<span class="keyline">NoNewPrivileges bool   // → prctl(PR_SET_NO_NEW_PRIVS) before the filter loads</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>The whole mechanism is: compile the profile to a BPF program, then load it so the kernel consults it on every syscall. Because the filter is inherited and irreversible, the container's PID 1 gets it and so does everything it spawns — there's no escaping it from inside. And <code class="inl">no_new_privs</code> is the precondition that makes the whole thing safe to use without being root.</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 2</div>
+<h2>The profile: an allowlist that <em>errors</em> by default</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>A seccomp profile has a <strong>default action</strong> plus a list of per-syscall rules. Docker's default profile takes the safe approach: the default action is "return an error," and then it explicitly <em>allows</em> the ~350 syscalls normal programs need. Anything not on the allowlist hits the default and fails. Two design choices are worth pausing on. First, the default is <code class="inl">ERRNO</code> (fail with an error), not <code class="inl">KILL</code> — a blocked syscall returns something like "operation not permitted" and the program can handle it, rather than being executed on the spot. Second, the profile is <em>architecture-aware</em>, because syscall <em>numbers</em> differ per CPU architecture; the same profile carries an arch map so it applies correctly on x86-64, arm64, and others.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">default.json (generated by DefaultProfile)</span><span class="repo">moby/profiles/seccomp &nbsp;(extracted from moby)</span></div>
+<pre>{
+<span class="keyline">  "defaultAction": "SCMP_ACT_ERRNO",     // anything not allowed → returns an error</span>
+<span class="keyline">  "archMap": [ { "architecture": "SCMP_ARCH_X86_64",  ... },</span>
+              { "architecture": "SCMP_ARCH_AARCH64", ... }, ... ],
+  "syscalls": [
+    { "names": ["accept","access","bind","brk","chdir","chmod", ...~350... ],
+<span class="keyline">      "action": "SCMP_ACT_ALLOW" },     // the big allowlist of known-good calls</span>
+  ]
+}</pre>
+</figure>
+<figure class="src spec">
+  <div class="tab"><span class="dot"></span><span class="path">config-linux.md — seccomp</span><span class="repo">opencontainers/runtime-spec</span></div>
+<pre><span class="keyline">defaultAction (REQUIRED)   — SCMP_ACT_ERRNO | SCMP_ACT_ALLOW | SCMP_ACT_KILL | ...</span>
+syscalls[].names / .action / .args   — per-syscall rules, optionally arg-matched
+architectures              — which arches this profile applies to</pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p><code class="inl">defaultAction: SCMP_ACT_ERRNO</code> + a big <code class="inl">SCMP_ACT_ALLOW</code> list is an <em>allowlist</em>: known-good calls pass, everything else errors. Choosing <code class="inl">ERRNO</code> over <code class="inl">KILL</code> is a compatibility decision — programs that probe for a blocked syscall get a clean failure and fall back, instead of being killed. And <code class="inl">archMap</code> exists because "syscall 165" is <code class="inl">mount</code> on x86-64 but something else on arm64; the profile must match by architecture.</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 3</div>
+<h2>What's on the deny side, and why</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>The syscalls Docker leaves <em>off</em> the allowlist (~40-odd notable ones) are exactly the ones a normal app never needs but an attacker would love. They cluster into a few families:</p>
+
+<div class="blocked">
+  <div class="bcard"><h4>Load kernel code</h4><div class="s"><b>init_module, finit_module, delete_module</b> — insert a kernel module = a rootkit with full host control.</div></div>
+  <div class="bcard"><h4>Replace the kernel</h4><div class="s"><b>kexec_load, kexec_file_load</b> — boot an arbitrary kernel out from under the host.</div></div>
+  <div class="bcard"><h4>Mount &amp; namespace admin</h4><div class="s"><b>mount, umount2, pivot_root, setns, unshare</b> — reshape the filesystem / escape isolation (gated on CAP_SYS_ADMIN, below).</div></div>
+  <div class="bcard"><h4>Change the clock</h4><div class="s"><b>settimeofday, clock_settime, adjtimex</b> — move the host's wall clock; <b>reboot</b> — restart the machine.</div></div>
+  <div class="bcard"><h4>Kernel internals</h4><div class="s"><b>bpf, perf_event_open, userfaultfd, keyctl, add_key</b> — powerful, exploit-prone kernel subsystems.</div></div>
+  <div class="bcard"><h4>Raw hardware / misc</h4><div class="s"><b>ioperm, iopl</b> — raw I/O ports; <b>swapon/swapoff, acct</b> — system-wide state a container shouldn't touch.</div></div>
+</div>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>None of these are things a web app, database, or language runtime calls in normal operation, but every one is a lever an exploit could pull. Removing them from the allowlist means that even if a container is fully compromised — even running as root — those doors are already welded shut. This is why the seccomp profile blocks meaningfully more than capabilities alone: it denies dangerous <em>syscalls</em>, including ones no capability even guards.</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 4 · the payoff</div>
+<h2>seccomp and capabilities are wired together</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Here's the elegant part most explanations miss. Docker's seccomp profile isn't a fixed list — it's <em>capability-aware</em>. A whole group of syscalls (mount, unshare, setns, sethostname, bpf, and friends) is added to the allowlist <strong>only if the container holds <code class="inl">CAP_SYS_ADMIN</code></strong>. So the two walls stay consistent: grant the capability and the matching syscalls unblock; don't, and both walls keep them out. You never end up with a capability you can't use or a syscall you shouldn't have.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">seccomp/default_linux.go — CAP_SYS_ADMIN-gated syscalls</span><span class="repo">moby/profiles/seccomp</span></div>
+<pre>Names: []string{
+    "mount", "umount2", "unshare", "setns", "pivot_root",
+    "sethostname", "setdomainname", "bpf", "perf_event_open", ...
+},
+Action: specs.ActAllow,
+<span class="keyline">Includes: &amp;Filter{ Caps: []string{"CAP_SYS_ADMIN"} },   // only allowed WITH the cap</span></pre>
+</figure>
+<p>And seccomp can inspect syscall <em>arguments</em>, not just names — which the profile uses to block namespace creation specifically:</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">seccomp/default_linux.go — the clone() argument filter</span><span class="repo">moby/profiles/seccomp</span></div>
+<pre>Names: []string{"clone"}, Action: specs.ActAllow,
+Args: []specs.LinuxSeccompArg{{
+    Index: 0,                                  <span class="cmt">// clone()'s flags argument</span>
+<span class="keyline">    Value: CLONE_NEWNS|CLONE_NEWUSER|CLONE_NEWPID|CLONE_NEWNET|CLONE_NEWUTS|CLONE_NEWIPC|CLONE_NEWCGROUP,</span>
+<span class="keyline">    Op: OpMaskedEqual,                         // block clone if ANY namespace flag is set…</span>
+}},
+Excludes: &amp;Filter{ Caps: []string{"CAP_SYS_ADMIN"} },   <span class="cmt">// …unless you have CAP_SYS_ADMIN</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>Two things click here. The <code class="inl">Includes: Caps</code> filter is the coupling: seccomp's allowlist <em>expands</em> when you add <code class="inl">CAP_SYS_ADMIN</code>. And the <code class="inl">clone</code> argument filter is seccomp reaching <em>inside</em> the call — it allows <code class="inl">clone</code> normally but denies it when the flags contain any <code class="inl">CLONE_NEW*</code> bit, which is exactly the namespace-creation mechanism from Lesson 6. So a default container <strong>cannot create new namespaces</strong> (can't nest containers) — not because of capabilities, but because seccomp inspects the argument and says no. (The profile also forces <code class="inl">clone3</code> to return <code class="inl">ENOSYS</code>, so programs fall back to the older <code class="inl">clone</code> whose arguments seccomp <em>can</em> inspect — <code class="inl">clone3</code> passes its flags in a struct the filter can't read.)</p>
+</div>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<p>Confirm the filter is active, turn it off to compare, and watch a blocked call fail:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> docker run --rm alpine grep Seccomp /proc/self/status
+<span class="o">Seccomp:	<span class="hl">2</span></span>                      <span class="o"># mode 2 = a BPF filter is active</span>
+<span class="o">Seccomp_filters:	1</span>
+
+<span class="p">$</span> docker run --rm --security-opt seccomp=unconfined alpine grep Seccomp /proc/self/status
+<span class="o">Seccomp:	<span class="hl">0</span></span>                      <span class="o"># 0 = no filter (you turned it off)</span>
+
+<span class="p">$</span> <span class="o"># unshare a new namespace → blocked by the clone/unshare filter:</span>
+<span class="p">$</span> docker run --rm alpine unshare --mount echo hi
+<span class="o">unshare: unshare(0x20000): <span class="hl">Operation not permitted</span></span>   <span class="o"># seccomp said no</span>
+
+<span class="p">$</span> <span class="o"># lift seccomp AND grant the cap → the same call now works:</span>
+<span class="p">$</span> docker run --rm --cap-add SYS_ADMIN --security-opt seccomp=unconfined alpine unshare --mount echo hi
+<span class="o">hi</span>                            <span class="o"># both walls down → namespace creation allowed</span></pre>
+</figure>
+
+<hr class="soft">
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>Three things people get wrong. First, seccomp is often described as "the syscall whitelist," missing that it can filter by <em>arguments</em> too — the <code class="inl">clone</code> flags filter is the proof. Second, "seccomp and capabilities are separate features" understates it: Docker's profile <em>couples</em> them, expanding the syscall allowlist when you add <code class="inl">CAP_SYS_ADMIN</code>. Third, and most important operationally: <code class="inl">--privileged</code> and <code class="inl">--security-opt seccomp=unconfined</code> <em>remove this wall entirely</em>. A privileged container has no seccomp filter <em>and</em> all capabilities — both walls of this lesson and the last are gone at once. That's why <code class="inl">--privileged</code> should be treated as "give this container the kernel."</p>
+</aside>
+
+<div class="eyebrow">Where we are</div>
+<h2>Summary</h2>
+<p>seccomp shrinks the kernel's attack surface by filtering which syscalls a process may make. It installs a <strong>BPF filter</strong> the kernel runs on every syscall (requiring <code class="inl">no_new_privs</code> first, and inherited irreversibly by children), returning a verdict per call. Docker's default profile is an <strong>allowlist</strong>: <code class="inl">defaultAction: SCMP_ACT_ERRNO</code> plus ~350 explicitly-allowed syscalls, arch-aware via <code class="inl">archMap</code>, so unlisted calls fail with an error rather than killing the process. The denied set — module loading, kexec, mount/namespace admin, clock changes, <code class="inl">bpf</code>, <code class="inl">userfaultfd</code>, keyrings — are exploit-prone doors no normal app uses. And crucially the profile is <strong>coupled to capabilities</strong>: a group of syscalls unblocks only with <code class="inl">CAP_SYS_ADMIN</code>, and an argument filter on <code class="inl">clone</code> blocks namespace creation unless you hold it — so a default container can't even spin up new namespaces. Two walls that move together, both erased by <code class="inl">--privileged</code>. Next: the third security primitive — the Linux Security Modules, AppArmor and SELinux, which guard <em>what files and resources</em> a container may touch.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 06 · clone() &amp; namespace flags</span>
+  <span class="xref"><b>back ←</b> Lesson 11 · Capabilities</span>
+  <span class="xref"><b>forward →</b> Lesson 13 · AppArmor &amp; SELinux</span>
+  <span class="xref"><b>forward →</b> Lesson 46 · Security capstone</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">11 · Capabilities</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">13 · AppArmor &amp; SELinux</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,9 @@
+Continue my Docker internals course from this cumulative handoff bundle. The learner explicitly merged the former planned Lessons 44 Rootless Docker, 45 Plugins & authz, and 46 docker.sock = root into one final compact Lesson 44 on 2026-08-09. The course now has 44 numbered lessons; do not recreate Lesson 45 or 46 unless I explicitly reverse that decision.
+
+Treat the bundled course map, progress/decisions, correction register, source baseline, lesson method, existing lessons, and README-NEXT-CHAT.md as the source of truth.
+
+Lesson 44 — Docker security boundary: rootless Docker, plugins/authz, and daemon-socket authority — exists and is awaiting study. Lessons 32–43 also remain awaiting study unless I explicitly say otherwise.
+
+Preserve Lesson 44's central model: workload sandbox, API authorization, and daemon privilege are different boundaries. Rootless starts dockerd inside an unprivileged RootlessKit user/mount/network namespace environment; it is not merely a non-root container user and not rootful userns-remap. Authorization plugins wrap Engine API handlers with AuthZRequest before the handler and AuthZResponse after it; all configured plugins must allow. The Docker socket is an Engine API authority endpoint; unrestricted access to a rootful daemon is effectively root-level Docker authority, while a rootless daemon socket is bounded by that daemon's unprivileged outer authority.
+
+There is no next numbered lesson in the approved course. Help me study or clarify Lesson 44 unless I explicitly request a new structural change.

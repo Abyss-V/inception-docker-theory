@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 03 · Contexts &amp; Remote Daemons</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.65; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:44px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  h1{font-family:var(--mono); font-weight:600; font-size:27px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--teal); margin:52px 0 4px; display:flex; align-items:center; gap:10px;}
+  .eyebrow::before{content:""; width:16px; height:1px; background:var(--teal); opacity:.6}
+  h2{font-family:var(--mono); font-weight:600; font-size:22px; margin:6px 0 18px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  a{color:var(--teal); text-decoration:none; border-bottom:1px solid var(--teal-dim)}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--gold); display:inline-block; padding:3px 9px; border-radius:3px; margin:40px 0 10px; font-weight:600;}
+  .step.verify{background:var(--teal)}
+
+  figure.src{margin:14px 0 8px; border:1px solid var(--gold-dim); border-radius:8px; overflow:hidden; background:var(--well)}
+  figure.src .tab{font-family:var(--mono); font-size:12px; color:var(--gold); background:linear-gradient(180deg,#1c1a12,#141109); border-bottom:1px solid var(--gold-dim); padding:8px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  figure.src .tab .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none}
+  figure.src .tab .path{overflow-wrap:anywhere}
+  figure.src .tab .repo{color:var(--faint); margin-left:auto; font-size:11px}
+  figure.src pre{margin:0; padding:16px 16px; overflow-x:auto}
+  pre,code{font-family:var(--mono)}
+  pre{font-size:13.5px; line-height:1.6; color:#d7d2c4}
+  pre .kw{color:var(--rose)} pre .fn{color:var(--teal)} pre .cmt{color:var(--faint); font-style:italic}
+  pre .str{color:var(--gold)} pre .field{color:var(--gold)}
+  .keyline{background:rgba(224,177,81,.10); border-left:2px solid var(--gold); display:block; padding-left:8px; margin-left:-10px}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px; display:flex; align-items:center; gap:8px;}
+  figure.inspect pre{padding:14px 16px; color:#bfe6df; font-size:13px}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:16px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.honest{border:1px dashed var(--faint); background:var(--panel); border-radius:8px; padding:16px 18px; margin:22px 0; color:var(--dim); font-size:16.5px}
+  aside.honest .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--bone); display:block; margin-bottom:6px}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:70px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  .lead{font-size:20px; line-height:1.6; color:var(--bone)}
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:40px 0}
+
+  .chain{font-family:var(--mono); font-size:12.5px; line-height:1.7; color:var(--dim); background:var(--panel); border:1px solid var(--rule); border-radius:8px; padding:18px 20px; margin:24px 0; overflow-x:auto}
+  .chain .who{color:var(--gold)} .chain .sock{color:var(--teal)} .chain .note{color:var(--faint)}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-02-the-architecture.html">← Lesson 02</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-04-containerd-plugin-model.html">Lesson 04 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part I — Foundations</div>
+  <div class="lesson-no">03</div>
+  <h1>Contexts &amp; remote daemons: pointing the client somewhere else</h1>
+  <p class="dek">Mostly this is stored configuration — and I'll say so honestly. But buried inside "run Docker over SSH" is one genuinely clever mechanism worth going all the way down to.</p>
+</header>
+
+<p class="lead">Lesson 2 ended on a single fact: the <code class="inl">docker</code> command is just an HTTP client aimed at a socket, and the target is whatever <code class="inl">DOCKER_HOST</code> says. This lesson is about <em>changing that aim</em> — pointing the same client at a daemon on another machine — and about "contexts," the feature that saves those aims by name.</p>
+
+<aside class="honest">
+  <span class="lbl">Honest scope note</span>
+  A "context" itself has almost no mechanism: it is a named bundle of connection settings saved as files on disk, and using one just sets the same target we already understood in Lesson 2. I'll cover that quickly and truthfully rather than dress it up. The part that <em>does</em> have real depth is how the client reaches a remote daemon over SSH without exposing any network port — so that's where this lesson spends its time.
+</aside>
+
+<div class="eyebrow">The config part (told straight)</div>
+<h2>What a context actually is: a name → a target + some certs</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Typing <code class="inl">DOCKER_HOST=…</code> and passing TLS certificate flags every time you want to talk to a remote daemon is tedious. A <strong>context</strong> is just a saved, named copy of those settings: "prod" means <em>this host, these certs</em>; "default" means your local socket. Switching context swaps which target the client uses. That's the whole idea — it's a bookmark, not a new capability.</p>
+<p>The source confirms it's plain storage. Contexts live as files under <code class="inl">~/.docker/contexts/</code>, split into metadata and TLS material, and the metadata each context stores is essentially a host string plus TLS settings:</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">cli/context/store/metadatastore.go &amp; tlsstore.go</span><span class="repo">docker/cli</span></div>
+<pre>metadataDir = <span class="str">"meta"</span>     <span class="cmt">// ~/.docker/contexts/meta/&lt;id&gt;/meta.json</span>
+tlsDir      = <span class="str">"tls"</span>      <span class="cmt">// ~/.docker/contexts/tls/&lt;id&gt;/...  (client certs)</span></pre>
+</figure>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">cli/context/docker/load.go</span><span class="repo">docker/cli</span></div>
+<pre>type EndpointMeta = context.EndpointMetaBase   <span class="cmt">// what a context points at:</span>
+<span class="keyline">  Host          string   // e.g. "ssh://root@prod" or "tcp://1.2.3.4:2376"</span>
+<span class="keyline">  SkipTLSVerify bool     // whether to check the daemon's TLS cert</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p style="margin:0">The two highlighted fields are the entire payload of a context: a <code class="inl">Host</code> (the same kind of <code class="inl">DOCKER_HOST</code> string from Lesson 2) and TLS settings. Everything else — <code class="inl">docker context create</code>, <code class="inl">use</code>, <code class="inl">ls</code> — is CRUD over these files. Selecting a context resolves to "set <code class="inl">Host</code> to this and load these certs," then the client connects exactly as before.</p>
+</div>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> docker context ls
+<span class="o">NAME       DESCRIPTION                               DOCKER ENDPOINT</span>
+<span class="o">default *  Current DOCKER_HOST based configuration   unix:///var/run/docker.sock</span>
+
+<span class="p">$</span> ls ~/.docker/contexts/meta/*/
+<span class="o">meta.json</span>
+<span class="p">$</span> cat ~/.docker/contexts/meta/*/meta.json | python3 -m json.tool | head
+<span class="o">{ "Name": "prod",</span>
+<span class="o">  "Endpoints": { "docker": { "Host": "ssh://root@prod", "SkipTLSVerify": false } } }</span></pre>
+</figure>
+<p>That JSON file <em>is</em> the context. Nothing more is hidden. Now the interesting part: what happens when that <code class="inl">Host</code> is an <code class="inl">ssh://</code> URL.</p>
+
+<hr class="soft">
+
+<div class="eyebrow">The mechanism (all the way down)</div>
+<h2>Three transports — and why <code style="font-size:.85em">ssh://</code> is the clever one</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>A <code class="inl">Host</code> string carries a scheme that picks how the client connects. There are three that matter:</p>
+<p><code class="inl">unix://</code> — connect to a local socket file (the Lesson 2 default). <code class="inl">tcp://</code> — connect to the daemon over a real network port, almost always wrapped in <strong>mutual TLS</strong>: the daemon presents a certificate the client verifies, and the client presents a certificate the daemon verifies, so both sides prove who they are. That's a normal secured network connection; conceptually nothing new.</p>
+<p><code class="inl">ssh://</code> is the one that's worth understanding, because it pulls off remote access <em>without opening any Docker network port at all</em>. Think about what you'd need: the remote daemon only listens on its <em>local</em> <code class="inl">/var/run/docker.sock</code>, which isn't reachable from your laptop. How do you get your HTTP requests to a socket that only exists on the far side? The answer Docker chose is delightfully low-tech: <strong>run <code class="inl">ssh</code> as a subprocess and treat that subprocess's stdin/stdout as the connection.</strong> On the far end, SSH launches a hidden Docker command whose only job is to shovel bytes between its own stdin/stdout and the remote's local socket.</p>
+
+<span class="step">Step 2 · The source</span>
+<p>First, the client side. When the scheme is <code class="inl">ssh</code>, the CLI decides the "connection" is an <code class="inl">ssh</code> command, and the thing it will run on the remote is <code class="inl">docker system dial-stdio</code>:</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">cli/connhelper/connhelper.go</span><span class="repo">docker/cli</span></div>
+<pre><span class="kw">if</span> u.Scheme == <span class="str">"ssh"</span> {
+    ...
+<span class="keyline">    remoteCommand := []string{<span class="str">"docker"</span>, <span class="str">"system"</span>, <span class="str">"dial-stdio"</span>}</span>
+    sshArgs, _ := sp.Command(sshFlags, remoteCommand...)
+    <span class="kw">return</span> &amp;ConnectionHelper{
+<span class="keyline">        Dialer: func(ctx, network, addr) (net.Conn, error) {</span>
+<span class="keyline">            return commandconn.New(ctx, <span class="str">"ssh"</span>, sshArgs...)  // the "socket" is an ssh subprocess</span>
+        },
+        Host: <span class="str">"http://docker.example.com"</span>,
+    }, nil
+}</pre>
+</figure>
+<p>Then the remote side — <code class="inl">docker system dial-stdio</code> — which is a hidden command that connects to the remote's own daemon socket and pumps bytes both ways:</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">cli/command/system/dial_stdio.go</span><span class="repo">docker/cli</span></div>
+<pre>Use:    <span class="str">"dial-stdio"</span>,
+Short:  <span class="str">"Proxy the stdio stream to the daemon connection. Should not be invoked manually."</span>,
+...
+<span class="keyline">conn, _ := dockerCli.Client().Dialer()(ctx)   // dial the REMOTE's own /var/run/docker.sock</span>
+<span class="keyline">go copier(conn,   os.Stdin,  "stdin to stream")   // bytes in : ssh → socket</span>
+<span class="keyline">go copier(os.Stdout, conn,   "stream to stdout")   // bytes out: socket → ssh</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p style="margin:0 0 10px">Three highlighted lines carry the whole mechanism. On the client, <code class="inl">commandconn.New(ctx, "ssh", …)</code> means the network connection object is really a running <code class="inl">ssh</code> process — the CLI writes HTTP into its stdin and reads HTTP from its stdout. On the remote, <code class="inl">dial-stdio</code> opens the remote's <em>local</em> docker socket and runs two <code class="inl">copier</code> loops that splice stdin→socket and socket→stdout. Put together, your request flows:</p>
+  <div class="chain" style="margin:0">
+<span class="who">docker</span> (local, HTTP)
+  → writes into → <span class="sock">ssh</span> subprocess stdin
+    → <span class="note">[encrypted ssh channel]</span> →
+      remote <span class="who">docker system dial-stdio</span> stdout/stdin
+        → <span class="sock">/var/run/docker.sock</span> → remote <span class="who">dockerd</span>
+  </div>
+</div>
+
+<aside class="note"><b>Why this is a nice design.</b> No Docker port is exposed to the network — the daemon still only listens on its private local socket. Authentication, encryption, and access control are entirely SSH's job, which every server already has hardened. You reuse your existing SSH keys and get remote Docker "for free," with a smaller attack surface than opening a <code class="inl">tcp://</code> port. The cost is that every request pays SSH's per-connection overhead.</aside>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<p>Point the client at a remote over SSH and then catch the <code class="inl">ssh</code> subprocess it spawns — proof the "connection" is a process, not a socket:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> docker -H ssh://youruser@remotehost version --format '{{.Server.Version}}'
+<span class="o">27.x.x</span>                       <span class="o"># that's the REMOTE daemon answering</span>
+
+<span class="p">$</span> <span class="o"># while a command runs, watch the helper the CLI launched:</span>
+<span class="p">$</span> pgrep -a ssh
+<span class="o">50231 ssh -- remotehost docker system dial-stdio</span>   <span class="o"># ← the exact remote command</span>
+
+<span class="p">$</span> <span class="o"># you can even run the far side by hand and speak HTTP into it:</span>
+<span class="p">$</span> printf 'GET /_ping HTTP/1.0\r\n\r\n' | ssh remotehost docker system dial-stdio
+<span class="o">HTTP/1.0 200 OK ... OK</span>             <span class="o"># the remote daemon's ping, over plain stdio</span></pre>
+</figure>
+
+<hr class="soft">
+
+<div class="eyebrow">Subtlety</div>
+<h2>The precedence gotcha the code reveals</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>You now have two ways to aim the client: pick a saved context, or set <code class="inl">DOCKER_HOST</code> directly. What happens when both are set? The documentation lists a tidy order, but the actual resolver has a short-circuit worth knowing, because it silently overrides your selected context.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">cli/command/cli.go — resolveContextName()</span><span class="repo">docker/cli</span></div>
+<pre>if opts.Context != <span class="str">""</span>      { <span class="kw">return</span> opts.Context }        <span class="cmt">// 1. --context flag</span>
+<span class="keyline">if len(opts.Hosts) &gt; 0     { <span class="kw">return</span> DefaultContextName }   // 2. --host   → forces "default"</span>
+<span class="keyline">if os.Getenv(EnvHost)!=""  { <span class="kw">return</span> DefaultContextName }   // 3. DOCKER_HOST → forces "default"</span>
+if ctx := Getenv(EnvContext); ctx!=<span class="str">""</span> { <span class="kw">return</span> ctx }   <span class="cmt">// 4. DOCKER_CONTEXT</span>
+if cfg.CurrentContext != <span class="str">""</span> { <span class="kw">return</span> cfg.CurrentContext } <span class="cmt">// 5. saved current</span>
+<span class="kw">return</span> DefaultContextName                                 <span class="cmt">// 6. default</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p style="margin:0">The two highlighted lines are the trap: if <code class="inl">--host</code> or <code class="inl">DOCKER_HOST</code> is set, the function returns <code class="inl">DefaultContextName</code> <em>before ever looking at <code class="inl">DOCKER_CONTEXT</code> or your saved current context</em>. So a stray <code class="inl">DOCKER_HOST</code> in your shell profile will quietly send commands to <code class="inl">default</code> (your local daemon) even though <code class="inl">docker context use prod</code> made "prod" current. And setting <code class="inl">--context</code> and <code class="inl">--host</code> together is rejected as ambiguous.</p>
+</div>
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>People assume "the current context always wins unless I override it for one command." The code says otherwise: <code class="inl">DOCKER_HOST</code> isn't a peer of contexts, it <em>bypasses</em> them by forcing <code class="inl">default</code>. If a remote command mysteriously runs locally, the first thing to check is <code class="inl">echo $DOCKER_HOST</code> — not your context.</p>
+</aside>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> docker context use prod
+<span class="p">$</span> docker context show
+<span class="o">prod</span>
+<span class="p">$</span> DOCKER_HOST=unix:///var/run/docker.sock docker context show
+<span class="o">default</span>                     <span class="o"># DOCKER_HOST forced it back to default, ignoring "prod"</span></pre>
+</figure>
+
+<hr class="soft">
+
+<div class="eyebrow">Where we are</div>
+<h2>Summary</h2>
+<p>A context is a saved name for a connection target — a <code class="inl">Host</code> string plus TLS material, stored as JSON under <code class="inl">~/.docker/contexts/</code>. Selecting one just changes what the Lesson-2 client connects to. The one real mechanism here is the <code class="inl">ssh://</code> transport: instead of exposing a network port, the CLI runs <code class="inl">ssh</code> as a subprocess, uses its stdio as the "connection," and has the remote run the hidden <code class="inl">docker system dial-stdio</code> byte-pump into the remote's own local socket — so remote Docker rides entirely on SSH's existing security. And watch the precedence: <code class="inl">DOCKER_HOST</code> silently forces the <code class="inl">default</code> context, ahead of <code class="inl">DOCKER_CONTEXT</code> and your saved selection.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 02 · The architecture &amp; the socket</span>
+  <span class="xref"><b>forward →</b> Lesson 46 · docker.sock exposure &amp; tcp:// risk</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">02 · The architecture</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">04 · containerd internals: the plugin model</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

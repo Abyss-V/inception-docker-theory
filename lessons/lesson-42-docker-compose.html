@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 42 — docker compose</title>
+<style>
+:root{--ink:#0e1116;--panel:#161b22;--well:#0a0d12;--bone:#e9e4d7;--dim:#9aa4b2;--faint:#6b7482;--rule:#262d38;--gold:#e0b155;--gold-dim:#7a6636;--teal:#5ac4b4;--teal-dim:#2f5f59;--rose:#d76d7f;--rose-dim:#6e3540;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--serif:"Iowan Old Style",Charter,Georgia,Cambria,serif}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--ink);color:var(--bone);font:18px/1.7 var(--serif)}.wrap{max-width:760px;margin:auto;padding:24px}
+header{padding:32px 0 20px;border-bottom:1px solid var(--rule)}.eyebrow{font:12px var(--mono);color:var(--gold);letter-spacing:.12em;text-transform:uppercase}h1{font-size:44px;line-height:1.05;margin:.35rem 0 1rem}.deck{color:#cfc8b8}.pill{display:inline-block;border:1px solid var(--teal-dim);color:var(--teal);font:12px var(--mono);padding:4px 8px;border-radius:999px}
+section{padding:26px 0;border-bottom:1px solid rgba(255,255,255,.04)}h2{font-size:29px;line-height:1.2;margin:0 0 14px}h3{font-size:21px;margin:22px 0 8px}strong{color:#f4f0e6}code,pre{font-family:var(--mono)}code{background:#11161d;border:1px solid #2b3440;border-radius:6px;padding:1px 5px;color:#f2d493}pre{background:var(--well);border:1px solid var(--rule);border-radius:12px;padding:14px;overflow:auto;color:#d8e0e7;line-height:1.5;white-space:pre-wrap}
+.idea,.note,.warn,.inspect,.boundary{padding:15px 17px;border-radius:14px;border:1px solid var(--rule);margin:15px 0}.idea,.inspect{border-left:4px solid var(--teal);background:#101a1a}.note{border-left:4px solid var(--gold);background:#17140e}.warn,.boundary{border-left:4px solid var(--rose);background:#1a1013}.label{font:12px var(--mono);text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px}.idea .label,.inspect .label{color:var(--teal)}.note .label{color:var(--gold)}.warn .label,.boundary .label{color:var(--rose)}
+.figure{background:var(--panel);border:1px solid var(--rule);border-radius:16px;padding:16px;margin:18px 0}.pipeline{display:grid;gap:7px}.pipebox{border:1px solid var(--rule);border-radius:11px;padding:11px 13px;background:#111820}.pipebox strong{display:block;font:14px var(--mono);color:var(--teal);margin-bottom:3px}.pipearr{text-align:center;color:var(--gold);font:17px var(--mono)}
+.table{width:100%;border-collapse:collapse;margin:13px 0}.table th,.table td{border-bottom:1px solid var(--rule);padding:9px;vertical-align:top}.table th{font:12px var(--mono);color:var(--gold);text-align:left}.src{color:var(--gold);font:13px/1.55 var(--mono)}.small{font-size:15px;color:var(--dim)}a{color:var(--teal);text-decoration-color:var(--teal-dim)}details{background:#12171e;border:1px solid var(--rule);border-radius:12px;padding:11px 13px;margin-top:10px}summary{cursor:pointer;color:var(--gold);font-family:var(--mono)}.nav{display:flex;justify-content:space-between;gap:12px;padding-top:22px}.nav a{display:block;border:1px solid var(--teal-dim);border-radius:12px;padding:10px 12px;text-decoration:none;font:13px var(--mono)}
+@media(max-width:650px){h1{font-size:36px}.wrap{padding:18px}.table{font-size:15px}.nav{flex-direction:column}}
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-41-image-signing-provenance.html">← Lesson 41</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-43-swarm-mode.html">Lesson 43 →</a></span></nav><main class="wrap">
+<header>
+  <div class="eyebrow">Part 7 · Orchestration · Lesson 42</div>
+  <h1><code>docker compose</code></h1>
+  <p class="deck">Compose is easiest to understand if you stop treating it as a runtime. It is a client that turns one application model into ordinary Docker Engine objects, then keeps those objects aligned with the model.</p>
+  <span class="pill">CORE</span>
+</header>
+
+<section>
+  <div class="idea"><div class="label">one sentence first</div><p><strong>Compose ends at the Docker Engine API.</strong> It loads configuration, decides what Docker resources should exist, and asks <code>dockerd</code> to create/start/remove them. The normal Lesson 23 runtime chain begins after that.</p></div>
+</section>
+
+<section>
+  <h2>1. See the complete pipeline before the details</h2>
+  <div class="figure"><div class="pipeline">
+    <div class="pipebox"><strong>docker compose up</strong>Docker CLI finds and launches the Compose plugin.</div>
+    <div class="pipearr">↓ Compose files + environment + CLI options</div>
+    <div class="pipebox"><strong>Compose + compose-go</strong>Load, interpolate, merge, normalize, and validate the files into one resolved <code>Project</code>.</div>
+    <div class="pipearr">↓ desired application model</div>
+    <div class="pipebox"><strong>Compose</strong>Derive project/resource identity, discover existing Compose-labeled Engine objects, and decide reuse/create/recreate/scale.</div>
+    <div class="pipearr">↓ Engine API requests</div>
+    <div class="pipebox"><strong>dockerd</strong>Create/reuse Docker networks, volumes, and containers.</div>
+    <div class="pipearr">↓ container IDs + Engine state</div>
+    <div class="pipebox"><strong>Compose</strong>Start service containers in dependency order and wait only for explicit dependency conditions.</div>
+    <div class="pipearr">↓ ContainerStart</div>
+    <div class="pipebox"><strong>ordinary runtime path</strong><code>dockerd → containerd → shim → runc → Linux kernel</code>.</div>
+  </div></div>
+  <div class="warn"><div class="label">important boundary</div><p>Compose does <strong>not</strong> create OCI runtime bundles, call runc directly, implement namespaces, or keep a second kind of “Compose container.” The final resources are ordinary Docker objects.</p></div>
+  <p class="src">Anchors: Docker CLI 29.6.2 · cli-plugins/manager/manager.go::PluginRunCommand; Compose v5.1.4 · pkg/compose/up.go::Up</p>
+</section>
+
+<section>
+  <h2>2. One application: YAML → resolved model → Docker objects</h2>
+  <p>We will use only this application for the entire lesson:</p>
+  <pre><code>name: shop
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-devpass}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+    volumes: [dbdata:/var/lib/postgresql/data]
+    networks: [appnet]
+
+  web:
+    image: nginx:1.27-alpine
+    environment:
+      DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [appnet]
+
+volumes:
+  dbdata: {}
+networks:
+  appnet: {}</code></pre>
+  <p>After loading, Compose is no longer reasoning about individual YAML lines. compose-go has produced one <code>types.Project</code> containing the resolved application:</p>
+  <pre><code>Project
+├── Name: "shop"
+├── Services: web, db
+├── Networks: appnet
+└── Volumes: dbdata</code></pre>
+  <p>That model is <strong>desired state</strong>. Compose must now turn it into Engine resources such as:</p>
+  <pre><code>Docker network  shop_appnet
+Docker volume   shop_dbdata
+Docker container shop-db-1
+Docker container shop-web-1</code></pre>
+  <p class="src">Anchor: compose-go v2.11.0 · types/project.go::Project</p>
+</section>
+
+<section>
+  <h2>3. How the final <code>Project</code> is produced</h2>
+  <p>The loader has four jobs that matter for this lesson:</p>
+  <ol>
+    <li><strong>Choose input files.</strong> One or more Compose files are applied in order using the loader's merge/override rules.</li>
+    <li><strong>Interpolate values.</strong> <code>${DB_PASSWORD:-devpass}</code> is resolved before the final service model is used. An interpolation value is not automatically a container environment variable; it only affects fields that reference it.</li>
+    <li><strong>Normalize and validate.</strong> Shorthand/default forms become the canonical model and invalid combinations are rejected.</li>
+    <li><strong>Choose the project name.</strong> Important precedence is explicit <code>-p/--project-name</code> → <code>COMPOSE_PROJECT_NAME</code> → Compose <code>name:</code> → normalized working-directory name.</li>
+  </ol>
+  <p>Our model therefore has project name <code>shop</code>. For non-external networks/volumes without an explicit resource <code>name:</code>, compose-go derives:</p>
+  <pre><code>&lt;project&gt;_&lt;resource-key&gt;
+shop_appnet
+shop_dbdata</code></pre>
+  <p>Default container names use project, service, and replica number:</p>
+  <pre><code>shop-db-1
+shop-web-1
+shop-web-2   # if web is scaled to 2</code></pre>
+
+  <h3>The implicit default network</h3>
+  <p>If a service has neither its own <code>network_mode</code> nor an explicit nonempty <code>networks</code> list, compose-go attaches that service to logical network <code>default</code>. The project-level <code>default</code> network is inserted only when at least one service needs it, producing a normal Engine network such as <code>shop_default</code>.</p>
+  <div class="warn"><div class="label">correction</div><p>Compose does not create an implicit default network unconditionally. The pinned normalizer adds it only when a service actually needs it.</p></div>
+  <p class="src">Anchors: compose-go v2.11.0 · cli/options.go::ProjectOptions.LoadProject / withNamePrecedenceLoad; loader/loader.go::LoadWithContext; loader/normalize.go::normalizeNetworks / setNameFromKey</p>
+</section>
+
+<section>
+  <h2>4. A service is not a container</h2>
+  <p><code>Project.Services["web"]</code> is a recipe plus a desired replica count. The actual Docker containers are the current observed instances of that recipe.</p>
+  <pre><code>desired web scale = 2
+observed web containers = {shop-web-1}
+                         ↓
+Compose creates one missing replica
+                         ↓
+observed = {shop-web-1, shop-web-2}</code></pre>
+  <p>This is why Compose can scale one service to several containers. The convergence code compares the desired scale from the service with the containers it has rediscovered from the Engine.</p>
+  <p>A fixed <code>container_name:</code> changes the situation: Compose v5.1.4 rejects scale greater than one for that service because several Engine containers cannot all use the same fixed name.</p>
+
+  <h3>How Compose finds its existing objects</h3>
+  <p>Compose does not need a hidden project database. It marks Engine resources with labels and later queries those labels. Important container labels include:</p>
+  <pre><code>com.docker.compose.project=shop
+com.docker.compose.service=web
+com.docker.compose.config-hash=...
+com.docker.compose.container-number=1</code></pre>
+  <p>Networks and volumes also receive project identity plus their logical key:</p>
+  <pre><code>com.docker.compose.network=appnet
+com.docker.compose.volume=dbdata</code></pre>
+  <p>Later <code>up</code> or <code>down</code> invocations reload the project and ask the Engine for objects matching these Compose labels. That label bridge is what reconnects the client-side model to existing Docker objects.</p>
+  <p class="src">Anchors: Compose v5.1.4 · pkg/api/labels.go; pkg/compose/containers.go::getContainers/getDefaultFilters; pkg/compose/convergence.go::ensureService/getScale</p>
+</section>
+
+<section>
+  <h2>5. What <code>up</code> really does</h2>
+  <p>The pinned top-level structure is:</p>
+  <pre><code>Up(...)
+├── create / reconcile
+└── start</code></pre>
+  <p><strong>Phase 1: create/reconcile.</strong> Compose first ensures project networks and volumes, lists the project's existing containers, then converges each service toward the resolved model.</p>
+  <p>For our application, the important movement is:</p>
+  <pre><code>Project.Networks[appnet] → ensure network → Engine NetworkCreate if missing
+Project.Volumes[dbdata]  → ensure volume  → Engine VolumeCreate if missing
+Project.Services[...]    → compare labeled containers
+                         → reuse / recreate / scale / create</code></pre>
+  <p>When a container must be created, Compose translates the resolved service into ordinary Engine request structures:</p>
+  <pre><code>ServiceConfig
+   ↓ Compose
+container.Config
+container.HostConfig
+network.NetworkingConfig
+   ↓ Engine ContainerCreate
+dockerd creates the Docker container object</code></pre>
+  <p><strong>Phase 2: start.</strong> Compose then traverses service dependencies and sends Engine <code>ContainerStart</code> requests for the relevant containers.</p>
+  <div class="boundary"><div class="label">where Compose stops</div><p>After <code>ContainerCreate</code>, <code>NetworkCreate</code>, <code>VolumeCreate</code>, or <code>ContainerStart</code> crosses the API, <code>dockerd</code> owns the server-side operation. Container execution then follows Lesson 23 through containerd, shim, runc, and the kernel.</p></div>
+  <p class="src">Anchors: Compose v5.1.4 · pkg/compose/create.go::create/ensureNetworks/ensureProjectVolumes; pkg/compose/convergence.go::createMobyContainer; pkg/compose/start.go::start</p>
+</section>
+
+<section>
+  <h2>6. <code>depends_on</code>: order and readiness are different</h2>
+  <p>Short syntax:</p>
+  <pre><code>depends_on:
+  - db</code></pre>
+  <p>is normalized by compose-go to a required dependency with condition <code>service_started</code>. Compose already handles that through dependency ordering: start <code>db</code> before <code>web</code>.</p>
+  <div class="warn"><div class="label">do not over-read it</div><p><code>service_started</code> does <strong>not</strong> mean “PostgreSQL is ready to accept queries.” It is start ordering, not application readiness.</p></div>
+  <p>Our example explicitly asks for:</p>
+  <pre><code>condition: service_healthy</code></pre>
+  <p>Now Compose actively inspects the dependency's Engine health state and waits until <code>db</code> is healthy before the condition is satisfied. The health-check machinery itself was Lesson 37; Compose is consuming that Engine state.</p>
+  <p class="src">Anchors: compose-go v2.11.0 · transform/dependson.go::transformDependsOn; Compose v5.1.4 · pkg/compose/dependencies.go::InDependencyOrder; pkg/compose/convergence.go::waitDependencies/shouldWaitForDependency</p>
+</section>
+
+<section>
+  <h2>7. Why running <code>up</code> again can reuse, recreate, or scale</h2>
+  <p>Each invocation loads a fresh desired <code>Project</code>, rediscovers existing Compose-labeled containers, then compares the two.</p>
+  <pre><code>new Compose files
+      ↓
+new Project
+      ↓
+existing labeled Engine containers
+      ↓
+convergence
+      ├── same enough → reuse
+      ├── relevant config changed → recreate
+      ├── too few replicas → create more
+      └── too many replicas → remove excess</code></pre>
+  <p>The pinned <code>mustRecreate</code> path compares the service configuration hash with <code>com.docker.compose.config-hash</code>, and also considers image and expected network/volume attachment. That is why a meaningful change can replace a container while an unchanged service is reused.</p>
+  <p>Scaling is the same convergence algorithm, not a separate runtime feature:</p>
+  <pre><code>docker compose up -d --scale web=2
+
+desired web replicas = 2
+existing web replicas = 1
+→ create shop-web-2</code></pre>
+  <p class="src">Anchor: Compose v5.1.4 · pkg/compose/convergence.go::ensureService/mustRecreate/getScale</p>
+</section>
+
+<section>
+  <h2>8. What <code>down</code> removes — and what it keeps</h2>
+  <p><code>down</code> uses the same project identity in reverse: find the project's Compose-labeled containers, remove services in reverse dependency order, then clean up owned networks and optionally volumes.</p>
+  <table class="table"><thead><tr><th>resource</th><th><code>down</code></th><th><code>down -v</code></th></tr></thead><tbody>
+    <tr><td>service containers</td><td>removed</td><td>removed</td></tr>
+    <tr><td>owned network <code>shop_appnet</code></td><td>removed</td><td>removed</td></tr>
+    <tr><td>owned named volume <code>shop_dbdata</code></td><td><strong>kept</strong></td><td>removed</td></tr>
+    <tr><td>external network/volume</td><td>kept</td><td>kept</td></tr>
+  </tbody></table>
+  <p>The implementation only schedules project-volume removal when the volume-removal option is enabled, and it skips external resources.</p>
+  <div class="warn"><div class="label">correction</div><p>Plain <code>docker compose down</code> does not mean “delete everything declared in the file.” Declared named volumes are retained by default.</p></div>
+  <p class="src">Anchors: Compose v5.1.4 · pkg/compose/down.go::down/ensureVolumesDown/ensureNetworksDown; pkg/compose/dependencies.go::InReverseDependencyOrder</p>
+</section>
+
+<section>
+  <div class="inspect"><div class="label">inspect it yourself · one short experiment</div>
+  <p>Use the same <code>compose.yaml</code> from section 2.</p>
+  <pre><code># See the resolved model first.
+docker compose config
+
+# Create the Engine objects.
+docker compose up -d
+
+docker network inspect shop_appnet --format '{{json .Labels}}'
+docker volume inspect shop_dbdata --format '{{json .Labels}}'
+
+WEB=$(docker compose ps -q web)
+docker inspect "$WEB" --format '{{json .Config.Labels}}'
+
+# Prove service != container.
+docker compose up -d --scale web=2
+docker compose ps web
+
+# Prove plain down keeps the named volume.
+docker compose down
+docker volume inspect shop_dbdata --format '{{.Name}} still exists'
+
+# Explicitly remove it.
+docker compose up -d
+docker compose down -v</code></pre>
+  <p>Watch for <code>com.docker.compose.project</code>, <code>.service</code>, <code>.network</code>, <code>.volume</code>, and <code>.container-number</code>. Those labels make the internal model visible on ordinary Docker objects.</p></div>
+</section>
+
+<section>
+  <h2>9. Keep these six facts</h2>
+  <ol>
+    <li><strong>Compose is not a runtime.</strong> It is a client-side loader/reconciler over the Engine API.</li>
+    <li><strong>YAML becomes one resolved <code>Project</code>.</strong> Interpolation, file merging, defaults, validation, and project naming happen before resource reconciliation.</li>
+    <li><strong>A service is desired configuration, not a container.</strong> One service can converge to multiple Engine containers.</li>
+    <li><strong>Labels connect invocations.</strong> Compose reloads the model and rediscovers ordinary Engine objects using <code>com.docker.compose.*</code> metadata.</li>
+    <li><strong><code>depends_on</code> start order is not readiness.</strong> <code>service_healthy</code> is the explicit health gate.</li>
+    <li><strong><code>up</code> reconciles; <code>down</code> cleans owned runtime objects.</strong> Plain <code>down</code> retains declared named volumes.</li>
+  </ol>
+
+  <details><summary>Primary-source audit map</summary>
+    <p class="small"><strong>Versions:</strong> parent Docker CLI/Engine 29.6.2; Compose v5.1.4; compose-go v2.11.0. Compose v5.1.4's own module graph uses Docker CLI library v29.5.1; that is an internal plugin dependency, not a course-baseline switch.</p>
+    <p class="small"><strong>Plugin dispatch:</strong> Docker CLI 29.6.2 <code>cli-plugins/manager/manager.go::PluginRunCommand</code>.</p>
+    <p class="small"><strong>Loading/model:</strong> compose-go v2.11.0 <code>cli/options.go::ProjectOptions.LoadProject</code>, <code>loader/loader.go::LoadWithContext</code>, <code>types/project.go::Project</code>.</p>
+    <p class="small"><strong>Name/default resources:</strong> compose-go <code>cli/options.go::withNamePrecedenceLoad</code>, <code>loader/normalize.go::normalizeNetworks/setNameFromKey</code>.</p>
+    <p class="small"><strong>Identity labels/discovery:</strong> Compose v5.1.4 <code>pkg/api/labels.go</code>, <code>pkg/compose/containers.go::getContainers/getDefaultFilters</code>.</p>
+    <p class="small"><strong>Up/create/reconcile:</strong> <code>pkg/compose/up.go::Up</code>, <code>create.go::create</code>, <code>convergence.go::ensureService/mustRecreate/createMobyContainer</code>, <code>start.go::start</code>.</p>
+    <p class="small"><strong>Dependencies:</strong> compose-go <code>transform/dependson.go</code>; Compose <code>dependencies.go::InDependencyOrder</code>, <code>convergence.go::waitDependencies/shouldWaitForDependency</code>.</p>
+    <p class="small"><strong>Down:</strong> Compose <code>pkg/compose/down.go::down/ensureVolumesDown/ensureNetworksDown</code>.</p>
+    <p class="small"><strong>Engine boundary:</strong> Docker Engine 29.6.2 container/network/volume API route handlers receive the ordinary API operations sent by Compose.</p>
+  </details>
+</section>
+
+<section>
+  <h2>Check yourself</h2>
+  <ol>
+    <li>What object does compose-go produce from the Compose files?</li>
+    <li>Why is <code>web</code> not the same thing as <code>shop-web-1</code>?</li>
+    <li>How does a later Compose process find the project's existing containers?</li>
+    <li>What does short <code>depends_on: [db]</code> guarantee?</li>
+    <li>Why can a second <code>up</code> recreate a container instead of duplicating it?</li>
+    <li>Does plain <code>down</code> remove <code>shop_dbdata</code>?</li>
+    <li>At what exact conceptual boundary does Compose stop?</li>
+  </ol>
+  <details><summary>Answers</summary>
+    <ol class="small">
+      <li>A resolved compose-go <code>types.Project</code>.</li>
+      <li><code>web</code> is desired service configuration; <code>shop-web-1</code> is one concrete Engine container instance satisfying it.</li>
+      <li>By querying ordinary Engine resources using Compose identity labels such as <code>com.docker.compose.project</code> and service/config metadata.</li>
+      <li>Dependency start ordering, not application readiness.</li>
+      <li>Compose reloads desired state, rediscovers existing objects, and convergence compares config/image/network/volume expectations to decide reuse versus replacement.</li>
+      <li>No. The named project volume is kept unless volume removal is explicitly requested, e.g. <code>down -v</code>.</li>
+      <li>At the Docker Engine API. From there <code>dockerd</code> and the ordinary runtime stack own the actual Docker/container execution work.</li>
+    </ol>
+  </details>
+</section>
+
+<section>
+  <h2>Recap</h2>
+  <pre><code>Compose files
+    ↓
+resolved Project
+    ↓
+project names + Compose labels
+    ↓
+ensure networks / volumes
+    ↓
+find existing labeled containers
+    ↓
+reuse / recreate / scale / create
+    ↓ Engine API
+dockerd owns Docker objects
+    ↓
+start in dependency order
+    ↓
+Lesson 23 runtime chain</code></pre>
+  <p><strong>If this pipeline is clear, you understand what Compose is internally:</strong> a client-side desired-state translator and reconciler for ordinary Docker Engine resources.</p>
+  <div class="note"><div class="label">next</div><p>Lesson 43 is Swarm mode. It introduces a different orchestration control plane, so this lesson intentionally stops before those concepts.</p></div>
+</section>
+
+<nav class="nav"><a href="lesson-41-image-signing-provenance.html">← Lesson 41</a><a href="#">Lesson 43 → planned</a></nav>
+</main></body></html>

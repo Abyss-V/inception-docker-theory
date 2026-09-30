@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 25 · BuildKit, LLB &amp; the Solver</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.7; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:36px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .oneline{border:1px solid var(--teal-dim); background:linear-gradient(180deg,#0b1615,#0a1210); border-radius:10px; padding:18px 20px; margin:30px 0 8px}
+  .oneline .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); display:block; margin-bottom:8px}
+  .oneline p{margin:0; font-size:20px; line-height:1.5; color:#fff}
+
+  .concept{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:48px 0 4px; display:flex; align-items:center; gap:10px;}
+  .concept .num{width:24px;height:24px;border-radius:50%;border:1px solid var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  h2{font-family:var(--mono); font-weight:600; font-size:21px; margin:8px 0 16px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  .term{color:var(--teal); font-weight:600}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+  .plain{color:var(--dim); font-size:16px; border-left:2px solid var(--rule); padding-left:14px; margin:0 0 18px}
+  .plain b{color:var(--teal); font-weight:600}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--teal); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:20px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  figure.fig{margin:24px 0; border:1px solid var(--rule); border-radius:10px; background:var(--panel); padding:18px; overflow:hidden}
+  figure.fig figcaption{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin:2px 2px 16px}
+  figure.fig svg{display:block; width:100%; height:auto}
+
+  .recap{border:1px solid var(--teal-dim); border-radius:10px; background:#0a1210; padding:20px 22px; margin:30px 0}
+  .recap h3{font-family:var(--mono); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:0 0 14px}
+  .recap ul{margin:0; padding-left:20px} .recap li{margin:0 0 10px; color:var(--bone)} .recap li:last-child{margin:0}
+  .recap li b{color:#fff}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:60px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:38px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-24-legacy-build-pipeline.html">← Lesson 24</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-26-dockerfile-instructions.html">Lesson 26 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part IV — Building &amp; running</div>
+  <div class="lesson-no">25</div>
+  <span class="pill">core</span>
+  <h1>BuildKit: a build is a graph, not a script</h1>
+  <p class="dek">The modern builder throws out the linear chain and compiles your Dockerfile into a content-addressed graph, then solves it — running only what changed, in parallel, with secrets and caches that never leak into layers.</p>
+</header>
+
+<div class="oneline">
+  <span class="lbl">The idea in one sentence</span>
+  <p>BuildKit compiles your Dockerfile into a graph of operations (LLB), then a solver runs only the parts whose inputs changed — in parallel — instead of executing lines top to bottom.</p>
+</div>
+
+<div class="concept"><span class="num">1</span> Start here</div>
+<h2>From a script to a graph</h2>
+
+<p class="plain"><b>Plain version:</b> the legacy builder <em>ran</em> your Dockerfile line by line. BuildKit <em>compiles</em> it into a plan, then works out the least it can do to satisfy that plan.</p>
+
+<p>Lesson 24's builder was imperative: do line 1, commit, do line 2, commit. BuildKit is declarative. It treats your Dockerfile as a <em>description</em> of a desired result, compiles it into a graph of operations, and then a <span class="term">solver</span> figures out which operations actually need to run. This one change — from "execute these steps" to "here's the graph, compute the result" — is where all of BuildKit's advantages come from.</p>
+
+<div class="concept"><span class="num">2</span> The graph</div>
+<h2>LLB: the assembly language of builds</h2>
+
+<p class="plain"><b>Plain version:</b> LLB is a graph where each node is one operation — fetch a source, run a command, copy files — and the arrows show which node needs which.</p>
+
+<p><span class="term">LLB</span> (Low-Level Build definition) is BuildKit's intermediate representation: a content-addressed <strong>DAG</strong> (directed acyclic graph) of operations, defined as protobuf (<span class="srcref">solver/pb/ops.proto</span>). The node types are few: <code class="inl">SourceOp</code> (fetch an image, git repo, or local files), <code class="inl">ExecOp</code> (run a command), <code class="inl">FileOp</code> (copy, mkdir), plus merge/diff ops. Each <code class="inl">Op</code> lists its <em>inputs</em> — and those inputs are the edges that make it a graph rather than a line. Dockerfiles don't run directly anymore; they <em>compile</em> to LLB, the way source compiles to assembly.</p>
+
+<div class="concept"><span class="num">3</span> Frontends</div>
+<h2>The Dockerfile is just one input language</h2>
+
+<p class="plain"><b>Plain version:</b> a "frontend" is a translator that turns some high-level format into LLB. Dockerfiles are one; you could write others.</p>
+
+<p>A <span class="term">frontend</span> converts a high-level build format into LLB. The Dockerfile frontend (<span class="srcref">frontend/dockerfile/dockerfile2llb</span>, function <code class="inl">Dockerfile2LLB</code>) parses your Dockerfile and emits the LLB graph. Because the frontend is pluggable, the Dockerfile is just <em>one</em> supported language — and the <code class="inl"># syntax=docker/dockerfile:1</code> line at the top of a Dockerfile actually selects a frontend <em>container image</em>, so you can get new Dockerfile features by bumping that line without upgrading Docker itself.</p>
+
+<figure class="fig">
+  <figcaption>Diagram · LLB is a DAG — independent branches run in parallel; a change only reruns its descendants</figcaption>
+  <svg viewBox="0 0 680 300" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,Consolas,monospace">
+    <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#6b7482" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+    <!-- build branch -->
+    <rect x="24" y="40" width="150" height="38" rx="7" fill="#0d1420" stroke="#4a7fb5"/>
+    <text x="99" y="63" text-anchor="middle" fill="#8fbdf0" font-size="11">FROM golang · source</text>
+    <rect x="24" y="96" width="150" height="38" rx="7" fill="#12100a" stroke="#7a6636"/>
+    <text x="99" y="119" text-anchor="middle" fill="#e0b155" font-size="11">context (src) · source</text>
+
+    <rect x="250" y="68" width="150" height="38" rx="7" fill="#0a1614" stroke="#5ac4b4"/>
+    <text x="325" y="91" text-anchor="middle" fill="#5ac4b4" font-size="11">RUN go build · exec</text>
+
+    <!-- runtime branch -->
+    <rect x="24" y="200" width="150" height="38" rx="7" fill="#0d1420" stroke="#4a7fb5"/>
+    <text x="99" y="223" text-anchor="middle" fill="#8fbdf0" font-size="11">FROM alpine · source</text>
+
+    <!-- converge -->
+    <rect x="470" y="120" width="160" height="38" rx="7" fill="#161326" stroke="#7a6bc2"/>
+    <text x="550" y="143" text-anchor="middle" fill="#b3a6ec" font-size="11">COPY --from · file</text>
+
+    <line x1="174" y1="59" x2="250" y2="80" stroke="#6b7482" stroke-width="1.3" marker-end="url(#arrow)"/>
+    <line x1="174" y1="115" x2="250" y2="94" stroke="#6b7482" stroke-width="1.3" marker-end="url(#arrow)"/>
+    <line x1="400" y1="87" x2="470" y2="130" stroke="#6b7482" stroke-width="1.3" marker-end="url(#arrow)"/>
+    <line x1="174" y1="219" x2="470" y2="150" stroke="#6b7482" stroke-width="1.3" marker-end="url(#arrow)"/>
+
+    <text x="325" y="176" text-anchor="middle" fill="#5ac4b4" font-size="10">build branch ↑ and alpine pull ↓ run in parallel</text>
+    <text x="24" y="276" fill="#6b7482" font-size="10">edit the source → only "go build" + "COPY" re-run · the alpine branch stays cached</text>
+    <text x="24" y="292" fill="#6b7482" font-size="10">each node has a cache key from its op + its inputs' keys — caching follows the graph, not a line</text>
+  </svg>
+</figure>
+
+<div class="concept"><span class="num">4</span> The solver</div>
+<h2>How the graph gets executed</h2>
+
+<p class="plain"><b>Plain version:</b> the solver walks the graph, and for each node asks "have I already computed this?" — running the node only if not.</p>
+
+<p>The <span class="term">solver</span> (<span class="srcref">solver/scheduler.go</span>, <span class="srcref">solver/jobs.go</span>) takes the LLB graph and computes the result. For each vertex it derives a <strong>cache key</strong> from that vertex's operation plus its inputs' cache keys, checks the cache, and executes the operation <em>only on a miss</em>. Execution of an <code class="inl">ExecOp</code> is handed to a <em>worker</em>, which runs the step in a container via runc/containerd — so the run pipeline you learned in Lesson 23 is what actually executes each build step. The solver's scheduler works on the graph's edges, which is what lets it run independent vertices at the same time.</p>
+
+<div class="concept"><span class="num">5</span> The payoffs</div>
+<h2>Parallelism and graph-aware caching</h2>
+
+<p class="plain"><b>Plain version:</b> because it's a graph, unrelated steps run at once, and a change only reruns the steps that actually depend on it.</p>
+
+<p>Two big wins fall directly out of the DAG. <strong>Parallelism:</strong> branches with no dependency between them run concurrently — while your app compiles, the runtime base image can be pulled at the same time. <strong>Graph-aware caching:</strong> a change invalidates only the vertex you changed and the vertices <em>downstream</em> of it; unrelated branches stay cached. This is the fix for Lesson 24's linear cache, where an early change rebuilt everything after it regardless of relevance. BuildKit can also <strong>export and import</strong> its cache (e.g. to a registry), so CI machines share build cache.</p>
+
+<div class="concept"><span class="num">6</span> The new power</div>
+<h2>Cache mounts and secret mounts</h2>
+
+<p class="plain"><b>Plain version:</b> a step can mount a persistent cache dir or a secret that exists only during that step and never lands in a layer.</p>
+
+<p>Because every <code class="inl">ExecOp</code> declares its mounts explicitly (<span class="srcref">ops.proto: Mount</span>, with <code class="inl">CacheOpt</code> and <code class="inl">SecretOpt</code>), BuildKit can attach mounts the legacy builder never could. A <strong>cache mount</strong> (<code class="inl">RUN --mount=type=cache,target=/root/.cache</code>) persists a directory <em>across builds</em> — your package downloads survive, without becoming a layer. A <strong>secret mount</strong> (<code class="inl">RUN --mount=type=secret,id=token</code>) exposes a secret to <em>one step</em> and leaves no trace in any layer — directly solving the "deleted secret is still in the layer" leak from Lesson 17. These are impossible in a commit-chain model and natural in a graph of explicitly-mounted ops.</p>
+
+<div class="keybox">
+  <div class="h">Why the graph changes everything</div>
+  <p>Every BuildKit advantage — parallel steps, precise caching, cache sharing, cache/secret mounts — is a consequence of one decision: represent the build as a content-addressed graph of explicitly-connected operations, and solve it, rather than execute a line-by-line script.</p>
+</div>
+
+<span class="step">Inspect it yourself</span>
+<p>Watch parallel steps, and use a mount the legacy builder couldn't:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> <span class="o"># BuildKit is the default; parallel steps show as concurrent progress:</span>
+<span class="p">$</span> docker buildx build -t demo .
+<span class="o"> => [build 2/3] RUN go build …        <span class="hl"># these two run</span></span>
+<span class="o"> => [stage-1 1/2] FROM alpine …       <span class="hl"># at the same time</span></span>
+
+<span class="p">$</span> <span class="o"># a cache mount: deps persist across builds, never a layer</span>
+<span class="p">$</span> <span class="o"># RUN --mount=type=cache,target=/root/.cache/go-build go build ./...</span>
+
+<span class="p">$</span> <span class="o"># a secret mount: token available to one step, not baked in</span>
+<span class="p">$</span> docker buildx build --secret id=tok,src=./token.txt .
+<span class="o"># in Dockerfile:  RUN --mount=type=secret,id=tok  curl -H @/run/secrets/tok …</span>
+
+<span class="p">$</span> <span class="o"># dump the LLB graph a Dockerfile compiles to:</span>
+<span class="p">$</span> docker buildx build --print=llb . 2>/dev/null | head</pre>
+</figure>
+
+<div class="recap">
+  <h3>Check yourself</h3>
+  <ul>
+    <li>BuildKit is <b>declarative</b>: it compiles the Dockerfile into a graph and solves it, instead of running lines in order.</li>
+    <li><b>LLB</b> is a content-addressed <b>DAG</b> of ops — <code class="inl">SourceOp</code>, <code class="inl">ExecOp</code>, <code class="inl">FileOp</code> — each listing its inputs (the edges).</li>
+    <li>A <b>frontend</b> translates a format into LLB; the Dockerfile is one, selected by <code class="inl"># syntax=</code>.</li>
+    <li>The <b>solver</b> computes a cache key per vertex and runs only misses, dispatching exec steps to a worker (runc/containerd).</li>
+    <li>The graph gives <b>parallelism</b> and <b>graph-aware caching</b> (change → only descendants rerun), plus cache export/import.</li>
+    <li>Explicit mounts enable <b>cache mounts</b> and <b>secret mounts</b> — impossible in the legacy commit-chain.</li>
+  </ul>
+</div>
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>"BuildKit is just a faster Dockerfile builder" undersells it — it's a different model. The Dockerfile isn't executed at all; it's <em>compiled</em> to LLB, and the LLB graph is what runs, which is why builds parallelize and cache by dependency instead of by line. And the secret-leak lesson from earlier finally has a real fix: a secret mount is present only for one step and never becomes a layer — so "I deleted it in the next line" is replaced by "it was never in a layer to begin with."</p>
+</aside>
+
+<div style="font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:44px 0 4px">Where we are</div>
+<h2>Summary</h2>
+<p>BuildKit replaces the linear commit-chain with a <strong>graph</strong>. A <strong>frontend</strong> compiles your Dockerfile into <strong>LLB</strong> — a content-addressed DAG of <code class="inl">SourceOp</code>/<code class="inl">ExecOp</code>/<code class="inl">FileOp</code> nodes wired by their inputs — and the <strong>solver</strong> computes a cache key for each vertex, runs only the misses (dispatching exec steps to a runc/containerd worker), and schedules independent vertices in <strong>parallel</strong>. Caching follows the graph, so a change reruns only its descendants; cache can be exported and shared; and explicitly-mounted ops enable <strong>cache</strong> and <strong>secret</strong> mounts that never touch a layer. Every advantage traces back to representing a build as a solvable graph. Next, Lesson 26 walks every Dockerfile instruction and shows exactly what LLB each one compiles to.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 24 · the legacy chain</span>
+  <span class="xref"><b>back ←</b> Lesson 23 · runc worker</span>
+  <span class="xref"><b>forward →</b> Lesson 26 · every Dockerfile instruction</span>
+  <span class="xref"><b>forward →</b> Lesson 27 · multi-stage builds</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">24 · The legacy build pipeline</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">26 · Dockerfile instructions in depth</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

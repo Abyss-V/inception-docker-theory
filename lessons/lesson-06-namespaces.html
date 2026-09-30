@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 06 · Namespaces</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.65; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:44px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--teal); margin:52px 0 4px; display:flex; align-items:center; gap:10px;}
+  .eyebrow::before{content:""; width:16px; height:1px; background:var(--teal); opacity:.6}
+  h2{font-family:var(--mono); font-weight:600; font-size:22px; margin:6px 0 18px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--gold); display:inline-block; padding:3px 9px; border-radius:3px; margin:40px 0 10px; font-weight:600;}
+  .step.verify{background:var(--teal)}
+
+  figure.src{margin:14px 0 8px; border:1px solid var(--gold-dim); border-radius:8px; overflow:hidden; background:var(--well)}
+  figure.src .tab{font-family:var(--mono); font-size:12px; color:var(--gold); background:linear-gradient(180deg,#1c1a12,#141109); border-bottom:1px solid var(--gold-dim); padding:8px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  figure.src .tab .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none}
+  figure.src .tab .path{overflow-wrap:anywhere}
+  figure.src .tab .repo{color:var(--faint); margin-left:auto; font-size:11px}
+  figure.src pre{margin:0; padding:16px 16px; overflow-x:auto}
+  pre,code{font-family:var(--mono)}
+  pre{font-size:13px; line-height:1.6; color:#d7d2c4}
+  pre .kw{color:var(--rose)} pre .fn{color:var(--teal)} pre .cmt{color:var(--faint); font-style:italic}
+  pre .str{color:var(--gold)} pre .field{color:var(--gold)}
+  .keyline{background:rgba(224,177,81,.10); border-left:2px solid var(--gold); display:block; padding-left:8px; margin-left:-10px}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{padding:14px 16px; color:#bfe6df; font-size:13px}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:16px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0 0 10px}.keybox p:last-child{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  table.ns{width:100%; border-collapse:collapse; margin:18px 0; font-size:15.5px}
+  table.ns th,table.ns td{text-align:left; padding:9px 10px; border-bottom:1px solid var(--rule); vertical-align:top}
+  table.ns th{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint)}
+  table.ns td.f{font-family:var(--mono); font-size:12.5px; color:var(--gold); white-space:nowrap}
+  table.ns td.n{font-family:var(--mono); font-size:12.5px; color:var(--teal)}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:70px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  .lead{font-size:20px; line-height:1.6; color:var(--bone)}
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:40px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-05-the-shim-in-depth.html">← Lesson 05</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-07-user-namespaces.html">Lesson 07 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part II — Kernel primitives</div>
+  <div class="lesson-no">06</div>
+  <h1>Namespaces: the eight private views that make a container</h1>
+  <p class="dek">A namespace is how the one shared kernel gives a process its own private copy of some global resource. There are eight of them, each one flag. This lesson reads all eight out of runc, the three syscalls that wield them, and the two subtleties that trip everyone up: why the user namespace goes first, and why one process has two PIDs.</p>
+</header>
+
+<p class="lead">Lesson 1 said a container is a process placed in a configured environment, and that the isolation is "a dial." Namespaces <em>are</em> that dial. Now we make it concrete: what a namespace is, the eight kinds, how the kernel creates and joins them, and the two behaviors that seem like magic until you see the source — the user-namespace ordering rule and the "same process, two PIDs" effect.</p>
+
+<div class="eyebrow">The intuition</div>
+<h2>What is a namespace, really?</h2>
+
+<p>Normally every process on a machine shares one global version of certain resources. There is <em>one</em> list of process IDs. <em>One</em> filesystem tree rooted at <code class="inl">/</code>. <em>One</em> set of network interfaces. <em>One</em> hostname. When you run <code class="inl">ps</code>, you see everyone's processes, because PIDs are global.</p>
+
+<p>A <strong>namespace</strong> is the kernel's mechanism for taking one of those global resources and giving a process a <em>private, independent copy</em> of it. Put a process in a new PID namespace and it now sees its own numbering of processes, starting fresh from 1, with no visibility of anyone outside. Put it in a new network namespace and it gets its own empty network stack — no interfaces except what you add. The kernel maintains each of these private copies internally and tags every process with which copy it belongs to.</p>
+
+<p>The critical thing: namespaces are <em>per-resource</em>. There isn't one "container namespace." There are eight separate namespace types, one for each kind of global resource the kernel learned to partition, and you mix and match them. A container is usually a process placed in a fresh instance of most or all eight at once. Let's see the definitive list — from runc, not memory.</p>
+
+<div class="eyebrow">Mechanism 1</div>
+<h2>The eight namespaces</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Each namespace type is named by a kernel constant of the form <code class="inl">CLONE_NEW*</code> — the same constant you pass to a syscall to ask for a fresh one. runc keeps the authoritative mapping from its own type names to those kernel flags in one small file:</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">libcontainer/configs/namespaces_syscall.go</span><span class="repo">opencontainers/runc</span></div>
+<pre>var namespaceInfo = map[NamespaceType]int{
+<span class="keyline">    NEWNET:    unix.CLONE_NEWNET,     NEWNS:     unix.CLONE_NEWNS,</span>
+<span class="keyline">    NEWUSER:   unix.CLONE_NEWUSER,    NEWIPC:    unix.CLONE_NEWIPC,</span>
+<span class="keyline">    NEWUTS:    unix.CLONE_NEWUTS,     NEWPID:    unix.CLONE_NEWPID,</span>
+<span class="keyline">    NEWCGROUP: unix.CLONE_NEWCGROUP,  NEWTIME:   unix.CLONE_NEWTIME,</span>
+}</pre>
+</figure>
+<p>And the C side names each with the filename it appears as under <code class="inl">/proc</code> (we use these names in the inspect step):</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">libcontainer/nsenter/nsexec.c — struct namespace_t table</span><span class="repo">opencontainers/runc</span></div>
+<pre>{ CLONE_NEWCGROUP, <span class="str">"cgroup"</span> },  { CLONE_NEWIPC,  <span class="str">"ipc"</span>  },
+{ CLONE_NEWNS,     <span class="str">"mnt"</span>    },  { CLONE_NEWNET,  <span class="str">"net"</span>  },
+{ CLONE_NEWPID,    <span class="str">"pid"</span>    },  { CLONE_NEWTIME, <span class="str">"time"</span> },
+{ CLONE_NEWUSER,   <span class="str">"user"</span>   },  { CLONE_NEWUTS,  <span class="str">"uts"</span>  },</pre>
+</figure>
+
+<span class="step">Step 3 · What each one isolates</span>
+<table class="ns">
+  <tr><th>Flag</th><th>/proc name</th><th>The global resource it gives a private copy of</th></tr>
+  <tr><td class="f">CLONE_NEWNS</td><td class="n">mnt</td><td>The set of <strong>mount points</strong> — the filesystem tree. This is what lets a container have its own <code class="inl">/</code>. (Named "NEWNS" because in 2002 it was the <em>first</em> namespace and there were no others to disambiguate from.)</td></tr>
+  <tr><td class="f">CLONE_NEWPID</td><td class="n">pid</td><td><strong>Process IDs.</strong> A fresh numbering starting at 1; processes inside can't see or signal processes outside.</td></tr>
+  <tr><td class="f">CLONE_NEWNET</td><td class="n">net</td><td>The <strong>network stack</strong> — interfaces, routing tables, firewall rules, port space. A new net namespace starts with nothing but a loopback. (Covered in Lessons 33–34.)</td></tr>
+  <tr><td class="f">CLONE_NEWIPC</td><td class="n">ipc</td><td><strong>Inter-process communication</strong> objects: System V message queues/semaphores/shared memory and POSIX message queues.</td></tr>
+  <tr><td class="f">CLONE_NEWUTS</td><td class="n">uts</td><td>The <strong>hostname</strong> and NIS domain name. (UTS = "UNIX Time-sharing System," the struct these fields historically lived in.) This is why a container can have its own hostname.</td></tr>
+  <tr><td class="f">CLONE_NEWUSER</td><td class="n">user</td><td><strong>User and group IDs</strong>, and the <strong>capability</strong> sets. Maps UIDs inside to different UIDs outside — root in the container can be an unprivileged UID on the host. The keystone of the ordering rule below.</td></tr>
+  <tr><td class="f">CLONE_NEWCGROUP</td><td class="n">cgroup</td><td>The <strong>view</strong> of the cgroup hierarchy — it virtualizes what the process sees as the cgroup root, so it can't see the host's cgroup layout. (Distinct from cgroups-the-limiter, Lesson 9–10.)</td></tr>
+  <tr><td class="f">CLONE_NEWTIME</td><td class="n">time</td><td>Offsets for the <strong>boot and monotonic clocks</strong> (Linux 5.6+). Lets a container present a different uptime/boot time. The one most tutorials forget.</td></tr>
+</table>
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>The internet's stock answer is "six namespaces": mnt, pid, net, ipc, uts, user. The source lists <strong>eight</strong> — <code class="inl">cgroup</code> (Linux 4.6) and <code class="inl">time</code> (Linux 5.6) are the two that get dropped because they arrived later. runc creates all of them; we teach all of them.</p>
+</aside>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 2</div>
+<h2>Three syscalls: create, move, join</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Those <code class="inl">CLONE_NEW*</code> flags are used by three different syscalls, and the difference between them is the difference between the whole operations Docker performs. <strong><code class="inl">clone()</code></strong> creates a <em>new child process</em> that is already inside fresh namespaces — this is how a container's first process is born. <strong><code class="inl">unshare()</code></strong> moves the <em>calling</em> process into new namespaces without forking (with one exception we'll hit). <strong><code class="inl">setns()</code></strong> makes the caller <em>join an already-existing</em> namespace, given a file descriptor pointing at it — this is how <code class="inl">docker exec</code> steps into a running container (Lesson 8).</p>
+
+<span class="step">Step 2 · The source</span>
+<p>All three appear in nsexec.c, the tiny C program runc runs before Go starts, precisely so namespace setup happens at the lowest level:</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">libcontainer/nsenter/nsexec.c</span><span class="repo">opencontainers/runc</span></div>
+<pre><span class="cmt">// create a child already in new namespaces:</span>
+<span class="keyline">return clone(child_func, ca.stack_ptr, CLONE_PARENT | SIGCHLD, &amp;ca);</span>
+
+<span class="cmt">// move the caller into new namespaces:</span>
+<span class="keyline">if (unshare(flags) == 0) { ... }</span>
+
+<span class="cmt">// join an existing namespace via an fd (setns wrapper):</span>
+<span class="keyline">int setns(int fd, int nstype) { return syscall(SYS_setns, fd, nstype); }</span>
+...
+<span class="keyline">err = setns(ns->fd, type);</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>Three verbs, three jobs. <code class="inl">clone(... CLONE_PARENT | SIGCHLD ...)</code> spawns the container's process directly inside its new namespaces. <code class="inl">unshare(flags)</code> relocates the current process. <code class="inl">setns(fd, type)</code> takes an fd — which you get by opening <code class="inl">/proc/PID/ns/net</code> and friends (next mechanism) — and drops the caller into that already-live namespace. Keep these straight: "create with clone," "move with unshare," "join with setns."</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 3</div>
+<h2>Namespaces are files: <code style="font-size:.85em">/proc/self/ns/</code></h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>How do you <em>see</em> which namespaces a process is in, or get the fd that <code class="inl">setns()</code> needs? The kernel exposes every process's namespaces as magic symlinks under <code class="inl">/proc/&lt;pid&gt;/ns/</code>, one per type. Each link "points at" a string like <code class="inl">net:[4026531840]</code> — the number in brackets is the namespace's <strong>inode</strong>, a unique id for that particular namespace instance. Two processes in the same network namespace show the <em>same</em> inode; processes in different ones show different inodes. That single fact is your entire toolkit for verifying isolation: compare the inode numbers.</p>
+
+<span class="step verify">Step 2 &amp; 4 · The source is the filesystem — inspect it</span>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> ls -l /proc/self/ns/
+<span class="o">lrwxrwxrwx cgroup -> cgroup:[4026531835]</span>
+<span class="o">lrwxrwxrwx ipc    -> ipc:[4026531839]</span>
+<span class="o">lrwxrwxrwx mnt    -> mnt:[4026531841]</span>
+<span class="o">lrwxrwxrwx net    -> <span class="hl">net:[4026531840]</span></span>          <span class="o"># remember this inode</span>
+<span class="o">lrwxrwxrwx pid    -> pid:[4026531836]</span>
+<span class="o">lrwxrwxrwx time   -> time:[4026531834]</span>
+<span class="o">lrwxrwxrwx user   -> user:[4026531837]</span>
+<span class="o">lrwxrwxrwx uts    -> uts:[4026531838]</span>       <span class="o"># eight links — the eight namespaces</span>
+
+<span class="p">$</span> docker run --rm alpine readlink /proc/self/ns/net
+<span class="o">net:[4026532567]</span>                          <span class="o"># DIFFERENT inode → its own network namespace</span>
+
+<span class="p">$</span> docker run --rm --net=host alpine readlink /proc/self/ns/net
+<span class="o"><span class="hl">net:[4026531840]</span></span>                          <span class="o"># SAME as the host → --net=host literally shares the ns</span></pre>
+</figure>
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>The inode in brackets is identity. The plain container gets a fresh <code class="inl">net</code> inode (isolated); <code class="inl">--net=host</code> yields the <em>host's</em> inode, proving that "host networking" isn't a special mode — it's just <em>not creating</em> a new net namespace, so the process stays in the host's. Every Docker network/pid/ipc mode reduces to "make a new one" vs "reuse an existing inode."</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 4 · subtlety #1</div>
+<h2>Why the user namespace must go first</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Here is the ordering rule everyone eventually trips on. Creating almost any namespace requires the capability <code class="inl">CAP_SYS_ADMIN</code> — effectively, being root. An unprivileged user doesn't have it, so they can't make a PID or network namespace directly. <strong>Except</strong>: creating a <em>user</em> namespace requires no privilege at all. And the moment you're inside a new user namespace, the kernel makes you <em>root within it</em>, handing you a full capability set <em>scoped to that namespace</em>. With those capabilities you can now create the other seven.</p>
+<p>So the user namespace is the key that unlocks the rest: enter it first, and you gain the privilege to build everything else — even starting as an ordinary user. That is the whole foundation of rootless containers (Lesson 44). Which is exactly why runc pins its order:</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">libcontainer/configs/namespaces_linux.go — NamespaceTypes()</span><span class="repo">opencontainers/runc</span></div>
+<pre>return []NamespaceType{
+<span class="keyline">    NEWUSER, // Keep user NS always first, don't move it.</span>
+    NEWIPC, NEWUTS, NEWNET, NEWPID, NEWNS, NEWCGROUP, NEWTIME,
+}</pre>
+</figure>
+<p>Implementing that rule is famously fiddly, and the maintainers left an unusually candid comment about why they clone <em>then</em> unshare instead of just unsharing the user namespace up front:</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">libcontainer/nsenter/nsexec.c</span><span class="repo">opencontainers/runc</span></div>
+<pre><span class="cmt">/*
+ * Okay, so this is quite annoying.
+ * ...
+ * However, if we unshare(2) the user namespace *before* we clone(2), then
+ * all hell breaks loose.
+ * The parent no longer has permissions to do many things (unshare(2) drops
+ * all capabilities in your old namespace), and the container cannot be set
+ * up to have more than one {uid,gid} mapping. ...
+ * In order to fix this, we have to first clone(2) and then unshare.
+ */</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>Two facts, one rule. <strong>Rule:</strong> the user namespace is created/entered before the others, because it is what grants the capabilities needed to create the others. <strong>Implementation wrinkle:</strong> runc can't simply <code class="inl">unshare(CLONE_NEWUSER)</code> in the parent, because <code class="inl">unshare</code> immediately strips that parent's capabilities in its old namespace and caps it at a single uid/gid mapping — so runc <code class="inl">clone()</code>s a child first and does the userns work in the child. The comment's "all hell breaks loose" is the source telling you, in plain English, why the ordering isn't optional.</p>
+</div>
+
+<aside class="note"><b>The mirror rule for joining.</b> When <em>joining</em> existing namespaces with <code class="inl">setns()</code> (the <code class="inl">docker exec</code> path), nsexec.c does the reverse dance: join every non-user namespace first, <em>then</em> the user namespace, then anything left — because for rootless containers you <em>"don't get setns(2) permissions until we join the userns and get CAP_SYS_ADMIN."</em> Same principle (userns carries the privilege), opposite direction. We pick this apart in Lesson 8.</aside>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 5 · subtlety #2</div>
+<h2>Same process, two PIDs</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>The PID namespace has a quirk the source calls out directly: <em>it only applies to children.</em> Calling <code class="inl">unshare(CLONE_NEWPID)</code> does not move the caller into the new PID namespace — the caller keeps its old PID. Instead, the caller's <em>next forked child</em> becomes the first process in the new namespace, and the kernel assigns it <strong>PID 1</strong> there. This is why runc has to fork to enter a PID namespace at all.</p>
+<p>The consequence is the thing that confuses newcomers: that child process now has <strong>two PIDs simultaneously</strong>. Inside its own PID namespace it is PID 1. Out on the host, in the global PID namespace, it has some ordinary number like 4141. One process, two identities, because it's a member of two nested namespaces at once and each numbers it independently. The host can see and signal it by 4141; inside, your app sees itself as 1.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">libcontainer/nsenter/nsexec.c</span><span class="repo">opencontainers/runc</span></div>
+<pre><span class="cmt">/* ... We have to fork to enter the
+ * PID namespace (the PID namespace only applies to children). Since we'll
+ * have to double-fork ... this clone_parent() call won't be able to get the
+ * PID of the _actual_ init process ... */</span></pre>
+</figure>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<p>See the two PIDs of a single process side by side — the host number and the in-container number:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> docker run -d --name twopid alpine sleep 1000
+<span class="p">$</span> docker inspect -f '{{.State.Pid}}' twopid
+<span class="o">4141</span>                               <span class="o"># its PID on the HOST</span>
+<span class="p">$</span> docker exec twopid sh -c 'echo $$; ps -o pid,comm'
+<span class="o">1</span>                                  <span class="o"># the SAME process is PID 1 INSIDE</span>
+<span class="o">  PID COMMAND</span>
+<span class="o">    1 sleep</span>                          <span class="o"># and it sees itself as pid 1, alone</span>
+
+<span class="p">$</span> <span class="o"># make one yourself, no Docker: pid ns only affects the forked child</span>
+<span class="p">$</span> sudo unshare --pid --fork --mount-proc sh -c 'echo inside=$$; ps'
+<span class="o">inside=1</span>                           <span class="o"># the forked shell is pid 1 in its new pid ns</span></pre>
+</figure>
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p><code class="inl">4141</code> and <code class="inl">1</code> are the same running program. The <code class="inl">--fork</code> in the manual <code class="inl">unshare</code> is mandatory precisely because of the "applies to children" rule — without it, <code class="inl">unshare --pid</code> would create the namespace but leave your shell outside it, and the first thing you ran would fail to become PID 1. This dual-PID fact is what makes "PID 1 in a container is your app" true, and it's the setup for Lesson 28, where being PID 1 turns out to carry real kernel responsibilities.</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Where we are</div>
+<h2>Summary</h2>
+<p>A namespace is a private copy of one global kernel resource, and there are <strong>eight</strong> — mnt, pid, net, ipc, uts, user, cgroup, time — each a <code class="inl">CLONE_NEW*</code> flag in runc's source. Three syscalls wield those flags: <code class="inl">clone()</code> creates a child already inside new namespaces, <code class="inl">unshare()</code> moves the caller, <code class="inl">setns()</code> joins an existing one via an fd. You can see and compare any process's namespaces as inode-bearing symlinks under <code class="inl">/proc/&lt;pid&gt;/ns/</code>, which is how <code class="inl">--net=host</code> is revealed to be nothing but "reuse the host's inode." Two subtleties live in the source: the <strong>user namespace must come first</strong> because it's the unprivileged key that grants the capabilities to create the rest (runc clones-then-unshares to pull this off, as its "quite annoying" comment attests), and the <strong>PID namespace only applies to children</strong>, so a container's first process holds two PIDs at once — 1 inside, its real number on the host. Next: the flip side of <code class="inl">setns()</code> — how <code class="inl">docker exec</code> joins these exact namespaces to step inside a running container.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 01 · Shared kernel, clone flags</span>
+  <span class="xref"><b>forward →</b> Lesson 08 · docker exec &amp; setns()</span>
+  <span class="xref"><b>forward →</b> Lesson 28 · PID 1 duties</span>
+  <span class="xref"><b>forward →</b> Lessons 33–34 · Container networking</span>
+  <span class="xref"><b>forward →</b> Lesson 44 · Rootless (userns)</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">05 · The shim in depth</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">07 · User namespaces &amp; userns-remap</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

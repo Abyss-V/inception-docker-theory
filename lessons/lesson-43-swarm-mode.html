@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 43 — Swarm mode</title>
+<style>
+:root{--ink:#0e1116;--panel:#161b22;--well:#0a0d12;--bone:#e9e4d7;--dim:#9aa4b2;--faint:#6b7482;--rule:#262d38;--gold:#e0b155;--gold-dim:#7a6636;--teal:#5ac4b4;--teal-dim:#2f5f59;--rose:#d76d7f;--rose-dim:#6e3540;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--serif:"Iowan Old Style",Charter,Georgia,Cambria,serif}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--ink);color:var(--bone);font:18px/1.7 var(--serif)}.wrap{max-width:760px;margin:auto;padding:24px}
+header{padding:32px 0 20px;border-bottom:1px solid var(--rule)}.eyebrow{font:12px var(--mono);color:var(--gold);letter-spacing:.12em;text-transform:uppercase}h1{font-size:44px;line-height:1.05;margin:.35rem 0 1rem}.deck{color:#cfc8b8}.pill{display:inline-block;border:1px solid var(--teal-dim);color:var(--teal);font:12px var(--mono);padding:4px 8px;border-radius:999px}
+section{padding:26px 0;border-bottom:1px solid rgba(255,255,255,.04)}h2{font-size:29px;line-height:1.2;margin:0 0 14px}h3{font-size:21px;margin:22px 0 8px}strong{color:#f4f0e6}code,pre{font-family:var(--mono)}code{background:#11161d;border:1px solid #2b3440;border-radius:6px;padding:1px 5px;color:#f2d493}pre{background:var(--well);border:1px solid var(--rule);border-radius:12px;padding:14px;overflow:auto;color:#d8e0e7;line-height:1.5;white-space:pre-wrap}
+.idea,.note,.warn,.inspect,.boundary{padding:15px 17px;border-radius:14px;border:1px solid var(--rule);margin:15px 0}.idea,.inspect{border-left:4px solid var(--teal);background:#101a1a}.note{border-left:4px solid var(--gold);background:#17140e}.warn,.boundary{border-left:4px solid var(--rose);background:#1a1013}.label{font:12px var(--mono);text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px}.idea .label,.inspect .label{color:var(--teal)}.note .label{color:var(--gold)}.warn .label,.boundary .label{color:var(--rose)}
+.figure{background:var(--panel);border:1px solid var(--rule);border-radius:16px;padding:16px;margin:18px 0}.pipeline{display:grid;gap:7px}.pipebox{border:1px solid var(--rule);border-radius:11px;padding:11px 13px;background:#111820}.pipebox strong{display:block;font:14px var(--mono);color:var(--teal);margin-bottom:3px}.pipearr{text-align:center;color:var(--gold);font:17px var(--mono)}
+.table{width:100%;border-collapse:collapse;margin:13px 0}.table th,.table td{border-bottom:1px solid var(--rule);padding:9px;vertical-align:top}.table th{font:12px var(--mono);color:var(--gold);text-align:left}.src{color:var(--gold);font:13px/1.55 var(--mono)}.small{font-size:15px;color:var(--dim)}a{color:var(--teal);text-decoration-color:var(--teal-dim)}details{background:#12171e;border:1px solid var(--rule);border-radius:12px;padding:11px 13px;margin-top:10px}summary{cursor:pointer;color:var(--gold);font-family:var(--mono)}.nav{display:flex;justify-content:space-between;gap:12px;padding-top:22px}.nav a{display:block;border:1px solid var(--teal-dim);border-radius:12px;padding:10px 12px;text-decoration:none;font:13px var(--mono)}
+@media(max-width:650px){h1{font-size:36px}.wrap{padding:18px}.table{font-size:15px}.nav{flex-direction:column}}
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-42-docker-compose.html">← Lesson 42</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-44-docker-security-boundary.html">Lesson 44 →</a></span></nav><main class="wrap">
+<header>
+  <div class="eyebrow">Part 7 · Orchestration · Lesson 43</div>
+  <h1>Swarm mode</h1>
+  <p class="deck">Swarm adds a long-running cluster control loop inside <code>dockerd</code>. It decides which node should execute each desired task; it does not replace the container runtime underneath that node.</p>
+  <span class="pill">DEEP-CUT</span>
+</header>
+
+<section>
+  <div class="idea"><div class="label">one sentence first</div><p><strong>A Swarm service is replicated desired state; a task is one scheduled attempt to realize part of that state; only the worker finally turns an assigned task into an ordinary Docker container.</strong></p></div>
+</section>
+
+<section>
+  <h2>1. See the complete pipeline first</h2>
+  <p>Use one example for the whole lesson:</p>
+  <pre><code>docker network create --driver overlay appnet
+
+docker service create \
+  --name web \
+  --replicas 2 \
+  --network appnet \
+  --publish published=8080,target=80 \
+  nginx:1.27-alpine</code></pre>
+
+  <div class="figure"><div class="pipeline">
+    <div class="pipebox"><strong>Docker CLI</strong><code>docker service create</code> builds a service specification and sends an Engine API request to a manager.</div>
+    <div class="pipearr">↓ ServiceSpec</div>
+    <div class="pipebox"><strong>manager dockerd → embedded Swarm control plane</strong>Validate/convert the request and create a persistent <code>Service</code> object.</div>
+    <div class="pipearr">↓ store mutation proposed through Raft</div>
+    <div class="pipebox"><strong>manager leader</strong>The replicated-service orchestrator sees “2 replicas wanted” and creates two <code>Task</code> objects.</div>
+    <div class="pipearr">↓ unassigned Tasks</div>
+    <div class="pipebox"><strong>scheduler</strong>Choose eligible nodes and write a <code>NodeID</code> into each task.</div>
+    <div class="pipearr">↓ assigned Task + dependencies</div>
+    <div class="pipebox"><strong>dispatcher → worker agent</strong>Stream each node the tasks, secrets/configs, volumes, and other dependencies it needs.</div>
+    <div class="pipearr">↓ local execution request</div>
+    <div class="pipebox"><strong>worker dockerd executor</strong>Create and start a managed Docker container for the task.</div>
+    <div class="pipearr">↓ normal container runtime pipeline</div>
+    <div class="pipebox"><strong>containerd → shim → runc → Linux kernel</strong>The already-taught Lesson 23 path creates the actual process and kernel objects.</div>
+  </div></div>
+
+  <div class="boundary"><div class="label">where Swarm stops</div><p>Swarm owns <strong>cluster desired state, task creation, scheduling, assignment, and reconciliation</strong>. It does not implement namespaces, cgroups, OCI process creation, or a second type of container runtime.</p></div>
+  <p class="src">Pinned family: Docker Engine / Docker CLI 29.6.2. Engine 29.6.2 pins SwarmKit v2.1.3-0.20260609123145-f80b112cff7d (commit f80b112cff7d2fa4b67eff36f0bdd2cbd05be0d8).</p>
+</section>
+
+<section>
+  <h2>2. What changes when Swarm mode is enabled?</h2>
+  <p><code>docker swarm init</code> does not launch a new container daemon. The Docker CLI calls the Engine Swarm API; <code>dockerd</code>'s cluster layer starts a Swarm node inside the daemon.</p>
+  <p>Every Swarm node runs the <strong>agent</strong>: the worker-side component that receives tasks and reports status. A node whose role is <strong>manager</strong> also runs the manager control plane. The pinned source states this directly: a node “handles workloads and may also run as a manager.” So <strong>manager</strong> and <strong>worker execution</strong> are not mutually exclusive roles; managers can execute tasks unless scheduling availability prevents it.</p>
+
+  <table class="table"><thead><tr><th>piece</th><th>job</th></tr></thead><tbody>
+    <tr><td>manager store + Raft</td><td>replicate cluster objects such as services, tasks, nodes, networks, secrets, and configs</td></tr>
+    <tr><td>leader orchestrators</td><td>compare desired service state with current tasks and create/remove/restart/update tasks</td></tr>
+    <tr><td>leader scheduler</td><td>choose a node for an unassigned task</td></tr>
+    <tr><td>dispatcher</td><td>stream each node its assignments and required dependencies</td></tr>
+    <tr><td>agent/executor</td><td>turn an assigned task into local Docker resources and report task status</td></tr>
+  </tbody></table>
+
+  <p>Node identity is also part of this path: the dispatcher derives the caller's Swarm node identity from the authenticated connection before serving that node's assignments. We do not need the full certificate-rotation machinery here; the load-bearing point is that a worker does not simply ask for another node's task list.</p>
+
+  <p class="src">Anchors: Docker CLI 29.6.2 · cli/command/swarm/init.go::runInit; Docker Engine 29.6.2 · daemon/cluster/swarm.go::Cluster.Init; SwarmKit pinned commit · node/node.go::Node/run; manager/dispatcher/dispatcher.go::Assignments.</p>
+</section>
+
+<section>
+  <h2>3. Service → Task → container: keep these three objects separate</h2>
+  <p>For <code>--replicas 2</code>, the command does <strong>not</strong> create two containers in the manager API handler.</p>
+
+  <pre><code>Service "web"
+  desired replicas = 2
+  task template = image + command + networks + resources + ...
+              ↓ orchestrator
+Task A (slot 1)        Task B (slot 2)
+              ↓ scheduler assigns nodes
+Task A → node X        Task B → node Y
+              ↓ worker execution
+container for A        container for B</code></pre>
+
+  <p><strong>Service.</strong> A durable desired-state object. It contains the task template and service mode. For our replicated service, it says the cluster should maintain two replica slots.</p>
+  <p><strong>Task.</strong> One concrete execution attempt generated from that service template. Tasks have their own IDs, status, desired state, and eventually a node assignment.</p>
+  <p><strong>Container.</strong> The local Docker object created by the worker executor after a task reaches that worker.</p>
+
+  <div class="note"><div class="label">source microscope</div>
+  <p>The Engine handler ends by calling the embedded control API:</p>
+  <pre><code>state.controlClient.CreateService(...)</code></pre>
+  <p>The control API stores a <code>Service</code>. Separately, the replicated orchestrator creates missing tasks:</p>
+  <pre><code>store.CreateTask(tx, orchestrator.NewTask(...))</code></pre>
+  <p>That separation is the implementation proof that “service” is not another word for “container.”</p></div>
+
+  <p>Before the service is stored, the Engine path can resolve a tag such as <code>nginx:1.27-alpine</code> to a digest and place the digest-qualified reference into the task template. That reuses the image-identity mechanism from Lessons 39–40; it is not a Swarm-specific image format.</p>
+
+  <p class="src">Anchors: Docker Engine 29.6.2 · daemon/cluster/services.go::CreateService; SwarmKit pinned commit · manager/controlapi/service.go::Server.CreateService; manager/orchestrator/replicated/services.go::reconcile/addTasks.</p>
+</section>
+
+<section>
+  <h2>4. Why Raft is in the middle</h2>
+  <p>If the desired service existed only in one manager's RAM, losing that manager would lose the cluster's intent. Swarm managers therefore replicate control-plane mutations through <strong>Raft</strong>.</p>
+
+  <p>The important implementation chain is:</p>
+  <pre><code>CreateService / UpdateService / task mutation
+                ↓
+MemoryStore.Update(...)
+                ↓ builds StoreAction records
+Raft Node.ProposeValue(...)
+                ↓ consensus / committed log entry
+manager stores apply the committed change</code></pre>
+
+  <p>The in-memory store is therefore a working view <strong>kept in sync with the Raft log</strong>. The Raft node also persists log/snapshot state so a manager can restart and recover the replicated state.</p>
+
+  <div class="warn"><div class="label">correction</div><p>Raft does not schedule containers and does not replicate container processes. It replicates <strong>control-plane state</strong>. The leader-only scheduler/orchestrators react to that state after it is committed.</p></div>
+
+  <p>When a manager becomes leader, the pinned manager code starts the replicated orchestrator and scheduler. Losing leadership stops those leader-only subsystems. That is why there is one active decision-maker for reconciliation/scheduling while the manager set still holds replicated state.</p>
+
+  <p>Operationally, a manager set needs a majority to make progress on Raft writes. A three-manager cluster needs two reachable managers; a five-manager cluster needs three. Workers are not votes in this manager quorum.</p>
+
+  <div class="note"><div class="label">source microscope</div><pre><code>MemoryStore.Update → proposer.ProposeValue(...)
+Node.ProposeValue → underlying Raft proposal + wait for commit</code></pre></div>
+
+  <p class="src">Anchors: SwarmKit pinned commit · manager/state/store/memory.go::MemoryStore.Update/update; manager/state/raft/raft.go::MemoryStore/Run/ProposeValue; manager/manager.go::becomeLeader.</p>
+</section>
+
+<section>
+  <h2>5. The orchestrator creates work; the scheduler only places it</h2>
+  <p>Once the service says <code>replicas = 2</code>, the replicated orchestrator compares desired slots with existing tasks.</p>
+
+  <pre><code>wanted slots:   1, 2
+current tasks:  only slot 1
+                 ↓
+create a Task for missing slot 2</code></pre>
+
+  <p>If there are too many replicas, the orchestrator moves excess tasks toward removal. If a task needs replacement, the restart/update machinery creates a new task object rather than trying to “teleport” the old process.</p>
+
+  <p>The scheduler sees unassigned tasks and evaluates candidate nodes. Placement constraints, availability, and resource fit matter here. Its decisive output is much smaller than people often imagine:</p>
+
+  <div class="note"><div class="label">source microscope</div><pre><code>newT.NodeID = node.ID
+newT.Status.State = ASSIGNED</code></pre></div>
+
+  <p>Then it writes the updated task back to the manager store. <strong>The scheduler has still not created a container.</strong> It has converted:</p>
+  <pre><code>Task: "someone must run this"
+        ↓
+Task: "node X must run this"</code></pre>
+
+  <p class="src">Anchors: SwarmKit pinned commit · manager/orchestrator/replicated/services.go::reconcile; manager/scheduler/scheduler.go scheduling decision path.</p>
+</section>
+
+<section>
+  <h2>6. Assignment is the bridge from cluster state to one worker</h2>
+  <p>After the scheduler writes <code>NodeID = X</code>, the dispatcher watches tasks for node X. Its <code>Assignments</code> RPC sends a full initial set and then incremental changes.</p>
+
+  <p>That stream contains more than a command to “start nginx.” The worker may need task dependencies too. The pinned worker assignment path deliberately reconciles <strong>secrets and configs before task state</strong>, then volumes. This closes the manager/distribution half that Lesson 36 deferred.</p>
+
+  <pre><code>manager store
+   ↓ tasks assigned to node X + required dependencies
+Dispatcher.Assignments stream
+   ↓
+worker Agent
+   ├── reconcile secrets/configs
+   ├── reconcile task state
+   └── reconcile volumes
+   ↓
+exec.Resolve(task, executor)
+   ↓
+local task controller</code></pre>
+
+  <p>The controller advances the task through preparation/start states. In Docker Engine's Swarm container executor, preparation ensures the local task's networks/volumes/image, then the adapter calls:</p>
+
+  <div class="note"><div class="label">source microscope</div><pre><code>CreateManagedContainer(...)
+ContainerStart(...)</code></pre></div>
+
+  <p><strong>This is the runtime handoff.</strong> From here, container creation/start follows the already-taught Docker path through containerd → shim → runc → Linux kernel. Swarm remains above that path as the control loop observing the task's reported state.</p>
+
+  <p class="src">Anchors: SwarmKit pinned commit · manager/dispatcher/dispatcher.go::Assignments; agent/worker.go::Worker.Assign/newTaskManager; agent/exec/controller.go::Do. Docker Engine 29.6.2 · daemon/cluster/executor/container/controller.go::Prepare/Start; adapter.go::create/start.</p>
+</section>
+
+<section>
+  <h2>7. Reconciliation: failure, scale, and update all come back to Tasks</h2>
+  <p>The worker reports task status back to the manager. That makes Swarm a feedback loop rather than a one-shot launcher:</p>
+
+  <pre><code>Service desired state
+      ↓
+Tasks → scheduled → workers → task status
+  ↑                              ↓
+  └──── orchestrator compares ───┘</code></pre>
+
+  <h3>Failure</h3>
+  <p>If a task becomes terminal and the restart policy says it should be replaced, the restart supervisor marks the old task for shutdown, creates a <strong>new Task with a new task ID</strong>, and lets that replacement enter scheduling/execution.</p>
+
+  <div class="warn"><div class="label">correction</div><p>Swarm does not move a live container from a dead node to another node. A replacement task is created, scheduled, and realized as a new container wherever the scheduler places it.</p></div>
+
+  <h3>Scale</h3>
+  <p><code>docker service scale web=3</code> updates the service's desired replica count. The replicated orchestrator then notices one missing slot and creates its task. Scaling down drives excess tasks toward removal.</p>
+
+  <h3>Update</h3>
+  <p>A changed service specification is again desired-state mutation. The updater identifies dirty replica slots and creates replacement tasks from the new service spec. Update order can be stop-first or start-first; either way the unit being replaced is a <strong>task</strong>, and task status feeds failure monitoring/rollback decisions.</p>
+
+  <div class="note"><div class="label">source microscope</div><pre><code>Restart: old DesiredState → SHUTDOWN
+         NewTask(...) → store.CreateTask(...)
+
+Update:  NewTask(new ServiceSpec) → store.CreateTask(...)</code></pre></div>
+
+  <p class="src">Anchors: SwarmKit pinned commit · manager/orchestrator/restart/restart.go::Supervisor.Restart; manager/orchestrator/update/updater.go::Updater.worker/updateTask.</p>
+</section>
+
+<section>
+  <h2>8. Networking is a second pipeline after placement</h2>
+  <p>Scheduling answers <em>which node runs the task</em>. Networking answers <em>how packets reach that task</em>. Do not merge the two mechanisms.</p>
+
+  <p>Our service attaches to <code>appnet</code>, a Swarm-scoped overlay network. On a Linux worker that needs the network, Docker's overlay driver creates an overlay-network sandbox containing a bridge and a <strong>VXLAN</strong> device. VXLAN is the kernel tunnel device that carries overlay Ethernet frames between participating hosts over the underlay IP network.</p>
+
+  <pre><code>container endpoint
+      ↓ local virtual Ethernet / bridge side
+Swarm overlay sandbox
+      ↓ VXLAN device
+host underlay network
+      ↓ UDP VXLAN traffic between nodes
+remote host overlay sandbox
+      ↓
+remote task endpoint</code></pre>
+
+  <p>For service-level virtual-IP load balancing, the pinned Linux service code creates an IPVS service and adds task endpoint IPs as destinations. IPVS is a Linux kernel load-balancing facility; Swarm/libnetwork programs it, but the kernel performs packet forwarding.</p>
+
+  <p>The published <code>8080:80</code> path adds another network: Swarm creates a special <strong>ingress</strong> network when the cluster is first initialized. In ingress publish mode, the routing mesh uses that ingress plumbing so a published port can accept traffic through Swarm's ingress path instead of requiring the client to know which node currently hosts a replica.</p>
+
+  <div class="boundary"><div class="label">kernel boundary</div><p>Swarm decides desired network/service state; <code>dockerd</code>'s network code realizes VXLAN/IPVS/firewall objects; the Linux kernel carries the live packets. Lessons 33–34 already taught the namespace/veth/kernel-packet foundations, so they are not repeated here.</p></div>
+
+  <p class="src">Anchors: Docker Engine 29.6.2 · daemon/libnetwork/drivers/overlay/ov_network.go::setupSubnetSandbox (bridge + VXLAN); daemon/libnetwork/service_linux.go::addLBBackend (IPVS VIP/backend programming). SwarmKit pinned commit · manager/manager.go::becomeLeader creates the default ingress network for a fresh cluster.</p>
+</section>
+
+<section>
+  <h2>9. Inspect it yourself: watch the objects appear in order</h2>
+  <div class="inspect"><div class="label">Linux Engine experiment</div>
+  <p>Use a disposable Docker host. If the host is already in a Swarm, do not re-initialize or leave it just for this experiment.</p>
+  <pre><code># 1. Start a one-node Swarm control plane.
+docker swarm init
+
+docker node ls
+
+# 2. Create the overlay, then the desired Service.
+docker network create --driver overlay appnet
+
+docker service create \
+  --name web \
+  --replicas 2 \
+  --network appnet \
+  --publish published=8080,target=80 \
+  nginx:1.27-alpine
+
+# 3. Service is one desired-state object.
+docker service inspect web --format '{{json .Spec.Mode}}'
+
+# 4. Tasks are separate objects/attempts.
+docker service ps web --no-trunc
+
+# 5. The local worker finally has ordinary Docker containers.
+docker ps --filter label=com.docker.swarm.service.name=web
+
+# 6. Change desired replica count; watch the task set change.
+docker service scale web=3
+docker service ps web --no-trunc
+
+# 7. Force an update and compare old/new Task IDs.
+docker service update --force web
+docker service ps web --no-trunc
+
+# 8. On a rootful Linux Engine, inspect persisted manager Raft state.
+ROOT=$(docker info --format '{{.DockerRootDir}}')
+sudo find "$ROOT/swarm/raft" -maxdepth 2 -type f -print
+
+# 9. Optional: inspect Docker network namespaces for VXLAN devices.
+for ns in /var/run/docker/netns/*; do
+  echo "--- $ns"
+  sudo nsenter --net="$ns" ip -d link show type vxlan 2>/dev/null || true
+done
+
+# Cleanup.
+docker service rm web
+docker network rm appnet
+docker swarm leave --force</code></pre>
+  <p class="small">On a one-node Swarm, all replicas may be scheduled on that same node. That does not change the object chain; multi-node placement merely makes the scheduler's <code>NodeID</code> choices visible across hosts.</p>
+  </div>
+
+  <h3>What you should be able to predict</h3>
+  <ol>
+    <li>Why does <code>docker service create --replicas 2</code> produce one Service but multiple Tasks?</li>
+    <li>At what exact step does a task gain a node assignment?</li>
+    <li>Which component finally creates the local Docker container?</li>
+    <li>Why can a manager survive a process restart without forgetting the cluster's desired state?</li>
+    <li>Why is “Swarm moved my container to another node” technically inaccurate?</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Recap: the mental model to keep</h2>
+  <pre><code>Docker CLI
+  ↓ Engine API
+manager dockerd / Swarm control plane
+  ↓ Raft-backed Service desired state
+leader orchestrator
+  ↓ Task objects
+scheduler
+  ↓ Task.NodeID
+manager dispatcher
+  ↓ assigned Task + dependencies
+worker agent / Docker executor
+  ↓ ordinary managed container
+containerd → shim → runc → Linux kernel
+
+status flows back upward → reconciliation repeats</code></pre>
+  <p>If you remember only one distinction, make it this:</p>
+  <div class="idea"><div class="label">load-bearing relationship</div><p><strong>Compose (Lesson 42) is a client-side reconciler that stops at the Engine API. Swarm is a server-side, long-running cluster reconciler inside <code>dockerd</code>. Both eventually create ordinary Docker containers; neither replaces containerd, shim, runc, or the Linux kernel.</strong></p></div>
+
+  <details><summary>Primary-source audit map</summary>
+    <ul class="small">
+      <li><a href="https://github.com/moby/moby/blob/docker-v29.6.2/go.mod">Docker Engine 29.6.2 · go.mod</a> — exact embedded SwarmKit dependency.</li>
+      <li><a href="https://github.com/docker/cli/blob/v29.6.2/cli/command/swarm/init.go">Docker CLI 29.6.2 · cli/command/swarm/init.go</a> — <code>docker swarm init</code> → Engine API.</li>
+      <li><a href="https://github.com/docker/cli/blob/v29.6.2/cli/command/service/create.go">Docker CLI 29.6.2 · cli/command/service/create.go</a> — build ServiceSpec → <code>ServiceCreate</code>.</li>
+      <li><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/cluster/services.go">Docker Engine 29.6.2 · daemon/cluster/services.go::CreateService</a> — Engine API → embedded control API, including image digest pinning path.</li>
+      <li><a href="https://github.com/moby/swarmkit/blob/f80b112cff7d2fa4b67eff36f0bdd2cbd05be0d8/manager/controlapi/service.go">SwarmKit pinned commit · manager/controlapi/service.go::CreateService</a> — persist Service desired state.</li>
+      <li><a href="https://github.com/moby/swarmkit/blob/f80b112cff7d2fa4b67eff36f0bdd2cbd05be0d8/manager/state/store/memory.go">manager/state/store/memory.go</a> + <a href="https://github.com/moby/swarmkit/blob/f80b112cff7d2fa4b67eff36f0bdd2cbd05be0d8/manager/state/raft/raft.go">manager/state/raft/raft.go</a> — store mutation → Raft proposal/commit.</li>
+      <li><a href="https://github.com/moby/swarmkit/blob/f80b112cff7d2fa4b67eff36f0bdd2cbd05be0d8/manager/orchestrator/replicated/services.go">manager/orchestrator/replicated/services.go</a> — replica reconciliation → Tasks.</li>
+      <li><a href="https://github.com/moby/swarmkit/blob/f80b112cff7d2fa4b67eff36f0bdd2cbd05be0d8/manager/scheduler/scheduler.go">manager/scheduler/scheduler.go</a> — choose node → set task <code>NodeID</code>.</li>
+      <li><a href="https://github.com/moby/swarmkit/blob/f80b112cff7d2fa4b67eff36f0bdd2cbd05be0d8/manager/dispatcher/dispatcher.go">manager/dispatcher/dispatcher.go::Assignments</a> — task/dependency stream to worker.</li>
+      <li><a href="https://github.com/moby/swarmkit/blob/f80b112cff7d2fa4b67eff36f0bdd2cbd05be0d8/agent/worker.go">agent/worker.go</a> + <a href="https://github.com/moby/swarmkit/blob/f80b112cff7d2fa4b67eff36f0bdd2cbd05be0d8/agent/exec/controller.go">agent/exec/controller.go</a> — worker reconciliation and task state machine.</li>
+      <li><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/cluster/executor/container/adapter.go">Docker Engine 29.6.2 · daemon/cluster/executor/container/adapter.go</a> — <code>CreateManagedContainer</code> / <code>ContainerStart</code>.</li>
+      <li><a href="https://github.com/moby/swarmkit/blob/f80b112cff7d2fa4b67eff36f0bdd2cbd05be0d8/manager/orchestrator/restart/restart.go">restart/restart.go</a> + <a href="https://github.com/moby/swarmkit/blob/f80b112cff7d2fa4b67eff36f0bdd2cbd05be0d8/manager/orchestrator/update/updater.go">update/updater.go</a> — replacement Task creation.</li>
+      <li><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/libnetwork/drivers/overlay/ov_network.go">Docker Engine 29.6.2 · overlay/ov_network.go</a> + <a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/libnetwork/service_linux.go">service_linux.go</a> — VXLAN overlay and IPVS service load balancing.</li>
+    </ul>
+  </details>
+
+  <p class="small">Next: Lesson 44 — Rootless Docker. That lesson returns from cluster orchestration to the daemon/runtime security boundary.</p>
+  <div class="nav"><a href="lesson-42-docker-compose.html">← Lesson 42 · docker compose</a><a href="#">Lesson 44 · Rootless Docker →</a></div>
+</section>
+
+</main></body></html>

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Lesson 34 · Networking II: user-defined bridges, embedded DNS, macvlan/ipvlan</title>
+<style>
+:root{
+  --ink:#0e1116;--panel:#161b22;--well:#0a0d12;--bone:#e9e4d7;
+  --dim:#9aa4b2;--faint:#6b7482;--rule:#262d38;
+  --gold:#e0b155;--gold-dim:#7a6636;--teal:#5ac4b4;--teal-dim:#2f5f59;
+  --rose:#d76d7f;--rose-dim:#6e3540;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  --serif:"Iowan Old Style",Charter,Georgia,Cambria,serif;
+}
+*{box-sizing:border-box} html{scroll-behavior:smooth}
+body{margin:0;background:var(--ink);color:var(--bone);font-family:var(--serif);font-size:18px;line-height:1.72;-webkit-font-smoothing:antialiased}
+.wrap{max-width:780px;margin:0 auto;padding:0 24px 120px}
+header.top{border-bottom:1px solid var(--rule);margin-bottom:36px;padding:34px 0 27px}
+.course-tag{font-family:var(--mono);font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--faint)}
+.lesson-no{font-family:var(--mono);font-size:64px;line-height:1;font-weight:600;color:var(--gold);margin:14px 0 6px}
+.pill{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);border:1px solid var(--teal-dim);border-radius:20px;padding:3px 10px;margin-bottom:14px}
+h1{font-family:var(--mono);font-size:27px;line-height:1.2;margin:0 0 14px;color:var(--bone)}
+.dek{color:var(--dim);font-size:18px;margin:0;max-width:64ch}
+p{margin:0 0 18px} strong{color:#fff;font-weight:600}
+code.inl{font-family:var(--mono);font-size:.86em;background:var(--well);border:1px solid var(--rule);border-radius:4px;padding:1px 6px;color:var(--gold)}
+.srcref{font-family:var(--mono);font-size:.79em;color:var(--gold);background:rgba(224,177,81,.08);border:1px solid var(--gold-dim);border-radius:4px;padding:1px 6px}
+.oneline{border:1px solid var(--teal-dim);background:linear-gradient(180deg,#0b1615,#0a1210);border-radius:10px;padding:18px 20px;margin:30px 0 18px}
+.oneline .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);display:block;margin-bottom:8px}
+.oneline p{margin:0;font-size:20px;line-height:1.5;color:#fff}
+.plain{color:var(--dim);font-size:16.5px;border-left:2px solid var(--rule);padding-left:14px;margin:0 0 20px}.plain b{color:var(--teal)}
+.concept{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:50px 0 4px;display:flex;align-items:center;gap:10px}
+.concept .num{width:25px;height:25px;border-radius:50%;border:1px solid var(--teal-dim);display:flex;align-items:center;justify-content:center;flex:none}
+h2{font-family:var(--mono);font-weight:600;font-size:21px;margin:8px 0 16px;color:var(--bone)}
+h3{font-family:var(--mono);font-size:15px;color:#fff;margin:25px 0 10px}
+.terminal{margin:16px 0 22px;border:1px solid var(--teal-dim);border-radius:8px;overflow:hidden;background:#07110f}
+.terminal .tab{font-family:var(--mono);font-size:12px;color:var(--teal);background:#0a1614;border-bottom:1px solid var(--teal-dim);padding:8px 14px}
+.terminal pre{margin:0;padding:15px 17px;color:#c5e8e1;font-family:var(--mono);font-size:13px;line-height:1.62;overflow-x:auto;white-space:pre}.terminal .c{color:var(--faint)}
+.keybox{border-left:2px solid var(--gold);padding:2px 0 2px 16px;margin:21px 0}.keybox .h{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}.keybox p{margin:0}
+aside.note{border-left:3px solid var(--teal);background:var(--panel);border-radius:0 8px 8px 0;padding:14px 18px;margin:22px 0;color:var(--dim);font-size:16.5px}aside.note b{color:var(--teal)}
+aside.correction{border:1px solid var(--rose-dim);background:linear-gradient(180deg,#1a1013,#140c0f);border-radius:8px;padding:18px 20px;margin:26px 0}aside.correction .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:var(--rose);display:block;margin-bottom:8px}aside.correction p:last-child{margin-bottom:0}
+.flow{display:grid;gap:9px;margin:22px 0}.flow .row{display:grid;grid-template-columns:34px 1fr;gap:12px;border:1px solid var(--rule);background:var(--panel);border-radius:8px;padding:13px 15px}.flow .n{font-family:var(--mono);width:26px;height:26px;border:1px solid var(--teal-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--teal);font-size:11px}.flow .t{font-family:var(--mono);font-size:13px;color:#fff;margin-bottom:3px}.flow .d{color:var(--dim);font-size:15px;line-height:1.52}
+.pathmap{display:grid;gap:10px;margin:23px 0}.pathrow{display:grid;grid-template-columns:150px 42px 1fr;gap:10px;align-items:center;border:1px solid var(--rule);background:var(--panel);border-radius:9px;padding:13px 15px}.pathrow .kind{font-family:var(--mono);font-size:12px;color:var(--gold)}.pathrow .arrow{font-family:var(--mono);font-size:21px;color:var(--teal);text-align:center}.pathrow .target{font-family:var(--mono);font-size:13px;color:#fff}.pathrow .desc{display:block;font-family:var(--serif);font-size:14.5px;color:var(--dim);margin-top:3px}
+table{width:100%;border-collapse:collapse;margin:19px 0 27px;font-size:15.5px}th{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);text-align:left;border-bottom:1px solid var(--rule);padding:9px 10px}td{vertical-align:top;border-bottom:1px solid var(--rule);padding:11px 10px;color:var(--dim)}td:first-child{font-family:var(--mono);color:var(--gold)}td strong{font-family:var(--serif)}
+.checkpoint{border:1px solid var(--teal-dim);border-radius:9px;background:#091412;padding:18px 20px;margin:32px 0}.checkpoint .h{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--teal);margin-bottom:8px}.checkpoint p{margin:0;color:#fff}
+.recap{border:1px solid var(--teal-dim);border-radius:10px;background:#0a1210;padding:20px 22px;margin:31px 0}.recap h3{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 13px}.recap ul{margin:0;padding-left:20px}.recap li{margin:0 0 10px}.recap li:last-child{margin:0}
+details.sources{border:1px solid var(--gold-dim);border-radius:9px;background:#15130d;margin:28px 0}details.sources summary{cursor:pointer;padding:15px 18px;font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}details.sources .inside{padding:0 20px 18px;color:var(--dim);font-size:15px}details.sources ul{margin:0;padding-left:20px}details.sources li{margin:0 0 9px}.sources pre{font-family:var(--mono);font-size:12px;line-height:1.55;background:var(--well);border:1px solid var(--rule);border-radius:7px;padding:12px 14px;overflow-x:auto;color:#d8d4c8;white-space:pre-wrap}.sources a{color:var(--gold);text-decoration-color:var(--gold-dim);text-underline-offset:2px}
+.xrefs{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}.xref{font-family:var(--mono);font-size:12px;color:var(--teal);border:1px solid var(--teal-dim);border-radius:20px;padding:4px 12px;background:#0a1614}.xref b{color:var(--faint);font-weight:400;margin-right:6px}
+footer.nav{border-top:1px solid var(--rule);margin-top:60px;padding-top:26px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}.navcard{font-family:var(--mono);font-size:13px}.navcard .k{display:block;color:var(--faint);font-size:11px;letter-spacing:.15em;text-transform:uppercase;margin-bottom:5px}.navcard.next{text-align:right;margin-left:auto}.navcard .ti{color:var(--bone)}
+@media(max-width:700px){.pathrow{grid-template-columns:1fr}.pathrow .arrow{text-align:left;transform:rotate(90deg);width:24px}}
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-33-networking-netns-veth-bridge-dnat.html">← Lesson 33</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-35-stdio-logging.html">Lesson 35 →</a></span></nav>
+<div class="wrap">
+<header class="top">
+  <div class="course-tag">Part V · Runtime concerns</div>
+  <div class="lesson-no">34</div>
+  <span class="pill">CORE</span>
+  <h1>Networking II: user-defined bridges, embedded DNS, macvlan/ipvlan</h1>
+  <p class="dek">Keep the Lesson 33 packet model, then change one thing at a time: first the Docker network object, then name resolution, then the kernel interface type used to attach the container.</p>
+</header>
+
+<section class="oneline">
+  <span class="lbl">Governing idea</span>
+  <p>A Docker network driver chooses <strong>how an endpoint is attached to networking</strong>; Docker's embedded DNS is a separate libnetwork service that resolves names for the sandbox.</p>
+</section>
+
+<p class="plain"><b>Carry-over from Lesson 33:</b> a libnetwork <code class="inl">Network</code>, <code class="inl">Endpoint</code>, and <code class="inl">Sandbox</code> are control-plane objects inside <code class="inl">dockerd</code>. The Linux bridge, veth, macvlan/ipvlan device, routes, and netfilter rules are kernel/networking state used to realize those objects.</p>
+
+<div class="concept"><span class="num">1</span> User-defined bridge</div>
+<h2>A user-defined bridge is a new Docker Network backed by its own Linux bridge</h2>
+
+<p>Start with the mechanism you already know. If you create:</p>
+
+<div class="terminal"><div class="tab">Create one user-defined bridge network</div><pre>docker network create appnet</pre></div>
+
+<p>Docker creates a new libnetwork <code class="inl">Network</code> whose driver is <code class="inl">bridge</code>. The important point is that this is <strong>not merely a new label on the old <code class="inl">docker0</code> bridge</strong>. In Moby 29.6.2, when the bridge driver has no explicit bridge name and the network is not the legacy default bridge, <span class="srcref">bridge_linux.go · parseNetworkOptions</span> chooses:</p>
+
+<div class="keybox"><div class="h">Current Moby rule</div><p><code class="inl">br-&lt;first 12 characters of network ID&gt;</code></p></div>
+
+<p>If that bridge device does not already exist, the bridge driver records that libnetwork must create it and queues the bridge-device setup before configuring its addresses, forwarding, and firewall state. The containers attached to this network still use the Lesson 33 topology: each endpoint gets a container-side interface and a host-side veth peer, and the host peer is attached to this particular Linux bridge.</p>
+
+<div class="pathmap">
+  <div class="pathrow"><div class="kind">Docker Network</div><div class="arrow">→</div><div class="target">appnet<span class="desc">libnetwork object; driver = bridge</span></div></div>
+  <div class="pathrow"><div class="kind">Linux object</div><div class="arrow">→</div><div class="target">br-&lt;network-id-prefix&gt;<span class="desc">the bridge device that switches frames for this network</span></div></div>
+  <div class="pathrow"><div class="kind">Container attachment</div><div class="arrow">→</div><div class="target">veth peer → bridge port<span class="desc">same kernel mechanism as Lesson 33, but attached to this network's bridge</span></div></div>
+</div>
+
+<aside class="note"><b>Do not collapse these two levels.</b> <code class="inl">appnet</code> is the Docker/libnetwork Network. <code class="inl">br-...</code> is one Linux device used by the bridge driver to implement that Network.</aside>
+
+<div class="concept"><span class="num">2</span> Why names work</div>
+<h2>The bridge moves frames; it does not resolve container names</h2>
+
+<p>Suppose two containers join <code class="inl">appnet</code>:</p>
+
+<div class="terminal"><div class="tab">Two endpoints on one user-defined network</div><pre>docker run -d --name api --network appnet IMAGE ...
+docker run -d --name web --network appnet IMAGE ...</pre></div>
+
+<p>If <code class="inl">web</code> asks for the address of <code class="inl">api</code>, the Linux bridge cannot answer that question. A bridge understands Ethernet forwarding information such as destination MAC addresses. It does not maintain Docker container-name records.</p>
+
+<p>The name lookup is handled by a different part of libnetwork: the sandbox's embedded DNS resolver. Current Moby describes <span class="srcref">daemon/libnetwork/resolver.go · Resolver</span> as Docker's embedded DNS server, and the resolver backend searches the Docker networks to which that sandbox is attached.</p>
+
+<div class="flow">
+  <div class="row"><div class="n">A</div><div><div class="t">The endpoint joins a Docker Network</div><div class="d">Libnetwork records the endpoint's DNS names and IP addresses in that Network's service-record maps.</div></div></div>
+  <div class="row"><div class="n">B</div><div><div class="t">The application asks for <code class="inl">api</code></div><div class="d">The DNS query goes to the sandbox's internal resolver, not to the Linux bridge.</div></div></div>
+  <div class="row"><div class="n">C</div><div><div class="t">The resolver searches connected Docker networks</div><div class="d"><span class="srcref">Sandbox.ResolveName → Network.ResolveName</span> searches aliases/names and the per-network service records.</div></div></div>
+  <div class="row"><div class="n">D</div><div><div class="t">If a Docker-local record exists</div><div class="d">The resolver returns that endpoint IP. Only after the application has an IP does normal routing/ARP/bridge forwarding carry the actual application traffic.</div></div></div>
+</div>
+
+<p>This gives you a useful separation:</p>
+
+<div class="keybox"><div class="h">Two different jobs</div><p><strong>DNS:</strong> “What IP belongs to <code class="inl">api</code>?” &nbsp; <strong>Bridge:</strong> “Which bridge port should receive the Ethernet frame for this destination?”</p></div>
+
+<div class="concept"><span class="num">3</span> Embedded DNS</div>
+<h2>Inside the container, Docker advertises the resolver as <code class="inl">127.0.0.11</code></h2>
+
+<p>For a sandbox using Docker's embedded resolver, Moby uses the fixed address <code class="inl">127.0.0.11</code>. The resolver is associated with the sandbox and operates on the container's loopback side of that network namespace. Moby rebuilds the container's <code class="inl">/etc/resolv.conf</code> so the internal resolver becomes the nameserver, while the nameservers that were replaced are retained as upstream servers.</p>
+
+<div class="terminal"><div class="tab">What you can observe in a container on a user-defined network</div><pre>docker exec web cat /etc/resolv.conf
+
+<span class="c"># Expected key line:</span>
+nameserver 127.0.0.11</pre></div>
+
+<p>Now distinguish two queries. If the query is for a Docker-local name such as <code class="inl">api</code>, <span class="srcref">Resolver.handleIPQuery</span> asks its backend to resolve the name from Docker network state. If there is no local answer, <span class="srcref">Resolver.serveDNS → forwardExtDNS</span> can forward the query to the sandbox's configured external resolvers.</p>
+
+<aside class="note"><b>External DNS forwarding follows connectivity.</b> In <code class="inl">startResolver</code>, Moby initializes the forwarding policy from whether the sandbox currently has external access. A sandbox connected only to an internal network does not automatically get host-side upstream DNS access.</aside>
+
+<aside class="correction"><span class="lbl">Source-over-folklore correction</span><p>The legacy default <code class="inl">bridge</code> network is not simply “the same thing with a different bridge name.” Moby's DNS path explicitly states that the <strong>legacy bridge network has no internal nameserver</strong>. The embedded resolver behavior discussed here is therefore a real distinction, not a property of Linux bridging itself.</p></aside>
+
+<div class="checkpoint"><div class="h">First-read checkpoint</div><p>You should now be able to say: <strong>a user-defined bridge still uses veth + a Linux bridge for packets, but Docker-local name resolution is provided separately by libnetwork's sandbox resolver.</strong></p></div>
+
+<div class="concept"><span class="num">4</span> Second read: why 127.0.0.11:53 is not the literal listening socket</div>
+<h2>Moby listens on an ephemeral port, then NATs <code class="inl">127.0.0.11:53</code> to it</h2>
+
+<p>The simple mental model “Docker's resolver listens on <code class="inl">127.0.0.11:53</code>” is good for using the system, but current Moby has one extra implementation layer. <span class="srcref">Sandbox.startResolver</span> runs <code class="inl">resolver.SetupFunc(0)</code> inside the sandbox network namespace. Port <code class="inl">0</code> asks Linux to choose available UDP and TCP ports.</p>
+
+<p>Then <span class="srcref">resolver_unix.go · setupNAT</span> installs DNS NAT rules in that networking context. Queries addressed to <code class="inl">127.0.0.11:53</code> are DNATed to the resolver's actual UDP/TCP socket port, and replies are SNATed so the application still sees source port 53.</p>
+
+<div class="pathmap">
+  <div class="pathrow"><div class="kind">Application sees</div><div class="arrow">→</div><div class="target">127.0.0.11:53<span class="desc">stable DNS endpoint written into resolv.conf</span></div></div>
+  <div class="pathrow"><div class="kind">Inside netns</div><div class="arrow">→</div><div class="target">DNAT → 127.0.0.11:&lt;ephemeral&gt;<span class="desc">actual UDP/TCP socket selected by SetupFunc(0)</span></div></div>
+  <div class="pathrow"><div class="kind">Reply</div><div class="arrow">→</div><div class="target">SNAT source port back to :53<span class="desc">preserves the normal DNS endpoint seen by the client</span></div></div>
+</div>
+
+<p>This NAT is <strong>not</strong> the published-port DNAT from Lesson 33. It is an internal implementation detail of Docker's embedded DNS inside the sandbox networking context.</p>
+
+<div class="concept"><span class="num">5</span> Change the driver: macvlan</div>
+<h2>Macvlan removes the veth + Docker bridge attachment and creates a child of a parent link</h2>
+
+<p>Now change the driver rather than the network name:</p>
+
+<div class="terminal"><div class="tab">Macvlan network shape</div><pre>docker network create -d macvlan \
+  --subnet 192.0.2.0/24 \
+  -o parent=eth0 \
+  macnet</pre></div>
+
+<p>The important word is <code class="inl">parent</code>. In the bridge driver, an endpoint is realized as a veth peer attached to a Linux bridge. In the macvlan driver, <span class="srcref">macvlan.Join</span> asks <span class="srcref">createMacVlan</span> to create a <code class="inl">netlink.Macvlan</code> device whose <code class="inl">ParentIndex</code> is the chosen host interface.</p>
+
+<table>
+  <thead><tr><th>Driver</th><th>Host-side relationship</th><th>Container-facing device</th></tr></thead>
+  <tbody>
+    <tr><td>bridge</td><td>veth host peer becomes a port on a Linux bridge</td><td>the veth peer moved/created in the container netns and renamed</td></tr>
+    <tr><td>macvlan</td><td>macvlan device is a child of the selected parent interface</td><td>that macvlan child is handed to the sandbox and renamed, normally to <code class="inl">eth0</code></td></tr>
+  </tbody>
+</table>
+
+<p>Macvlan also gives the endpoint an L2 identity of its own. In current Moby, <span class="srcref">macvlan_endpoint.go · CreateEndpoint</span> generates a MAC address when the endpoint did not already receive one. At the kernel boundary, Linux's macvlan implementation hashes destination Ethernet addresses and selects the matching macvlan device; in bridge mode it can also deliver frames directly between macvlan peers on the same lower device.</p>
+
+<div class="keybox"><div class="h">The structural change</div><p><code class="inl">bridge driver: container ↔ veth ↔ Linux bridge</code><br/><code class="inl">macvlan driver: container ↔ macvlan child ↔ parent link</code></p></div>
+
+<p>Because the parent is typically a physical NIC or VLAN subinterface, macvlan is useful when containers should participate more directly in an existing Layer-2 network rather than hide behind Docker's bridge/NAT topology.</p>
+
+<div class="concept"><span class="num">6</span> Change the driver again: ipvlan</div>
+<h2>IPvlan also creates a child of a parent link, but shares Layer 2 and separates endpoints by Layer 3</h2>
+
+<p>IPvlan has a similar outer shape:</p>
+
+<div class="terminal"><div class="tab">IPvlan network shape</div><pre>docker network create -d ipvlan \
+  --subnet 192.0.2.0/24 \
+  -o parent=eth0 \
+  -o ipvlan_mode=l2 \
+  ipnet</pre></div>
+
+<p><span class="srcref">ipvlan.Join → createIPVlan</span> creates a <code class="inl">netlink.IPVlan</code> whose <code class="inl">ParentIndex</code> points at the chosen parent interface. The kernel IPvlan documentation gives the defining distinction from macvlan: IPvlan uses Layer 3 to multiplex/demultiplex the slave devices, allowing the master and its slaves to share Layer 2.</p>
+
+<p>This is why current Moby does <strong>not</strong> allow you to assign an independent custom MAC address to an IPvlan endpoint. <span class="srcref">ipvlan_endpoint.go · CreateEndpoint</span> returns an error if the endpoint already carries a requested MAC address.</p>
+
+<table>
+  <thead><tr><th>Question</th><th>macvlan</th><th>ipvlan</th></tr></thead>
+  <tbody>
+    <tr><td>L2 identity</td><td>each child can have its own MAC address</td><td>the master/slaves share the L2 identity; endpoints are separated primarily by IP/L3</td></tr>
+    <tr><td>Docker bridge?</td><td>no</td><td>no</td></tr>
+    <tr><td>Parent link?</td><td>yes</td><td>yes</td></tr>
+    <tr><td>Moby endpoint constructor</td><td><code class="inl">netlink.Macvlan</code></td><td><code class="inl">netlink.IPVlan</code></td></tr>
+  </tbody>
+</table>
+
+<div class="concept"><span class="num">7</span> IPvlan modes</div>
+<h2>L2, L3, and L3S change where the kernel makes the forwarding decision</h2>
+
+<p>Current Moby supports three IPvlan modes, matching the kernel API: <code class="inl">l2</code>, <code class="inl">l3</code>, and <code class="inl">l3s</code>. Do not reduce this to a two-mode story.</p>
+
+<p>In <strong>L2 mode</strong>, the slave behaves most like an interface participating in the parent's Layer-2 network: multicast and broadcast are available, and Moby supplies the configured gateway to the endpoint. In <strong>L3 mode</strong>, the kernel's documentation says L3 processing is performed on the slave and traffic is switched to the master-side stack for L2 processing/routing; multicast and broadcast are not delivered to the slaves. Moby reflects that topology by installing connected default routes for the endpoint rather than a normal gateway address. <strong>L3S</strong> is the symmetric L3 variant whose kernel documentation explicitly exists so conntrack/iptables can work.</p>
+
+<aside class="note"><b>Do not confuse two uses of “bridge.”</b> IPvlan's <code class="inl">bridge</code> flag is an IPvlan port-mode flag controlling communication among slaves. It is not a Linux bridge device such as <code class="inl">docker0</code> or <code class="inl">br-...</code>.</aside>
+
+<div class="concept"><span class="num">8</span> What happened to <code class="inl">-p</code>?</div>
+<h2>Macvlan/ipvlan do not implement the bridge driver's published-port DNAT path</h2>
+
+<p>Lesson 33's <code class="inl">-p HOST:CONTAINER</code> mechanism belonged to the bridge driver's host-port firewall/NAT architecture. Macvlan and IPvlan attach endpoints through a parent link instead of through Docker's bridge gateway path, so their endpoint drivers do not build that bridge-style port-mapping machinery.</p>
+
+<aside class="correction"><span class="lbl">Correction to the research checkpoint</span><p>The checkpoint said current Moby “rejects” port mappings for macvlan/ipvlan. The pinned source is more precise: <span class="srcref">macvlan_endpoint.go</span> and <span class="srcref">ipvlan_endpoint.go</span> label port mapping as unsupported and <strong>log a warning when mappings are supplied</strong>; those functions do not themselves return an error for the mapping. The primary source wins, so the lesson records the corrected behavior.</p></aside>
+
+<p>The practical model is: if a macvlan/ipvlan container is reachable on the surrounding network, peers normally address the container's own IP directly. Docker is not translating a host-published port through the bridge driver's DNAT rules for that endpoint.</p>
+
+<div class="concept"><span class="num">9</span> Inspect it yourself</div>
+<h2>Observe each mechanism separately</h2>
+
+<h3>A. Prove that a user-defined bridge gets a separate Linux bridge</h3>
+<div class="terminal"><div class="tab">Host</div><pre>docker network create lesson34-net
+
+docker network inspect lesson34-net \
+ip -d link show type bridge
+
+<span class="c"># Look for a bridge named br-&lt;12-char network-id prefix&gt;.</span></pre></div>
+
+<h3>B. Prove that embedded DNS is separate from the bridge</h3>
+<div class="terminal"><div class="tab">Use an image already present locally</div><pre>IMG=busybox   <span class="c"># replace if needed with an image you already have</span>
+
+docker run -d --name l34-api --network lesson34-net "$IMG" sleep 1d
+docker run -d --name l34-web --network lesson34-net "$IMG" sleep 1d
+
+docker exec l34-web cat /etc/resolv.conf
+docker exec l34-web nslookup l34-api 2&gt;/dev/null || \
+  docker exec l34-web getent hosts l34-api
+
+<span class="c"># The key observation is nameserver 127.0.0.11 plus resolution of l34-api.</span></pre></div>
+
+<h3>C. Inspect the DNS NAT rules inside the container netns</h3>
+<div class="terminal"><div class="tab">Host · requires root and an iptables-capable backend</div><pre>PID=$(docker inspect -f '{{.State.Pid}}' l34-web)
+
+sudo nsenter -t "$PID" -n iptables -t nat -S 2&gt;/dev/null | \
+  grep -E 'DOCKER_(OUTPUT|POSTROUTING)|127\.0\.0\.11' || true
+
+<span class="c"># On an nftables backend, inspect the namespace's nftables rules instead.</span></pre></div>
+
+<h3>D. Observe macvlan and ipvlan without touching your real uplink</h3>
+<p class="plain">This experiment uses disposable dummy parent links. It requires root and Docker images already available locally. Delete the macvlan setup before creating IPvlan; current Moby's source warns that macvlan and ipvlan slaves on the same parent cannot both be active in that arrangement.</p>
+<div class="terminal"><div class="tab">Disposable macvlan parent</div><pre>sudo ip link add l34-mv-parent type dummy
+sudo ip link set l34-mv-parent up
+
+docker network create -d macvlan \
+  --subnet 192.0.2.0/24 \
+  -o parent=l34-mv-parent l34-mac
+
+docker run -d --name l34-mac-c --network l34-mac "$IMG" sleep 1d
+
+ip -d link show type macvlan
+PID=$(docker inspect -f '{{.State.Pid}}' l34-mac-c)
+sudo nsenter -t "$PID" -n ip -d link show eth0
+
+<span class="c"># Cleanup this topology before the IPvlan experiment.</span>
+docker rm -f l34-mac-c
+docker network rm l34-mac
+sudo ip link del l34-mv-parent</pre></div>
+
+<div class="terminal"><div class="tab">Disposable ipvlan parent</div><pre>sudo ip link add l34-ip-parent type dummy
+sudo ip link set l34-ip-parent up
+
+docker network create -d ipvlan \
+  --subnet 198.51.100.0/24 \
+  -o parent=l34-ip-parent \
+  -o ipvlan_mode=l2 l34-ip
+
+docker run -d --name l34-ip-c --network l34-ip "$IMG" sleep 1d
+
+ip -d link show type ipvlan
+PID=$(docker inspect -f '{{.State.Pid}}' l34-ip-c)
+sudo nsenter -t "$PID" -n ip -d link show eth0
+
+<span class="c"># Cleanup.</span>
+docker rm -f l34-ip-c
+docker network rm l34-ip
+sudo ip link del l34-ip-parent
+
+docker rm -f l34-api l34-web
+docker network rm lesson34-net</pre></div>
+
+<div class="recap">
+  <h3>Check yourself</h3>
+  <ul>
+    <li><b>What changes when you create a user-defined bridge?</b> Libnetwork creates a separate Docker Network and, normally, the bridge driver backs it with its own <code class="inl">br-&lt;id&gt;</code> Linux bridge; endpoint packet plumbing is still veth + bridge.</li>
+    <li><b>Does the Linux bridge provide container-name DNS?</b> No. The sandbox's libnetwork resolver does.</li>
+    <li><b>What is <code class="inl">127.0.0.11</code>?</b> The stable address Docker writes as the embedded resolver endpoint inside the sandbox; current Moby NATs port 53 to its actual ephemeral UDP/TCP sockets.</li>
+    <li><b>How does macvlan differ from bridge networking?</b> The endpoint is a macvlan child of a chosen parent interface rather than one side of a veth pair attached to a Docker Linux bridge.</li>
+    <li><b>How does ipvlan differ from macvlan?</b> It shares Layer 2 with the parent and uses Layer 3 to distinguish/multiplex slaves; Moby therefore does not allow independent custom endpoint MACs.</li>
+    <li><b>How many IPvlan modes matter here?</b> Three: L2, L3, and L3S.</li>
+    <li><b>Does macvlan/ipvlan use Lesson 33's bridge-driver <code class="inl">-p</code> DNAT path?</b> No; the drivers report port mappings as unsupported and do not construct that bridge publication path.</li>
+  </ul>
+</div>
+
+<details class="sources">
+  <summary>Primary-source excerpts and anchors used for this lesson</summary>
+  <div class="inside">
+    <p><strong>1. Moby docker-v29.6.2 · <code>daemon/libnetwork/drivers/bridge/bridge_linux.go</code></strong></p>
+    <pre>parseNetworkOptions:
+if config.BridgeName == "" &amp;&amp; !config.DefaultBridge {
+    config.BridgeName = "br-" + id[:12]
+}
+...
+if !exists {
+    config.BridgeIfaceCreator = ifaceCreatedByLibnetwork
+}
+
+CreateEndpoint:
+... createVeth(...)
+... addToBridge(..., config.BridgeName)</pre>
+    <p>This establishes the separate user-defined bridge name, ownership decision, and continued veth-to-bridge endpoint plumbing. <a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/libnetwork/drivers/bridge/bridge_linux.go">versioned source</a>.</p>
+
+    <p><strong>2. Moby docker-v29.6.2 · <code>daemon/libnetwork/resolver.go</code></strong></p>
+    <pre>// Resolver is the embedded DNS server in Docker. It operates by listening on
+// the container's loopback interface for DNS queries.
+...
+ResolveName(...) // Docker-network backend
+...
+forwardExtDNS(...) // upstream fallback</pre>
+    <p><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/libnetwork/resolver.go">versioned source</a>.</p>
+
+    <p><strong>3. Moby docker-v29.6.2 · <code>daemon/libnetwork/sandbox_dns_unix.go</code></strong></p>
+    <pre>resolverIPSandbox = "127.0.0.11"
+...
+sb.resolver = NewResolver(resolverIPSandbox, sb.hasExternalAccess(), sb)
+...
+sb.osSbox.InvokeFunc(sb.resolver.SetupFunc(0))
+...
+// The legacy bridge network has no internal nameserver.</pre>
+    <p><code>rebuildDNS</code> replaces container nameservers with the internal resolver and preserves the replaced servers as upstreams. <a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/libnetwork/sandbox_dns_unix.go">versioned source</a>.</p>
+
+    <p><strong>4. Moby docker-v29.6.2 · <code>daemon/libnetwork/resolver_unix.go · setupNAT</code></strong></p>
+    <pre>UDP/TCP dport 53 → DNAT to resolver's actual local socket
+resolver ephemeral source port → SNAT back to source port 53</pre>
+    <p>The file contains both iptables and nftables implementations. <a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/libnetwork/resolver_unix.go">versioned source</a>.</p>
+
+    <p><strong>5. Moby docker-v29.6.2 · <code>daemon/libnetwork/sandbox.go · ResolveName</code> and <code>network.go · addSvcRecords/ResolveName</code></strong></p>
+    <pre>Sandbox.ResolveName → iterate attached endpoints/networks
+Network.addSvcRecords → name ↔ endpoint IP maps
+Network.ResolveName → lookup in per-network svcMaps</pre>
+    <p><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/libnetwork/sandbox.go">sandbox source</a> · <a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/libnetwork/network.go">network source</a>.</p>
+
+    <p><strong>6. Moby docker-v29.6.2 · macvlan driver</strong></p>
+    <pre>macvlan_joinleave.go:
+Join → createMacVlan(... parent ...)
+
+macvlan_setup.go:
+netlink.Macvlan{
+  LinkAttrs: { ParentIndex: parentLink.Attrs().Index },
+  Mode: mode,
+}
+
+macvlan_endpoint.go:
+if ep.mac == nil { GenerateRandomMAC() }
+port mappings → warning: unsupported</pre>
+    <p><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/libnetwork/drivers/macvlan/macvlan_joinleave.go">Join</a> · <a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/libnetwork/drivers/macvlan/macvlan_setup.go">setup</a> · <a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/libnetwork/drivers/macvlan/macvlan_endpoint.go">endpoint</a>.</p>
+
+    <p><strong>7. Linux v6.18 · <code>drivers/net/macvlan.c</code></strong></p>
+    <pre>destination MAC lookup selects a macvlan device;
+MACVLAN_MODE_BRIDGE can deliver frames directly between bridge-mode macvlan ports.</pre>
+    <p>This is the kernel boundary for the per-MAC demultiplexing behavior. <a href="https://github.com/torvalds/linux/blob/v6.18/drivers/net/macvlan.c">versioned source</a>.</p>
+
+    <p><strong>8. Moby docker-v29.6.2 · ipvlan driver</strong></p>
+    <pre>ipvlan_setup.go:
+netlink.IPVlan{ ParentIndex: parentLink.Attrs().Index, Mode: mode, Flag: flag }
+modeL2  → IPVLAN_MODE_L2
+modeL3  → IPVLAN_MODE_L3
+modeL3S → IPVLAN_MODE_L3S
+
+ipvlan_endpoint.go:
+custom MAC → error
+port mappings → warning: unsupported</pre>
+    <p><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/libnetwork/drivers/ipvlan/ipvlan_setup.go">setup</a> · <a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/libnetwork/drivers/ipvlan/ipvlan_joinleave.go">Join</a> · <a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/libnetwork/drivers/ipvlan/ipvlan_endpoint.go">endpoint</a>.</p>
+
+    <p><strong>9. Linux v6.18 · <code>Documentation/networking/ipvlan.rst</code></strong></p>
+    <pre>MODE: l3 | l3s | l2
+IPvlan differs from macvlan by using L3 for mux/demux among slaves,
+allowing the master and slaves to share L2.
+L3S adds conntrack/iptables support to the L3 model.</pre>
+    <p><a href="https://github.com/torvalds/linux/blob/v6.18/Documentation/networking/ipvlan.rst">versioned source</a>.</p>
+  </div>
+</details>
+
+<div class="xrefs">
+  <span class="xref"><b>back →</b> Lesson 33 · netns, veth, bridge/host/none &amp; DNAT</span>
+  <span class="xref"><b>back →</b> Lesson 6 · Namespaces</span>
+  <span class="xref"><b>forward →</b> Lesson 35 · stdio &amp; logging</span>
+</div>
+
+<footer class="nav">
+  <div class="navcard"><span class="k">Previous</span><span class="ti">33 · Networking I: netns, veth, bridge/host/none &amp; DNAT</span></div>
+  <div class="navcard next"><span class="k">Next</span><span class="ti">35 · stdio &amp; logging</span></div>
+</footer>
+</div>
+</body>
+</html>

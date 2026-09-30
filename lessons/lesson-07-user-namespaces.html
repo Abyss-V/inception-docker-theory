@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 07 · User Namespaces &amp; userns-remap</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.68; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:44px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--teal); margin:52px 0 4px; display:flex; align-items:center; gap:10px;}
+  .eyebrow::before{content:""; width:16px; height:1px; background:var(--teal); opacity:.6}
+  h2{font-family:var(--mono); font-weight:600; font-size:22px; margin:6px 0 18px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--gold); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+  .step.verify{background:var(--teal)}
+
+  figure.src{margin:14px 0 8px; border:1px solid var(--gold-dim); border-radius:8px; overflow:hidden; background:var(--well)}
+  figure.src .tab{font-family:var(--mono); font-size:12px; color:var(--gold); background:linear-gradient(180deg,#1c1a12,#141109); border-bottom:1px solid var(--gold-dim); padding:8px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  figure.src .tab .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none}
+  figure.src .tab .path{overflow-wrap:anywhere}
+  figure.src .tab .repo{color:var(--faint); margin-left:auto; font-size:11px}
+  figure.src pre{margin:0; padding:16px 16px; overflow-x:auto}
+  figure.src.spec .tab{color:#cdb87a}
+  pre,code{font-family:var(--mono)}
+  pre{font-size:13px; line-height:1.6; color:#d7d2c4}
+  pre .kw{color:var(--rose)} pre .fn{color:var(--teal)} pre .cmt{color:var(--faint); font-style:italic}
+  pre .str{color:var(--gold)} pre .field{color:var(--gold)}
+  .keyline{background:rgba(224,177,81,.10); border-left:2px solid var(--gold); display:block; padding-left:8px; margin-left:-10px}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{padding:14px 16px; color:#bfe6df; font-size:13px}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:16px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0 0 10px}.keybox p:last-child{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  aside.hood{border:1px dashed var(--faint); background:var(--panel); border-radius:8px; padding:15px 18px; margin:22px 0; color:var(--dim); font-size:16px}
+  aside.hood .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--bone); display:block; margin-bottom:6px}
+  aside.hood b{color:var(--bone)}
+
+  .xlate{display:grid; grid-template-columns:1fr auto 1fr; gap:0; margin:22px 0; border:1px solid var(--rule); border-radius:10px; overflow:hidden; font-family:var(--mono); font-size:14px}
+  .xlate .head{background:var(--panel); padding:10px 16px; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint)}
+  .xlate .head.mid{background:#12171e}
+  .xlate .cell{padding:10px 16px; border-top:1px solid var(--rule)}
+  .xlate .inside{color:var(--teal)} .xlate .outside{color:var(--gold)}
+  .xlate .mid{background:#0b0f14; color:var(--faint); text-align:center; border-top:1px solid var(--rule); padding:10px 8px}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:70px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  .lead{font-size:20px; line-height:1.6; color:var(--bone)}
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:40px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-06-namespaces.html">← Lesson 06</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-08-docker-exec-setns.html">Lesson 08 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part II — Kernel primitives</div>
+  <div class="lesson-no">07</div>
+  <span class="pill">rebuilt for clarity</span>
+  <h1>User namespaces: turning "root" into a harmless number</h1>
+  <p class="dek">One idea, built slowly: a user namespace is a <em>translator for ID numbers</em>. We'll follow a single example — container root becoming host user 1000 — from the plain idea, to the exact table that does it, to how Docker switches it on.</p>
+</header>
+
+<p class="lead">Let's start with a question that has a surprising answer, and let the whole lesson grow out of it: <strong>when a program runs as "root" inside a container, is it also root on your actual machine?</strong> Most people assume "no, containers isolate that." The truth is "it depends on one setting, and by default the answer is <em>yes, it really is host root</em>." The user namespace is the setting that changes the answer. Here's the mechanism, one step at a time.</p>
+
+<div class="eyebrow">Start here · one experiment</div>
+<h2>The thing we're trying to control</h2>
+
+<p>Forget the theory for a second. Run a container as root, and have it create a file in a folder shared with the host. Then ask the host: <em>who owns that file?</em></p>
+
+<figure class="inspect">
+  <div class="tab">host shell · the experiment</div>
+<pre><span class="p">$</span> docker run --rm -v /tmp/share:/out alpine sh -c 'touch /out/hello'
+<span class="p">$</span> stat -c '%u  %U' /tmp/share/hello
+<span class="o"><span class="hl">0  root</span></span>          <span class="o"># uid 0 — the container's "root" is YOUR host's root. no isolation.</span></pre>
+</figure>
+
+<p>The file is owned by uid 0 — real host root. The "root" in the container wasn't pretend; it was the genuine article. That is the default, and it's the thing a user namespace exists to fix. By the end of this lesson the same experiment will print <code class="inl">1000</code> instead of <code class="inl">0</code>, and you'll know exactly why. Let's build up to it.</p>
+
+<div class="eyebrow">The core idea</div>
+<h2>A user namespace is a translator for ID numbers</h2>
+
+<p>Linux decides who-can-do-what by comparing <em>numbers</em>. Your user is a number (uid). Files are stamped with an owner number. "Are you allowed to delete this file?" is really "does your number match?" Root is simply the number <code class="inl">0</code>, which the kernel treats as "allowed to do anything."</p>
+
+<p>A user namespace slips a <strong>translation table</strong> between the inside of a container and the outside world. Inside the namespace, a process can happily be uid <code class="inl">0</code> — it feels like root, and software that expects root works fine. But the moment that process does something the host can see — creates a file, sends a signal — the kernel looks its inside-number up in the table and uses the <em>outside</em>-number instead.</p>
+
+<p>So with the right table, "uid 0 inside" becomes "uid 1000 outside." Inside the box you're root; outside the box you're an ordinary, powerless user #1000. That single sentence is the entire point of this lesson. Everything else is just: <em>what does the table look like, and who fills it in?</em></p>
+
+<div class="xlate">
+  <div class="head">Inside the container it sees…</div>
+  <div class="head mid">translates to</div>
+  <div class="head">…what the host actually uses</div>
+  <div class="cell inside">uid 0 &nbsp;<span style="color:var(--faint)">("root")</span></div>
+  <div class="mid">→</div>
+  <div class="cell outside">uid 1000 <span style="color:var(--faint)">(a nobody)</span></div>
+  <div class="cell inside">uid 33 <span style="color:var(--faint)">(www-data)</span></div>
+  <div class="mid">→</div>
+  <div class="cell outside">uid 1033</div>
+</div>
+
+<div class="eyebrow">Mechanism 1</div>
+<h2>The table is just three numbers</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>You might imagine the table lists every uid one by one. It doesn't — that would be huge. Instead it describes a whole <em>range</em> with three numbers:</p>
+<p style="margin-left:8px"><strong>1.</strong> where the inside numbers start &nbsp;·&nbsp; <strong>2.</strong> where the matching outside numbers start &nbsp;·&nbsp; <strong>3.</strong> how many numbers in a row the rule covers.</p>
+<p>Our example table is <code class="inl">(inside 0, outside 1000, count 32000)</code>. It reads: "inside-uid 0 lines up with outside-uid 1000, and the next 32000 numbers follow along in lockstep." So inside-5 is outside-1005, inside-33 is outside-1033, and so on — just add 1000. Translating any single id is one subtraction and one addition.</p>
+
+<span class="step">Step 2 · The source</span>
+<p>runc stores exactly those three numbers:</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">libcontainer/configs/config.go — type IDMap</span><span class="repo">opencontainers/runc</span></div>
+<pre>type IDMap struct {
+<span class="keyline">    ContainerID int64   // 1. where inside numbers start   (0)</span>
+<span class="keyline">    HostID      int64   // 2. where outside numbers start  (1000)</span>
+<span class="keyline">    Size        int64   // 3. how many in a row            (32000)</span>
+}</pre>
+</figure>
+<p>…and the translation is one line — literally "outside = outside-start + (how far you are past inside-start)":</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">libcontainer/configs/config_linux.go — hostIDFromMapping()</span><span class="repo">opencontainers/runc</span></div>
+<pre><span class="keyline">hostID := m.HostID + (containerID - m.ContainerID)   // 1000 + (0 - 0) = 1000</span></pre>
+</figure>
+<p>The OCI runtime-spec calls the same three numbers <code class="inl">containerID</code>, <code class="inl">hostID</code>, <code class="inl">size</code> — this is the agreed-on format Docker writes and runc reads:</p>
+<figure class="src spec">
+  <div class="tab"><span class="dot"></span><span class="path">config-linux.md</span><span class="repo">opencontainers/runtime-spec</span></div>
+<pre><span class="keyline">"uidMappings": [ { "containerID": 0, "hostID": 1000, "size": 32000 } ]</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">If you remember one thing</div>
+  <p>The mapping is a range: <code class="inl">(containerID, hostID, size)</code>. Our example <code class="inl">(0, 1000, 32000)</code> makes container-root act as host-user-1000. That's the table. The next two mechanisms are just <em>how it gets installed</em> and <em>where the number 1000 comes from</em>.</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 2</div>
+<h2>Installing the table: write it into a file, once</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Here's a pleasant surprise: you don't call some elaborate syscall to install the table. The kernel exposes it as a plain text file per process, <code class="inl">/proc/&lt;pid&gt;/uid_map</code>. You write your three numbers into it as a line — <code class="inl">"0 1000 32000"</code> — and from that instant the kernel applies the translation to that process forever. (There's a matching <code class="inl">gid_map</code> for group IDs.) You get exactly one write; after that the table is sealed.</p>
+
+<span class="step">Step 2 · The source</span>
+<p>runc prepares that very line of bytes and hands it off to be written into the file:</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">libcontainer/container_linux.go</span><span class="repo">opencontainers/runc</span></div>
+<pre>b, _ := encodeIDMapping(c.config.UIDMappings)     <span class="cmt">// produces the bytes "0 1000 32000\n"</span>
+<span class="keyline">r.AddData(&amp;Bytemsg{ Type: UidmapAttr, Value: b })  // → gets written to /proc/PID/uid_map</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>The kernel's interface for user-namespace mapping is a <em>file you cat and echo</em>. That's why, in the final inspect step, we can just read a container's <code class="inl">/proc/self/uid_map</code> and see its table in plain text. Nothing hidden.</p>
+</div>
+
+<aside class="hood">
+  <span class="lbl">Under the hood · one safety wrinkle (skip on first read)</span>
+  Before an unprivileged process may write the <em>group</em> table (<code class="inl">gid_map</code>), the kernel makes it first write the word <code class="inl">deny</code> into <code class="inl">/proc/&lt;pid&gt;/setgroups</code>. This turns off the <code class="inl">setgroups()</code> call inside the namespace, closing a trick where a mapped "root" could use supplementary groups to reach files it shouldn't. runc does this automatically; you'll never touch it. It's here only so the name isn't a mystery if you see it.
+</aside>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 3</div>
+<h2>Where "1000" comes from — and how Docker flips it on</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>One question remains: who decides the outside number? You can't just claim any host uids you like — mapping container-root to host-uid-1000 means "I'm allowed to own things as user 1000," which is a privilege. Linux grants each user a block of spare IDs to hand out, listed in the file <code class="inl">/etc/subuid</code>. Each line reads <code class="inl">name:start:count</code> — "this user may use host IDs from <em>start</em>, <em>count</em> of them, as container IDs."</p>
+<p>Docker automates the whole thing with one daemon setting: <code class="inl">dockerd --userns-remap=default</code>. On startup it makes a dedicated user called <code class="inl">dockremap</code>, reads that user's line in <code class="inl">/etc/subuid</code>, and turns it into the mapping table for <em>every</em> container. So the outside number isn't magic — it's whatever block <code class="inl">/etc/subuid</code> handed to <code class="inl">dockremap</code>.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">daemon/daemon_unix.go &nbsp;+&nbsp; internal/usergroup/lookup_unix.go</span><span class="repo">moby/moby</span></div>
+<pre><span class="keyline">defaultRemappedID = <span class="str">"dockremap"</span>                       // the user Docker maps root onto</span>
+...
+<span class="keyline">subuidRanges, _ := lookupSubRangesFile(<span class="str">"/etc/subuid"</span>, usr)  // read dockremap's block</span>
+return user.IdentityMapping{ UIDMaps: subuidRanges, GIDMaps: subgidRanges }</pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The whole chain, in our example numbers</div>
+  <p><code class="inl">/etc/subuid</code> line <code class="inl">dockremap:1000:32000</code> &nbsp;→&nbsp; Docker builds the table <code class="inl">(container 0 → host 1000, count 32000)</code> &nbsp;→&nbsp; writes it into <code class="inl">config.json</code> as <code class="inl">uidMappings</code> &nbsp;→&nbsp; runc writes it into <code class="inl">/proc/PID/uid_map</code>. Four hops, same three numbers the whole way. (Real Docker installs usually pick a higher block like 165536 instead of 1000; the mechanism is identical.)</p>
+</div>
+
+<aside class="hood">
+  <span class="lbl">Under the hood · rootless helpers (skip on first read)</span>
+  When <em>you</em> (not root) run a container rootless, you can't write a ranged table yourself. Two tiny setuid programs, <code class="inl">newuidmap</code> and <code class="inl">newgidmap</code>, read <code class="inl">/etc/subuid</code> and write the table on your behalf, but only within the block you were granted. runc calls them automatically in the rootless case. That's all they are — the trusted tool that turns your <code class="inl">/etc/subuid</code> allowance into a real map.
+</aside>
+
+<hr class="soft">
+
+<div class="eyebrow">Payoff</div>
+<h2>The experiment, resolved</h2>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<p>Now read the table straight out of a container, first with the feature off (the default), then on. The second output is the mechanism working; the third is our opening experiment giving a different answer.</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> <span class="o"># DEFAULT — no translator installed:</span>
+<span class="p">$</span> docker run --rm alpine cat /proc/self/uid_map
+<span class="o"><span class="hl">         0          0 4294967295</span></span>   <span class="o"># inside 0 → outside 0. root IS root. (whole range, untranslated)</span>
+
+<span class="p">$</span> <span class="o"># after: dockerd --userns-remap=default</span>
+<span class="p">$</span> docker run --rm alpine cat /proc/self/uid_map
+<span class="o"><span class="hl">         0       1000      32000</span></span>   <span class="o"># inside 0 → outside 1000. the translator is in place.</span>
+
+<span class="p">$</span> <span class="o"># the opening experiment again — different answer now:</span>
+<span class="p">$</span> docker run --rm -v /tmp/share:/out alpine sh -c 'touch /out/hello2'
+<span class="p">$</span> stat -c '%u  %U' /tmp/share/hello2
+<span class="o"><span class="hl">1000</span>  &lt;user 1000&gt;</span>            <span class="o"># container-root's file is owned by a harmless host user</span></pre>
+</figure>
+<p>That first line — <code class="inl">0 0 4294967295</code> — is the identity table: inside 0 maps to outside 0, for all four billion ids. It's the kernel's way of saying "no real translation is happening." Reading a container's <code class="inl">uid_map</code> is the single fastest way to answer "is this container's root really host root?"</p>
+
+<aside class="correction">
+  <span class="lbl">The one thing people get backwards</span>
+  <p>By default, Docker installs <strong>no translator</strong>: container root is genuinely host root (<code class="inl">uid_map</code> = <code class="inl">0 0 4294967295</code>). What stops that default-root from trivially owning your machine is <em>not</em> id translation — it's the <em>other</em> walls: the dropped <strong>capabilities</strong> (Lesson 11) and the <strong>seccomp</strong> syscall filter (Lesson 12). The user-namespace translator is an <em>extra</em> wall you switch on with <code class="inl">--userns-remap</code>. This is also why handing someone <code class="inl">docker.sock</code> is handing them host root (Lesson 46): they can ask the daemon to run a container as that default, untranslated root.</p>
+</aside>
+
+<aside class="note"><b>Why it's off by default (the honest catch).</b> If container-root's files are owned by host uid 1000, then the container's own image files must <em>also</em> be owned by 1000, or the container can't read them — so Docker keeps a separate, re-owned copy of image layers per range, using more disk. And a host file owned by real root, bind-mounted in, becomes unreadable to the container's translated root. Those rough edges are why remap ships off, and why <em>rootless</em> Docker (Lesson 44) is often the nicer path to the same safety.</aside>
+
+<div class="eyebrow">Where we are</div>
+<h2>Summary</h2>
+<p>A user namespace is a <strong>translator for ID numbers</strong>. Its table is three numbers — <code class="inl">(containerID, hostID, size)</code> — and translating is one line, <code class="inl">host = hostID + (id − containerID)</code>; our example <code class="inl">(0, 1000, 32000)</code> makes container-root act as host-user-1000. The table is installed by writing it into the plain file <code class="inl">/proc/PID/uid_map</code> once. The outside numbers are handed out by <code class="inl">/etc/subuid</code>, and Docker wires it all up with <code class="inl">--userns-remap=default</code> via a <code class="inl">dockremap</code> user, so every container's root becomes a harmless host id. And the fact to keep above all: <strong>by default there is no translator</strong> — container root is real root, held in check by capabilities and seccomp, which are exactly where we head next.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 06 · Namespaces (userns-first)</span>
+  <span class="xref"><b>forward →</b> Lesson 11 · Capabilities</span>
+  <span class="xref"><b>forward →</b> Lesson 46 · docker.sock = root</span>
+  <span class="xref"><b>forward →</b> Lesson 44 · Rootless Docker</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">06 · Namespaces</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">08 · docker exec &amp; setns()</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

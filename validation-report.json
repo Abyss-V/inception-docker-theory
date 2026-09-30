@@ -1,0 +1,19 @@
+{
+  "bundle_through_lesson": 44,
+  "current_approved_course_size": 44,
+  "structural_change": "Learner-approved merge of former planned Lessons 44-46 into final Lesson 44 on 2026-08-09",
+  "lesson40_canonical": "second clarity rebuild 2026-08-09",
+  "lesson41_canonical": "initial pipeline-first source-aligned build 2026-08-09",
+  "lesson42_canonical": "compact clarity rebuild 2026-08-09",
+  "lesson43_canonical": "compact pipeline-first source-aligned build 2026-08-09",
+  "lesson44_canonical": "final compact merged security lesson 2026-08-09",
+  "lesson44_file_exists": true,
+  "reference_files_present": true,
+  "study_status_changed": false,
+  "next_lesson": null,
+  "course_complete_structurally": true,
+  "lesson_html_count": 44,
+  "lesson44_sha256": "251d4dc3beaa25d977e1b516d550fc2ea30a861562443e236549e05b360006b2",
+  "prior_lessons_1_through_43_unchanged": true,
+  "notes": "Lesson 44 absorbs rootless Docker, plugins/authz, and rootful docker.sock authority. Lessons 32-44 remain awaiting study unless explicitly marked studied."
+}

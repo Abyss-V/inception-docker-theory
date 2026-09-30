@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supplement · ChainID, fully</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.7; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:36px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .kicker{font-family:var(--mono); font-size:52px; line-height:1; font-weight:600; color:var(--teal); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); border:1px solid var(--gold-dim); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .oneline{border:1px solid var(--teal-dim); background:linear-gradient(180deg,#0b1615,#0a1210); border-radius:10px; padding:18px 20px; margin:30px 0 8px}
+  .oneline .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); display:block; margin-bottom:8px}
+  .oneline p{margin:0; font-size:20px; line-height:1.5; color:#fff}
+
+  .concept{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:48px 0 4px; display:flex; align-items:center; gap:10px;}
+  .concept .num{width:24px;height:24px;border-radius:50%;border:1px solid var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  h2{font-family:var(--mono); font-weight:600; font-size:21px; margin:8px 0 16px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  .term{color:var(--teal); font-weight:600}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+  .plain{color:var(--dim); font-size:16px; border-left:2px solid var(--rule); padding-left:14px; margin:0 0 18px}
+  .plain b{color:var(--teal); font-weight:600}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--teal); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:20px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  figure.fig{margin:24px 0; border:1px solid var(--rule); border-radius:10px; background:var(--panel); padding:18px; overflow:hidden}
+  figure.fig figcaption{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin:2px 2px 16px}
+  figure.fig svg{display:block; width:100%; height:auto}
+
+  .recap{border:1px solid var(--teal-dim); border-radius:10px; background:#0a1210; padding:20px 22px; margin:30px 0}
+  .recap h3{font-family:var(--mono); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:0 0 14px}
+  .recap ul{margin:0; padding-left:20px} .recap li{margin:0 0 10px; color:var(--bone)} .recap li:last-child{margin:0}
+  .recap li b{color:#fff}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:60px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:38px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="text-align:center;padding:16px"><a href="../index.html">← All lessons</a></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Supplement (sits between Lessons 17 &amp; 18)</div>
+  <div class="kicker">ChainID</div>
+  <span class="pill">supplement · fully explained</span>
+  <h1>ChainID, fully: what it is, who builds it, when, and why</h1>
+  <p class="dek">Lesson 17 gave you the formula but not the story. This fills in the missing part: who computes a ChainID, at what moment, and what it's actually for — grounded in the containerd source.</p>
+</header>
+
+<div class="oneline">
+  <span class="lbl">The idea in one sentence</span>
+  <p>A ChainID is the single fingerprint of a whole <em>stack</em> of layers applied in order — the name Docker gives to "the filesystem you get after stacking layers 0 through N."</p>
+</div>
+
+<div class="concept"><span class="num">1</span> The problem it solves</div>
+<h2>Why a diffID isn't enough</h2>
+
+<p class="plain"><b>Plain version:</b> a diffID names <em>one</em> layer. But the thing Docker stores and reuses is a <em>stack</em> of layers already applied together — and that needs its own name.</p>
+
+<p>Recall two facts. From Lesson 17: a <span class="term">diffID</span> is the fingerprint of one layer's content, on its own. From Lesson 16: what the snapshotter actually stores is a <em>committed snapshot</em> — a real, materialized filesystem that is the <em>result of stacking</em> several layers.</p>
+
+<p>Here's the catch that makes diffID insufficient. Take one layer — say "add nginx." Apply it on top of Alpine, and you get one filesystem. Apply the <em>exact same</em> layer on top of Ubuntu, and you get a <em>different</em> filesystem. Same layer, same diffID — but two different results, because what's underneath differs. So the snapshot (a result-of-stacking) can't be named by any single layer's diffID; it has to be named by something that captures the <em>whole ordered stack</em>. That something is the <span class="term">ChainID</span>.</p>
+
+<div class="keybox">
+  <div class="h">The crux</div>
+  <p>diffID = the identity of <em>a layer</em>. ChainID = the identity of <em>a stack of layers applied in order</em>. A snapshot is a stack's result, so snapshots are keyed by ChainID, never by diffID.</p>
+</div>
+
+<div class="concept"><span class="num">2</span> The ingredients</div>
+<h2>What goes in: the list of diffIDs</h2>
+
+<p class="plain"><b>Plain version:</b> the input is just the image's ordered list of layer diffIDs — the same list from Lesson 17.</p>
+
+<p>An image's config carries an ordered list of its layers' diffIDs (in the field <code class="inl">rootfs.diff_ids</code> — you'll meet the config properly in Lesson 18). That ordered list is the entire raw material. ChainIDs are computed from nothing but those diffIDs, in order. No file contents are re-read; it's pure hashing of the fingerprints you already have.</p>
+
+<div class="concept"><span class="num">3</span> The recipe</div>
+<h2>How it's folded together, step by step</h2>
+
+<p class="plain"><b>Plain version:</b> start with the first layer's diffID; then repeatedly hash "what you have so far" together with "the next layer's diffID." Each step swallows the whole history.</p>
+
+<p>The rule (from the OCI <span class="srcref">identity.ChainIDs()</span> function, which containerd vendors and uses) is a running fold. Write <code class="inl">D0, D1, D2…</code> for the diffIDs and <code class="inl">C0, C1, C2…</code> for the ChainIDs after each layer:</p>
+
+<figure class="fig">
+  <figcaption>Diagram · the fold — each ChainID hashes the previous ChainID with the next diffID</figcaption>
+  <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,Consolas,monospace">
+    <!-- layer 0 -->
+    <rect x="30" y="30" width="150" height="40" rx="6" fill="#0d1117" stroke="#5ac4b4"/>
+    <text x="105" y="55" text-anchor="middle" fill="#bfe6df" font-size="12">D0  (layer 0 diffID)</text>
+    <line x1="180" y1="50" x2="250" y2="50" stroke="#6b7482"/>
+    <rect x="250" y="30" width="180" height="40" rx="6" fill="#0a1614" stroke="#2f5f59"/>
+    <text x="340" y="55" text-anchor="middle" fill="#5ac4b4" font-size="12" font-weight="600">C0 = D0</text>
+    <text x="450" y="55" fill="#6b7482" font-size="10.5">first layer: ChainID = its diffID</text>
+
+    <!-- layer 1 -->
+    <rect x="30" y="95" width="150" height="40" rx="6" fill="#0d1117" stroke="#5ac4b4"/>
+    <text x="105" y="120" text-anchor="middle" fill="#bfe6df" font-size="12">D1  (layer 1 diffID)</text>
+    <line x1="180" y1="115" x2="250" y2="115" stroke="#6b7482"/>
+    <rect x="250" y="95" width="270" height="40" rx="6" fill="#0a1614" stroke="#2f5f59"/>
+    <text x="385" y="120" text-anchor="middle" fill="#5ac4b4" font-size="11.5" font-weight="600">C1 = sha256(C0 + " " + D1)</text>
+    <line x1="340" y1="70" x2="340" y2="95" stroke="#5ac4b4" stroke-dasharray="3 3"/>
+
+    <!-- layer 2 -->
+    <rect x="30" y="160" width="150" height="40" rx="6" fill="#0d1117" stroke="#5ac4b4"/>
+    <text x="105" y="185" text-anchor="middle" fill="#bfe6df" font-size="12">D2  (layer 2 diffID)</text>
+    <line x1="180" y1="180" x2="250" y2="180" stroke="#6b7482"/>
+    <rect x="250" y="160" width="270" height="40" rx="6" fill="#0a1614" stroke="#2f5f59"/>
+    <text x="385" y="185" text-anchor="middle" fill="#5ac4b4" font-size="11.5" font-weight="600">C2 = sha256(C1 + " " + D2)</text>
+    <line x1="385" y1="135" x2="385" y2="160" stroke="#5ac4b4" stroke-dasharray="3 3"/>
+
+    <text x="30" y="230" fill="#e9e4d7" font-size="12">C2 is the ChainID of the 3-layer stack. Because C1 is folded inside it,</text>
+    <text x="30" y="248" fill="#9aa4b2" font-size="11.5">C2 depends on D0, D1, AND D2 in that exact order — the whole history is baked in.</text>
+  </svg>
+</figure>
+
+<p>The key thing the diagram shows: each ChainID is hashed from the <em>previous ChainID</em> (not the previous diffID) plus the next diffID. That's what makes it "swallow the history" — <code class="inl">C2</code> can only be produced by exactly <code class="inl">D0</code>, then <code class="inl">D1</code>, then <code class="inl">D2</code>, in that order. Change any layer, or the order, and every ChainID from that point on changes.</p>
+
+<div class="concept"><span class="num">4</span> Who and when</div>
+<h2>The unpacker computes it, at pull time</h2>
+
+<p class="plain"><b>Plain version:</b> containerd's "unpacker" does this while it's turning a freshly-pulled image into on-disk snapshots — not runc, not at container start.</p>
+
+<p>The computation happens in one specific place: containerd's <span class="term">unpacker</span> (<span class="srcref">core/unpack/unpacker.go</span>), which runs when an image is pulled and its layers are being unpacked into snapshots. It calls <span class="srcref">identity.ChainIDs(diffIDs)</span> to turn the diffID list into the running list of ChainIDs, then walks the layers bottom-to-top: for each layer it takes that layer's ChainID, and unpacks the layer's tar onto a snapshot <em>keyed by that ChainID</em>. So by the time the image is fully unpacked, there is one committed snapshot per prefix of the stack, each named by its ChainID. This is a pull/unpack-time activity, done once — not something that recomputes every time you start a container.</p>
+
+<div class="concept"><span class="num">5</span> What it's used for</div>
+<h2>The snapshot key: dedup and the container's parent</h2>
+
+<p class="plain"><b>Plain version:</b> the ChainID is the snapshot's name, so Docker uses it two ways — to check "do I already have this stack?" (skip work) and to attach a container's writable layer onto the right image rootfs.</p>
+
+<p>Because each snapshot is keyed by its ChainID, two operations become trivial. First, <strong>dedup / cache-hit</strong>: before unpacking, containerd does a <span class="srcref">snapshotter.Stat(ChainID)</span> (<span class="srcref">client/image.go</span>) — if a snapshot with that ChainID already exists, the stack is already on disk and unpacking is skipped entirely. Two images sharing their first three layers produce identical <code class="inl">C0, C1, C2</code>, so the second image reuses the first's snapshots for free. Second, <strong>running a container</strong>: the image's full rootfs is the committed snapshot keyed by the <em>top</em> ChainID, so container creation computes <span class="srcref">identity.ChainID(diffIDs)</span> and calls <span class="srcref">snapshotter.Prepare(containerID, parent=thatChainID)</span> (<span class="srcref">client/container_opts.go</span>) — attaching the container's fresh writable layer (the <em>active</em> snapshot from Lesson 16) on top of the image identified by its ChainID.</p>
+
+<span class="step">Inspect it yourself</span>
+<p>The snapshot keys you see are ChainIDs. List them and match one to an image's rootfs:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> <span class="o"># snapshot keys are ChainIDs; each committed one is a stack prefix:</span>
+<span class="p">$</span> sudo ctr -n moby snapshots ls | head
+<span class="o">KEY                                                        PARENT              KIND</span>
+<span class="o">sha256:5f70bf18…  (C2, top of a 3-layer image)             sha256:9a4b…(C1)   Committed</span>
+<span class="o">sha256:9a4b…     (C1)                                       sha256:2c3d…(C0)   Committed</span>
+<span class="o">sha256:2c3d…     (C0 = D0, the base)                        <span class="o">(none)</span>            Committed</span>
+
+<span class="p">$</span> <span class="o"># the image's top ChainID — this is identity.ChainID(diff_ids):</span>
+<span class="p">$</span> sudo ctr images ls | grep alpine
+<span class="p">$</span> <span class="o"># a running container adds an Active snapshot whose PARENT is that top ChainID:</span>
+<span class="p">$</span> sudo ctr -n moby snapshots ls | grep Active
+<span class="o">my-container   sha256:5f70bf18…(C2)   <span class="hl">Active</span></span>   <span class="o"># writable layer on the image rootfs</span></pre>
+</figure>
+
+<div class="recap">
+  <h3>Check yourself</h3>
+  <ul>
+    <li>A <b>diffID</b> names one layer; a <b>ChainID</b> names a whole ordered <b>stack</b> of layers applied together.</li>
+    <li>ChainID is needed because a <b>snapshot is the result of stacking</b> — the same layer on two different bases gives two different results, so it can't be named by a single diffID.</li>
+    <li>It's a <b>running fold</b>: C0 = D0; each next ChainID = <code class="inl">sha256(previous ChainID + " " + next diffID)</code>, so it bakes in the whole ordered history.</li>
+    <li>It's computed by containerd's <b>unpacker at pull time</b> (via <code class="inl">identity.ChainIDs</code>), once — not at container start.</li>
+    <li>It's used as the <b>snapshot key</b>: a <code class="inl">Stat(ChainID)</code> hit means "already unpacked" (<b>dedup</b>), and a container's writable layer is <code class="inl">Prepare</code>d with the image's top ChainID as its <b>parent</b>.</li>
+    <li>Shared layer prefixes → identical ChainIDs → the unpacked stack is <b>stored once and reused</b> across images.</li>
+  </ul>
+</div>
+
+<aside class="note"><b>Where you'll see it again.</b> Lesson 18 shows the <code class="inl">rootfs.diff_ids</code> list ChainIDs are folded from; Lesson 22 covers how these snapshots are pinned and garbage-collected; Lesson 23 walks the full run pipeline where the container's active snapshot is prepared on the image's ChainID. You now have the piece those lessons assume.</p></aside>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Related</span>
+    <span class="ti">17 · What a layer physically is (diffID/digest)</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">18 · Manifest, config &amp; digests</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

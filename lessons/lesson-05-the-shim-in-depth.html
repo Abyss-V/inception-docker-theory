@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 05 · The Shim in Depth</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.65; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:44px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--teal); margin:52px 0 4px; display:flex; align-items:center; gap:10px;}
+  .eyebrow::before{content:""; width:16px; height:1px; background:var(--teal); opacity:.6}
+  h2{font-family:var(--mono); font-weight:600; font-size:22px; margin:6px 0 18px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--gold); display:inline-block; padding:3px 9px; border-radius:3px; margin:40px 0 10px; font-weight:600;}
+  .step.verify{background:var(--teal)}
+
+  figure.src{margin:14px 0 8px; border:1px solid var(--gold-dim); border-radius:8px; overflow:hidden; background:var(--well)}
+  figure.src .tab{font-family:var(--mono); font-size:12px; color:var(--gold); background:linear-gradient(180deg,#1c1a12,#141109); border-bottom:1px solid var(--gold-dim); padding:8px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  figure.src .tab .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none}
+  figure.src .tab .path{overflow-wrap:anywhere}
+  figure.src .tab .repo{color:var(--faint); margin-left:auto; font-size:11px}
+  figure.src pre{margin:0; padding:16px 16px; overflow-x:auto}
+  pre,code{font-family:var(--mono)}
+  pre{font-size:13px; line-height:1.6; color:#d7d2c4}
+  pre .kw{color:var(--rose)} pre .fn{color:var(--teal)} pre .cmt{color:var(--faint); font-style:italic}
+  pre .str{color:var(--gold)} pre .field{color:var(--gold)}
+  .keyline{background:rgba(224,177,81,.10); border-left:2px solid var(--gold); display:block; padding-left:8px; margin-left:-10px}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{padding:14px 16px; color:#bfe6df; font-size:13px}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:16px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0 0 10px}.keybox p:last-child{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:70px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  .lead{font-size:20px; line-height:1.6; color:var(--bone)}
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:40px 0}
+
+  .flow{font-family:var(--mono); font-size:12.5px; line-height:1.75; color:var(--dim); background:var(--panel); border:1px solid var(--rule); border-radius:8px; padding:18px 20px; margin:24px 0; overflow-x:auto}
+  .flow .who{color:var(--gold)} .flow .note{color:var(--faint)} .flow .dead{color:var(--rose)} .flow .live{color:var(--teal)}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-04-containerd-plugin-model.html">← Lesson 04</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-06-namespaces.html">Lesson 06 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part I — Foundations</div>
+  <div class="lesson-no">05</div>
+  <h1>The shim: how a container outlives the daemon that started it</h1>
+  <p class="dek">You can <code style="font-size:.8em">systemctl restart containerd</code> and your containers keep running. That's not luck — it's a specific, deliberate mechanism built out of process detachment and a reconnectable socket. This lesson is that mechanism, top to bottom.</p>
+</header>
+
+<p class="lead">Lesson 2 introduced the shim as "the per-container process that's the real parent." Lesson 4 placed it as the <code class="inl">runtime.v2</code> plugin's output. Now we earn that claim. The organizing question is the one every production operator eventually asks: <em>why doesn't restarting containerd kill my containers?</em> Answering it forces us through everything the shim is and does — and forces me to correct a simplification I made in Lesson 2.</p>
+
+<aside class="note"><b>Source-baseline note — containerd 2.2.6 (Docker Engine 29.6.2).</b> Runtime-v2 uses a short-lived <code class="inl">start</code> invocation to launch or locate a long-running shim server and return its socket address; containerd then controls it over ttRPC. In this baseline the shim receives legacy flags/environment plus runtime options and writes JSON <code class="inl">BootstrapParams</code> containing the protocol/address. containerd 2.3+ replaces that startup exchange with protobuf <code class="inl">BootstrapParams</code>/<code class="inl">BootstrapResult</code>. Runtime-v2 permits one shim to serve a runtime-defined group; one-shim-per-container is common in Docker, not a universal API rule.</aside>
+
+<div class="eyebrow">The intuition</div>
+<h2>The restart problem, and the shape of its only solution</h2>
+
+<p>containerd is software. Software gets upgraded and occasionally crashes. On a server running real workloads, it is unacceptable for "upgrade containerd" to mean "kill every container." So containerd has a hard requirement: it must be able to stop and restart <em>without disturbing running containers.</em></p>
+
+<p>Think about what that demands. A child is not automatically killed merely because its parent exits; the kernel can reparent it. The real failure would be losing the dedicated supervisor that owns the task's stdio, waits for its exit, and preserves its exit status. So containerd must not be the only live supervisor. A separate shim stays with the task, and containerd needs a way to find that shim and resume control after coming back.</p>
+
+<p>Those two requirements — <em>a parent that is not containerd</em>, and <em>a way for containerd to reconnect to it</em> — fully determine the design. That surviving parent is the <strong>shim</strong>. It detaches from containerd so it can outlive it, and it listens on a stable socket so containerd can find it again. Everything below is just how the source implements those two ideas.</p>
+
+<div class="eyebrow">Mechanism 1</div>
+<h2>Detachment: the shim re-execs itself and cuts the cord to containerd</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Here's the clever part. containerd invokes the shim binary with the <code class="inl">start</code> action. That bootstrap path creates or locates the long-running server, returns the server's protocol/address, and exits. The serving shim is therefore independent of the short-lived bootstrap helper. The kernel reparents an orphan to the nearest configured child subreaper, or ultimately PID 1; the exact PPID is not the architectural contract. The contract is that containerd can disappear while the shim server and task continue.</p>
+
+<p>First, note the shim binary is trivially thin — it's just the <code class="inl">runc.v2</code> manager from Lesson 4 given an entrypoint:</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">cmd/containerd-shim-runc-v2/main.go</span><span class="repo">containerd/containerd</span></div>
+<pre>func main() {
+    shim.RunShim(context.Background(), manager.NewShimManager(<span class="str">"io.containerd.runc.v2"</span>))
+}</pre>
+</figure>
+<p>containerd invokes that binary with the <code class="inl">start</code> action and consumes its bootstrap result. In the pinned containerd 2.2.6 baseline, legacy flags/environment carry the startup inputs and stdout returns JSON <code class="inl">BootstrapParams</code> containing the protocol and listening address. containerd 2.3+ changes this exchange to protobuf:</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">core/runtime/v2/binary.go — binary.Start()</span><span class="repo">containerd/containerd</span></div>
+<pre>args := []string{<span class="str">"-id"</span>, b.bundle.ID}
+<span class="keyline">args = append(args, <span class="str">"start"</span>)</span>
+cmd, _ := client.Command(ctx, &amp;client.CommandConfig{ Args: args, ... })
+...
+<span class="keyline">out, err := cmd.CombinedOutput()</span>
+<span class="keyline">params, err := parseStartResponse(bytes.TrimSpace(out))</span>
+<span class="keyline">address := fmt.Sprintf(<span class="str">"%s+%s"</span>, params.Protocol, params.Address)</span></pre>
+</figure>
+<p>Inside the start-helper, the real server is launched as a fresh process placed in its own process group — this is the detachment — and then the helper writes the address to stdout and returns (i.e. exits):</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">cmd/containerd-shim-runc-v2/manager/manager_linux.go — newCommand()</span><span class="repo">containerd/containerd</span></div>
+<pre>cmd := exec.Command(self, args...)          <span class="cmt">// re-exec THIS binary as the server</span>
+<span class="keyline">cmd.SysProcAttr = &amp;syscall.SysProcAttr{ Setpgid: true }  // own process group = detached</span></pre>
+</figure>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">pkg/shim/shim.go — case "start"</span><span class="repo">containerd/containerd</span></div>
+<pre><span class="keyline">params, err := manager.Start(ctx, id, opts)</span>
+...
+<span class="keyline">data, err := json.Marshal(&amp;params)</span>
+<span class="keyline">os.Stdout.Write(data)</span>                    <span class="cmt">// JSON BootstrapParams; then this start invocation exits</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p><code class="inl">Setpgid: true</code> places the server shim in its own process group. The short-lived <code class="inl">start</code> path then returns the bootstrap result and exits, leaving the server independent of that helper. It may be adopted by PID 1 or another configured subreaper; what matters is that its lifetime is not tied to containerd's process lifetime.</p>
+  <p>containerd, meanwhile, keeps only the <em>address</em> it read from stdout (<code class="inl">ttrpc+unix://…</code>). Its relationship to the shim is now a network client, not a parent — which is exactly what lets it disappear and come back.</p>
+</div>
+
+<aside class="correction">
+  <span class="lbl">Correcting Lesson 2 · the source wins</span>
+  <p>Lesson 2 originally drew the serving shim as a durable child of containerd. That is the wrong invariant. containerd bootstraps or locates the shim and then talks to it over the runtime-v2 socket. The displayed PPID may be PID 1 or another subreaper depending on the host, but it must not be used to infer the control API relationship.</p>
+</aside>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 2</div>
+<h2>Reconnection: a socket address you can recompute from scratch</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Detachment solves “survive.” Now solve “reconnect.” The socket address is deterministic. containerd hashes its socket root, namespace, and the runtime's grouping key. With the default per-container grouping the key is the container ID; a runtime may group multiple containers behind one shim and use a shared key. Same inputs produce the same address, so containerd can dial the surviving shim again.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">pkg/shim/util_unix.go — CreateSocketAddress()</span><span class="repo">containerd/containerd</span></div>
+<pre>path := filepath.Join(socketPath, ns, id)     <span class="cmt">// namespace + container id</span>
+<span class="keyline">d := sha256.Sum256([]byte(path))              <span class="cmt">// hash that identity</span></span>
+<span class="keyline">return fmt.Sprintf(<span class="str">"unix://%s/%x"</span>, socketRoot, d)  <span class="cmt">// deterministic socket path</span></span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>The address is derived from <code class="inl">socketRoot / namespace / grouping-key</code> and then hashed. In Docker's common configuration the grouping key is the container ID, so the familiar result is effectively <code class="inl">sha256(namespace/id)</code>. The transport over that Unix socket is <strong>ttRPC</strong>, a compact RPC protocol suited to long-lived shim services. Runtime-v2 permits one shim per container or one shim for a defined group.</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 3</div>
+<h2>Why it must stay resident: parent duties + the control API</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>We now know the shim survives and can be re-found. But <em>why does it need to keep running at all</em>, rather than exiting like runc does? Two reasons, both tied to being the container's parent.</p>
+<p>First, a parent process owns its child's standard input/output and is the one the kernel notifies when the child dies. The shim holds the container's stdio streams (so <code class="inl">docker logs</code> and <code class="inl">docker attach</code> have something to connect to) and, crucially, it <strong>catches and remembers the exit code</strong> the instant the container exits — buffering it until someone asks. Second, the shim exposes a small control API over its ttrpc socket so containerd can drive the container's lifecycle: create, start, kill, query state, wait, delete.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">cmd/containerd-shim-runc-v2/task/service.go — the Task API</span><span class="repo">containerd/containerd</span></div>
+<pre>func (s *service) <span class="fn">Create</span>(...)  <span class="cmt">// the shim calls runc create</span>
+func (s *service) <span class="fn">Start</span>(...)   <span class="cmt">// the shim calls runc start</span>
+func (s *service) <span class="fn">Kill</span>(...)    <span class="cmt">// forward a signal to the container</span>
+func (s *service) <span class="fn">State</span>(...)   <span class="cmt">// report status …</span>
+<span class="keyline">func (s *service) <span class="fn">Wait</span>(...)  { ...; ExitStatus: uint32(p.ExitStatus()) }  // hand back the buffered exit code</span>
+func (s *service) <span class="fn">Delete</span>(...)  <span class="cmt">// clean up, return final exit status</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>These methods <em>are</em> the shim's reason to exist. Notice the division of labor with Lesson 2: the shim's <code class="inl">Create</code>/<code class="inl">Start</code> are what actually shell out to the short-lived <code class="inl">runc</code>; runc builds the container and exits, but the shim stays to be the parent. And <code class="inl">Wait</code> returning <code class="inl">p.ExitStatus()</code> is the payoff of residence: because the shim buffers the exit code, a container that dies <em>while containerd is down</em> loses nothing — when containerd reconnects and calls <code class="inl">Wait</code>, the shim hands over the exit status it has been holding. No exit event is ever dropped across a daemon restart.</p>
+</div>
+
+<aside class="note"><b>The stdio path, concretely.</b> The container's stdout/stderr aren't wired straight to a file; they pass through the shim, typically via named-pipe <em>FIFOs</em> the daemon opens. That's the plumbing behind <code class="inl">docker logs</code>, and it's why logging drivers are a daemon concern — a thread we pick up in Lesson 35, not here.</aside>
+
+<hr class="soft">
+
+<div class="eyebrow">Putting it together</div>
+<h2>What actually happens on <code style="font-size:.8em">systemctl restart containerd</code></h2>
+<div class="flow">
+before:  <span class="who">adopter/subreaper</span> → <span class="live">shim</span> → <span class="who">your container</span>   containerd ←ttRPC→ <span class="live">shim</span>
+restart: <span class="dead">containerd exits</span>  ✗                       <span class="live">shim keeps running, owns task wait/I/O state</span>
+              <span class="note">container untouched — the serving shim never exited</span>
+after:   containerd restarts → derive the same <span class="live">group socket</span> → re-dial → resume control
+</div>
+<p>The container never noticed. Its supervising shim and socket remained alive while containerd restarted. containerd derives the same group socket and resumes the RPC conversation.</p>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<p>Three checks: show that the container process is supervised by the shim, record the shim's actual adopter without assuming it must be PID 1, then watch the task and shim survive a containerd restart.</p>
+<figure class="inspect">
+  <div class="tab">host shell &nbsp;(root; systemd host)</div>
+<pre><span class="p">$</span> docker run -d --name survive alpine sleep 1000
+<span class="p">$</span> pid=$(docker inspect -f '{{.State.Pid}}' survive)
+<span class="p">$</span> shim=$(ps -o ppid= -p $pid | tr -d ' ')          <span class="o"># the container's parent = the shim</span>
+<span class="p">$</span> ps -o pid,ppid,comm -p $shim
+<span class="o">    PID    PPID COMMAND</span>
+<span class="o">   4120       … containerd-shim-runc-v2</span>            <span class="o"># adopter may be PID 1 or a configured subreaper</span>
+
+<span class="p">$</span> systemctl restart containerd                       <span class="o"># take the daemon down and back up</span>
+<span class="p">$</span> ps -p $pid -o comm=,etime=                          <span class="o"># container still there, uptime unbroken</span>
+<span class="o">sleep   03:1x</span>
+<span class="p">$</span> docker ps --filter name=survive --format '{{.Status}}'
+<span class="o">Up 3 minutes</span>                                        <span class="o"># containerd reconnected to the shim</span>
+
+<span class="p">$</span> <span class="o"># shim socket name = hash of socket root / namespace / grouping key:</span>
+<span class="p">$</span> ls /run/containerd/s/ | head -1
+<span class="o">4b8f...e2 (a 64-hex-char socket)</span></pre>
+</figure>
+
+<hr class="soft">
+
+<div class="eyebrow">Where we are</div>
+<h2>Summary</h2>
+<p>The shim exists to satisfy one requirement — <em>containers must survive a containerd restart</em>. In the pinned containerd 2.2.6 baseline, a short-lived <code class="inl">start</code> path bootstraps or locates an independent shim server and returns JSON <code class="inl">BootstrapParams</code>; containerd 2.3+ uses a protobuf bootstrap protocol. The serving shim stays <strong>reconnectable</strong> through a deterministic socket derived from the namespace and runtime grouping key, and stays <strong>resident</strong> to own task I/O, wait state, exit status, and the ttRPC Task API. Docker commonly uses one runc-v2 shim per container, while runtime-v2 permits grouped shims. runc performs the OCI operations and exits; the shim endures. Part II now drops beneath it into namespaces.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 02 · The architecture chain</span>
+  <span class="xref"><b>back ←</b> Lesson 04 · runtime.v2 plugin</span>
+  <span class="xref"><b>forward →</b> Lesson 06 · Namespaces</span>
+  <span class="xref"><b>forward →</b> Lesson 35 · stdio &amp; logging drivers</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">04 · containerd plugin model</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">06 · Namespaces: all 8, from the source</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

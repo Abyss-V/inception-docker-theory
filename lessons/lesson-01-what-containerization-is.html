@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 01 · What Containerization Is</title>
+<style>
+  /* ============================================================
+     DOCKER FROM SOURCE — shared visual system (v1)
+     "Teardown manual": ink ground, parchment serif prose,
+     monospace headings + source. Three semantic accents:
+       gold  = fetched primary source
+       teal  = inspect-it-yourself / cross-references
+       rose  = the source corrects the folklore
+     ============================================================ */
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--ink); color:var(--bone);
+    font-family:var(--serif); font-size:18px; line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  /* ---- masthead ---- */
+  header.top{
+    border-bottom:1px solid var(--rule); margin-bottom:44px;
+    padding:34px 0 26px;
+  }
+  .course-tag{
+    font-family:var(--mono); font-size:11px; letter-spacing:.28em;
+    text-transform:uppercase; color:var(--faint);
+  }
+  .lesson-no{
+    font-family:var(--mono); font-size:64px; line-height:1; font-weight:600;
+    color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;
+  }
+  h1{
+    font-family:var(--mono); font-weight:600; font-size:27px; line-height:1.2;
+    margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;
+  }
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  /* ---- section scaffolding ---- */
+  .eyebrow{
+    font-family:var(--mono); font-size:12px; letter-spacing:.22em;
+    text-transform:uppercase; color:var(--teal); margin:52px 0 4px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow::before{content:""; width:16px; height:1px; background:var(--teal); opacity:.6}
+  h2{
+    font-family:var(--mono); font-weight:600; font-size:22px;
+    margin:6px 0 18px; color:var(--bone); letter-spacing:-.01em;
+  }
+  h3{font-family:var(--mono); font-weight:600; font-size:16px; color:var(--gold); margin:30px 0 10px}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  a{color:var(--teal); text-decoration:none; border-bottom:1px solid var(--teal-dim)}
+  a:hover{border-bottom-color:var(--teal)}
+  code.inl{
+    font-family:var(--mono); font-size:.86em; background:var(--well);
+    border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);
+  }
+
+  /* ---- the four teaching steps: numbered rail ---- */
+  .step{
+    font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--ink); background:var(--gold); display:inline-block;
+    padding:3px 9px; border-radius:3px; margin:40px 0 10px; font-weight:600;
+  }
+  .step.verify{background:var(--teal)}
+
+  /* ---- SOURCE block: the signature provenance tab ---- */
+  figure.src{margin:14px 0 8px; border:1px solid var(--gold-dim); border-radius:8px; overflow:hidden; background:var(--well)}
+  figure.src .tab{
+    font-family:var(--mono); font-size:12px; color:var(--gold);
+    background:linear-gradient(180deg,#1c1a12,#141109);
+    border-bottom:1px solid var(--gold-dim); padding:8px 14px;
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  figure.src .tab .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none}
+  figure.src .tab .path{overflow-wrap:anywhere}
+  figure.src .tab .repo{color:var(--faint); margin-left:auto; font-size:11px}
+  figure.src pre{margin:0; padding:16px 16px; overflow-x:auto}
+  figure.src.spec .tab{color:#cdb87a}
+  pre,code{font-family:var(--mono)}
+  pre{font-size:13.5px; line-height:1.6; color:#d7d2c4}
+  pre .kw{color:var(--rose)} pre .fn{color:var(--teal)} pre .cmt{color:var(--faint); font-style:italic}
+  pre .str{color:var(--gold)} pre .field{color:var(--gold)} pre .num{color:#c1a3ea}
+
+  /* ---- INSPECT block: terminal ---- */
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{
+    font-family:var(--mono); font-size:12px; color:var(--teal);
+    background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;
+    display:flex; align-items:center; gap:8px;
+  }
+  figure.inspect pre{padding:14px 16px; color:#bfe6df; font-size:13px}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+
+  /* ---- line-by-line annotation list ---- */
+  ul.lines{list-style:none; padding:0; margin:14px 0 8px; border-left:2px solid var(--rule)}
+  ul.lines li{padding:7px 0 7px 16px; margin:0; font-size:16.5px; color:var(--bone)}
+  ul.lines li .t{font-family:var(--mono); font-size:.82em; color:var(--gold); background:var(--well);
+    border:1px solid var(--rule); border-radius:4px; padding:1px 6px; margin-right:4px; white-space:nowrap}
+
+  /* ---- correction / reveal callout ---- */
+  aside.correction{
+    border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f);
+    border-radius:8px; padding:18px 20px; margin:26px 0;
+  }
+  aside.correction .lbl{
+    font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--rose); display:block; margin-bottom:8px;
+  }
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{
+    border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0;
+    padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;
+  }
+  aside.note b{color:var(--teal); font-weight:600}
+
+  /* ---- VM vs container comparison ---- */
+  .vs{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:22px 0}
+  .vs .col{border:1px solid var(--rule); border-radius:8px; padding:16px 18px; background:var(--panel)}
+  .vs .col h4{font-family:var(--mono); font-size:14px; margin:0 0 12px; color:var(--bone)}
+  .vs .col.container h4{color:var(--gold)}
+  .vs .stack{font-family:var(--mono); font-size:12.5px; line-height:1.9; color:var(--dim)}
+  .vs .stack .hl{color:var(--rose)}
+  .vs .stack .sh{color:var(--teal)}
+  @media(max-width:620px){.vs{grid-template-columns:1fr}}
+
+  /* ---- cross-reference chips ---- */
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{
+    font-family:var(--mono); font-size:12px; color:var(--teal);
+    border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px;
+    background:#0a1614;
+  }
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  /* ---- footer nav ---- */
+  footer.nav{border-top:1px solid var(--rule); margin-top:70px; padding-top:26px;
+    display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  .lead{font-size:20px; line-height:1.6; color:var(--bone)}
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:40px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><span></span><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-02-the-architecture.html">Lesson 02 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part I — Foundations</div>
+  <div class="lesson-no">01</div>
+  <h1>What containerization actually is</h1>
+  <p class="dek">A container is not a small virtual machine and not a box. Read literally from the OCI spec, it is <em>an environment for a process</em> — and everything else in this course follows from taking that sentence seriously.</p>
+</header>
+
+<p class="lead">Almost every Docker tutorial opens by drawing a container as a little box sitting on your operating system. That picture is not wrong so much as it hides the mechanism. Before we touch <code class="inl">docker</code> at all, we are going to fetch the actual specification that defines the word "container" and let it tell us what the thing is. When the spec and the folk model disagree, the spec wins — and it disagrees immediately.</p>
+
+<div class="eyebrow">Mechanism 1</div>
+<h2>A container is an environment, not an object</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Start from processes, which you already understand. On Linux, everything that runs is a process: it has a PID, an address space, open file descriptors, a view of the filesystem, a set of privileges, and it makes <strong>system calls</strong> into the kernel to do anything real — open a file, send a packet, fork a child. Normally, every process shares one global view of the machine: the same filesystem tree rooted at <code class="inl">/</code>, the same list of PIDs, the same network interfaces, the same hostname.</p>
+
+<p>A "container" is what you get when you start an ordinary process but first <em>reconfigure what that process can see and use</em>: give it its own root filesystem, its own PID numbering, its own network stack, and a ceiling on the CPU and memory it may consume. The process is still a normal process on your host. It has simply been handed a customized environment. That is the entire idea, and — remarkably — it is almost verbatim how the standard defines it.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src spec">
+  <div class="tab"><span class="dot"></span><span class="path">glossary.md</span><span class="repo">opencontainers/runtime-spec</span></div>
+<pre><span class="cmt">## Container</span>
+
+An environment for executing processes with configurable isolation
+and resource limitations.
+For example, namespaces, resource limits, and mounts are all part of
+the container environment.
+
+<span class="cmt">## Runtime</span>
+
+An implementation of this specification.
+It reads the configuration files from a bundle, uses that information
+to create a container, launches a process inside the container, and
+performs other lifecycle actions.</pre>
+</figure>
+
+<span class="step">Step 3 · Read it line by line</span>
+<ul class="lines">
+  <li><span class="t">"An environment for executing processes"</span> The spec never calls a container a machine, an image, or a box. It is an <em>environment</em>, and its whole reason to exist is to run <em>processes</em>. The container is the costume; the process is the actor.</li>
+  <li><span class="t">"configurable isolation"</span> Isolation is a dial, not a wall. You choose how much the process is separated from the host. That configurability is the namespaces we cover in Lesson 6.</li>
+  <li><span class="t">"resource limitations"</span> The second half: capping CPU, memory, PIDs, I/O. That is cgroups, Lessons 9–10.</li>
+  <li><span class="t">"namespaces, resource limits, and mounts"</span> The spec names its own three ingredients. There is no fourth magic ingredient. A container is exactly: (isolation) + (limits) + (a filesystem to run in).</li>
+  <li><span class="t">Runtime "launches a process inside the container"</span> Confirms the direction of causation: the runtime <em>first</em> builds the environment, <em>then</em> launches a process into it. Environment precedes process.</li>
+</ul>
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>The popular teaching — "a container is a lightweight VM" — inverts the relationship. A VM is a <em>thing</em> (a virtual computer) that then runs processes. A container is <em>not a thing at all</em>: it is a set of adjustments to how one host process sees the world. There is nothing to "boot." When people say a container is "running," what is literally running is a process on your kernel that has been placed in namespaces and cgroups. Hold onto this; it explains every security property later.</p>
+</aside>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<p>Prove the process is just a host process. Run a container that sleeps, then look for it from the host with plain <code class="inl">ps</code> — no Docker command needed:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> docker run -d --name proof alpine sleep 600
+<span class="o">a1b2c3...   (container id)</span>
+<span class="p">$</span> ps -eo pid,comm | grep sleep
+<span class="o">  48213 sleep</span>          <span class="o"># ← a normal PID on YOUR host</span>
+<span class="p">$</span> sudo readlink /proc/48213/exe
+<span class="o">/bin/busybox</span>            <span class="o"># the container's binary, visible from the host</span>
+<span class="p">$</span> sudo cat /proc/48213/cgroup   <span class="o"># it lives in a cgroup — Lessons 9–10</span></pre>
+</figure>
+<p>There is no VM wrapping PID 48213. It is a sibling of every other process on your machine, distinguished only by the namespaces and cgroup it was placed in.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>forward →</b> Lesson 06 · Namespaces (the isolation)</span>
+  <span class="xref"><b>forward →</b> Lessons 09–10 · cgroups (the limits)</span>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 2</div>
+<h2>Shared kernel: the one fact that separates containers from VMs</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Here is the mechanism that defines the whole category. When the process inside a container makes a system call — <code class="inl">read()</code>, <code class="inl">clone()</code>, <code class="inl">connect()</code> — that syscall is serviced by <strong>your host's kernel</strong>. The exact same kernel that services syscalls from your text editor. There is no second kernel inside the container. The isolation (different filesystem, different PIDs) is bookkeeping <em>within</em> that one kernel, not a separate operating system.</p>
+
+<p>Contrast a virtual machine. A VM runs a <em>full guest kernel</em> on top of virtualized hardware provided by a hypervisor. A syscall inside a VM is handled by the guest kernel; only when the guest kernel touches virtual hardware does control drop to the hypervisor and then the host. Two kernels, two boundaries.</p>
+
+<div class="vs">
+  <div class="col">
+    <h4>Virtual machine</h4>
+    <div class="stack">
+      app process<br>
+      ── syscall ──▶<br>
+      <span class="hl">GUEST KERNEL</span><br>
+      ── virt hw ──▶<br>
+      <span class="hl">HYPERVISOR</span><br>
+      host kernel · hardware
+    </div>
+  </div>
+  <div class="col container">
+    <h4>Container</h4>
+    <div class="stack">
+      app process <span class="sh">(in namespaces)</span><br>
+      ── syscall ──▶<br>
+      <span class="hl">HOST KERNEL</span> <span class="sh">(shared)</span><br>
+      hardware
+    </div>
+  </div>
+</div>
+
+<span class="step">Step 2 · The source</span>
+<p>You don't have to take this on faith — the reference runtime says what it does in one sentence. <code class="inl">runc</code> is the program Docker ultimately calls to make a container (Lesson 2). Its README:</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">README.md</span><span class="repo">opencontainers/runc</span></div>
+<pre>`runc` is a CLI tool for <span class="str">spawning and running containers</span>
+on Linux <span class="str">according to the OCI specification</span>.</pre>
+</figure>
+<p>The verb is <em>spawning</em>. Not "booting," not "virtualizing" — spawning a process. And here is the kernel mechanism it uses to do it, grepped straight out of runc's namespace-entry C code (the flags passed to <code class="inl">clone()</code> / <code class="inl">unshare()</code>, which we dissect in Lesson 6):</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">libcontainer/nsenter/nsexec.c</span><span class="repo">opencontainers/runc</span></div>
+<pre><span class="cmt">/* the namespaces runc knows how to create */</span>
+{ CLONE_NEWCGROUP, <span class="str">"cgroup"</span> },
+{ CLONE_NEWIPC,    <span class="str">"ipc"</span>    },
+{ CLONE_NEWNS,     <span class="str">"mnt"</span>    },
+{ CLONE_NEWNET,    <span class="str">"net"</span>    },
+{ CLONE_NEWPID,    <span class="str">"pid"</span>    },
+{ CLONE_NEWTIME,   <span class="str">"time"</span>   },
+{ CLONE_NEWUSER,   <span class="str">"user"</span>   },
+{ CLONE_NEWUTS,    <span class="str">"uts"</span>    },</pre>
+</figure>
+
+<span class="step">Step 3 · Read it line by line</span>
+<ul class="lines">
+  <li><span class="t">CLONE_NEW*</span> Each is a flag to the Linux <code class="inl">clone(2)</code> / <code class="inl">unshare(2)</code> syscall. Setting one asks the <em>host kernel</em> to give the new process a fresh instance of that subsystem. The kernel doing the giving is the shared kernel — proof that no guest kernel is involved.</li>
+  <li><span class="t">"cgroup" … "uts"</span> These are the string names you'll see under <code class="inl">/proc/self/ns/</code>. Eight of them. Note the count: eight, not six.</li>
+  <li><span class="t">CLONE_NEWTIME</span> The time namespace (Linux 5.6+). Routinely omitted by tutorials that teach "the six namespaces." It's here in the real source, so we teach it.</li>
+  <li><span class="t">CLONE_NEWCGROUP</span> The cgroup namespace — also frequently dropped. Distinct from cgroups-the-limiter; it isolates the <em>view</em> of the cgroup tree.</li>
+</ul>
+
+<aside class="correction">
+  <span class="lbl">Source vs folklore · the count is 8</span>
+  <p>Our very first grep of runc contradicted the common "six namespaces" list. The kernel and runc support <strong>eight</strong>: mnt, pid, net, ipc, uts, user, <em>cgroup</em>, and <em>time</em>. We will not round down to the familiar number anywhere in this course. Lesson 6 walks all eight from this same file.</p>
+</aside>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<p>The cleanest proof of "shared kernel" is that the container and host report the <em>same kernel version</em>, because there is only one:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> uname -r
+<span class="o">6.8.0-45-generic</span>            <span class="o"># your host kernel</span>
+<span class="p">$</span> docker run --rm alpine uname -r
+<span class="o">6.8.0-45-generic</span>            <span class="o"># identical — the container has no kernel of its own</span></pre>
+</figure>
+<p>Try the same trick against a VM (or WSL2, or a cloud instance) and you'll get a <em>different</em> kernel version, because a VM boots its own. A container cannot, because there is nothing there to boot.</p>
+
+<hr class="soft">
+
+<div class="eyebrow">Consequence</div>
+<h2>One wall vs two: the security cost of a shared kernel</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>The shared kernel is what makes containers fast and light — no second OS to boot, near-native syscall speed, megabytes instead of gigabytes. It is also their central security limitation, and it falls directly out of the diagram above.</p>
+<p>A containerized process is separated from the host by <strong>exactly one boundary</strong>: the kernel's own isolation logic (namespaces + cgroups + capabilities + seccomp). If an attacker inside a container finds a bug in <em>that</em> kernel — a namespace escape, a privilege-escalation syscall bug — they are on the host, as whatever privilege they can reach. One wall, and it's the same wall the host stands on.</p>
+<p>A VM adds a <strong>second, independent boundary</strong>. Break the guest kernel and you own the guest — but you're still trapped inside the hypervisor's virtual hardware. To reach the host you must <em>also</em> break the hypervisor, a much smaller and more hardened interface. Two walls, made of different material.</p>
+
+<aside class="note"><b>Design takeaway.</b> "Container vs VM" is not "better vs worse." It's a trade: containers spend a security boundary to buy speed and density. This is why hostile-multi-tenant workloads often run each container <em>inside</em> a lightweight VM (Firecracker, Kata, gVisor's re-implemented kernel) — restoring the second wall while keeping most of the ergonomics. Every security primitive in Lessons 11–13 (capabilities, seccomp, AppArmor/SELinux) exists to harden that single shared-kernel wall.</aside>
+
+<div class="xrefs">
+  <span class="xref"><b>forward →</b> Lessons 11–13 · Capabilities, seccomp, LSMs</span>
+  <span class="xref"><b>forward →</b> Lesson 46 · Security capstone · docker.sock</span>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Caveat</div>
+<h2>"Runs anywhere" has an architecture asterisk — and it's in the spec</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Because there's no guest OS, the binaries inside an image are <em>real machine code for a real CPU architecture</em>, executed directly by your host processor. An <code class="inl">amd64</code> image ships x86-64 instructions; an <code class="inl">arm64</code> image ships AArch64 instructions. The host kernel doesn't translate them — it hands them to the silicon. So a container image is portable across <em>machines</em>, but <strong>not automatically across architectures</strong>. Pull an arm64 image onto an x86-64 host and the CPU literally cannot decode the instructions.</p>
+<p>This isn't a Docker quirk — it's written into the image specification, which makes the CPU architecture a <em>required</em> field of every image config.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src spec">
+  <div class="tab"><span class="dot"></span><span class="path">config.md</span><span class="repo">opencontainers/image-spec</span></div>
+<pre><span class="cmt">- **architecture** string, REQUIRED</span>
+  The CPU architecture which the binaries in this image are built to run on.
+  Configurations SHOULD use, and implementations SHOULD understand, values
+  listed in the Go Language document for <span class="field">GOARCH</span>.
+
+<span class="cmt">- **os** string, REQUIRED</span>
+  The name of the operating system which the image is built to run on.
+  Configurations SHOULD use, and implementations SHOULD understand, values
+  listed in the Go Language document for <span class="field">GOOS</span>.
+
+<span class="cmt">- **variant** string, OPTIONAL</span>
+  The variant of the specified CPU architecture.  (e.g. v7 vs v8 on arm)</pre>
+</figure>
+
+<span class="step">Step 3 · Read it line by line</span>
+<ul class="lines">
+  <li><span class="t">architecture · REQUIRED</span> Every image must declare its CPU target. There is no "architecture-neutral" container image of native code. The word REQUIRED is the spec forbidding you from pretending otherwise.</li>
+  <li><span class="t">"binaries … built to run on"</span> The spec is explicit that these are <em>binaries</em> — compiled machine code — not portable bytecode. That's why the host CPU must match.</li>
+  <li><span class="t">GOARCH / GOOS</span> The allowed values reuse Go's identifiers: <code class="inl">amd64</code>, <code class="inl">arm64</code>, <code class="inl">386</code>, <code class="inl">ppc64le</code>… / <code class="inl">linux</code>, <code class="inl">windows</code>. A pair like <code class="inl">linux/amd64</code> is the "platform."</li>
+  <li><span class="t">os · REQUIRED</span> Same story for the OS. A <code class="inl">windows</code> image expects a Windows kernel; it cannot run on your Linux host, shared-kernel being the whole point.</li>
+  <li><span class="t">variant · OPTIONAL</span> Fine-grained CPU sub-targets (e.g. ARM <code class="inl">v6/v7/v8</code>). Optional because the coarse arch is usually enough to decide runnability.</li>
+</ul>
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>"Build once, run anywhere" is marketing shorthand. The spec's own REQUIRED <code class="inl">architecture</code>/<code class="inl">os</code> fields say the honest version: <em>build once per platform, run anywhere with that platform.</em> The way Docker appears to run "anywhere" is that a single tag (e.g. <code class="inl">alpine</code>) is often a <strong>manifest list</strong> pointing at several per-architecture images, and the daemon picks the one matching your host. And when you deliberately run a foreign-arch image, it only works because an emulator (<code class="inl">qemu-user</code> via <code class="inl">binfmt_misc</code>) transparently interprets the instructions — at a real speed cost. We build manifest lists apart in Lesson 19.</p>
+</aside>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<p>Ask the daemon what platform a local image was built for, and confirm it matches your CPU:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> docker image inspect alpine --format '{{.Os}}/{{.Architecture}}'
+<span class="o">linux/amd64</span>
+<span class="p">$</span> uname -m
+<span class="o">x86_64</span>                  <span class="o"># amd64 — matches, so it runs natively</span>
+
+<span class="p">$</span> <span class="o"># now deliberately pull a foreign arch:</span>
+<span class="p">$</span> docker run --rm --platform linux/arm64 alpine uname -m
+<span class="o">aarch64</span>                 <span class="o"># only works if qemu-user/binfmt is installed;</span>
+<span class="o">                         # otherwise: "exec format error"</span></pre>
+</figure>
+<p>That <code class="inl">exec format error</code> is your host CPU refusing to decode instructions built for another architecture — the arch asterisk made concrete.</p>
+
+<hr class="soft">
+
+<div class="eyebrow">Where we are</div>
+<h2>What you now know, stated precisely</h2>
+<p>A container is not a virtual machine and not a box. It is <strong>an ordinary host process placed in a configured environment</strong> — the runtime-spec says so in the glossary. That environment is built from kernel features (eight namespaces, cgroups, mounts) requested through syscalls like <code class="inl">clone()</code>, serviced by the <strong>one shared host kernel</strong>. Sharing that kernel is what makes containers cheap (no guest OS to boot, native syscall speed) and what makes them <strong>one wall</strong> instead of a VM's two. And because the process runs native machine code on your CPU, portability is bounded by architecture — a fact the image-spec enforces with REQUIRED <code class="inl">architecture</code> and <code class="inl">os</code> fields.</p>
+<p>Everything from here is detail on those clauses. Next we follow the chain of programs that turns <code class="inl">docker run</code> into that <code class="inl">clone()</code> call.</p>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">Start</span>
+    <span class="ti">You are at the beginning</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">02 · The architecture: CLI → dockerd → containerd → shim → runc</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

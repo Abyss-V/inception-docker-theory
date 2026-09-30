@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 39 — Registries &amp; the OCI Distribution HTTP API</title>
+<style>
+:root{--ink:#0e1116;--panel:#161b22;--well:#0a0d12;--bone:#e9e4d7;--dim:#9aa4b2;--faint:#6b7482;--rule:#262d38;--gold:#e0b155;--gold-dim:#7a6636;--teal:#5ac4b4;--teal-dim:#2f5f59;--rose:#d76d7f;--rose-dim:#6e3540;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--serif:"Iowan Old Style",Charter,Georgia,Cambria,serif}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--ink);color:var(--bone);font:18px/1.72 var(--serif)}.wrap{max-width:760px;margin:auto;padding:24px}
+header{padding:32px 0 20px;border-bottom:1px solid var(--rule)}.eyebrow{font:12px var(--mono);color:var(--gold);letter-spacing:.12em;text-transform:uppercase}h1{font-size:44px;line-height:1.05;margin:.35rem 0 1rem}.deck{color:#cfc8b8;max-width:52rem}.pill{display:inline-block;border:1px solid var(--teal-dim);color:var(--teal);font:12px var(--mono);padding:4px 8px;border-radius:999px}
+section{padding:28px 0;border-bottom:1px solid rgba(255,255,255,.04)}h2{font-size:30px;line-height:1.2;margin:0 0 14px}h3{font-size:22px;line-height:1.3;margin:24px 0 10px}p,li{color:var(--bone)}.dim{color:var(--dim)}strong{color:#f4f0e6}code,pre{font-family:var(--mono)}code{background:#11161d;border:1px solid #2b3440;border-radius:6px;padding:1px 5px;color:#f2d493}pre{background:var(--well);border:1px solid var(--rule);border-radius:12px;padding:14px;overflow:auto;color:#d8e0e7;line-height:1.55;white-space:pre-wrap}
+.note,.warn,.idea,.inspect{padding:16px 18px;border-radius:14px;border:1px solid var(--rule);margin:16px 0}.idea{border-left:4px solid var(--teal);background:#101a1a}.note{border-left:4px solid var(--gold);background:#17140e}.warn{border-left:4px solid var(--rose);background:#1a1013}.inspect{border-left:4px solid var(--teal);background:#0f1717}.label{font:12px var(--mono);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}.idea .label,.inspect .label{color:var(--teal)}.note .label{color:var(--gold)}.warn .label{color:var(--rose)}
+.table{width:100%;border-collapse:collapse;margin:14px 0}.table th,.table td{border-bottom:1px solid var(--rule);padding:10px;vertical-align:top}.table th{font:12px var(--mono);color:var(--gold);text-align:left}.figure{background:var(--panel);border:1px solid var(--rule);border-radius:16px;padding:18px;margin:18px 0;overflow:hidden}.caption{color:var(--dim);font-size:15px;margin-top:10px}.small{font-size:15px;color:var(--dim)}.src{color:var(--gold);font:13px/1.55 var(--mono)}details{background:#12171e;border:1px solid var(--rule);border-radius:12px;padding:12px 14px;margin-top:10px}summary{cursor:pointer;color:var(--gold);font-family:var(--mono)}a{color:var(--teal);text-decoration-color:var(--teal-dim)}
+.kicker{font:13px var(--mono);color:var(--teal);letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px}.hop{display:grid;grid-template-columns:38px 1fr;gap:12px;margin:18px 0}.hopn{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--teal-dim);color:var(--teal);font:13px var(--mono)}.hop h3{margin:1px 0 6px}.nav{display:flex;justify-content:space-between;gap:12px;padding-top:22px}.nav a{display:block;border:1px solid var(--teal-dim);border-radius:12px;padding:10px 12px;text-decoration:none;font:13px var(--mono)}.sourcechips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.sourcechips a{font:12px var(--mono);border:1px solid var(--gold-dim);color:var(--gold);text-decoration:none;border-radius:999px;padding:5px 8px}.term{border-bottom:1px dotted var(--gold-dim)}
+@media(max-width:650px){h1{font-size:36px}.wrap{padding:18px}.table{font-size:15px}.figure{padding:10px}.nav{flex-direction:column}}
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-38-checkpoint-restore-criu.html">← Lesson 38</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-40-tags-digests-content-addressed-transfer-dedup.html">Lesson 40 →</a></span></nav><main class="wrap">
+<header>
+  <div class="eyebrow">Part 6 · Distribution · Lesson 39</div>
+  <h1>Registries &amp; the OCI Distribution HTTP API</h1>
+  <p class="deck">Follow one image across the network. First a name moves. Then a manifest or index moves. That metadata tells containerd which config and layer blobs to fetch. Push runs the same idea in reverse: send the bytes that a manifest depends on, then commit the manifest.</p>
+  <span class="pill">CORE</span>
+</header>
+
+<section>
+  <div class="idea"><div class="label">governing idea</div><p><strong>A registry never needs to send “the image” as one giant Docker file.</strong> It serves the OCI objects you already learned in Lessons 18–20: index, manifest, config, and compressed layers. The Distribution API is simply the HTTP protocol used to move those objects.</p></div>
+  <p>This lesson has one job: answer <strong>exactly what moves, who moves it, and which HTTP request moves it</strong> during <code>docker pull</code> and <code>docker push</code>.</p>
+  <div class="note"><div class="label">scope rule for this rebuild</div><p>Lesson 40 owns tag-vs-digest identity and deduplication. Lesson 41 owns signing/provenance artifacts. This lesson will not introduce those mechanisms early. When a tag or digest is needed as an HTTP input, we define only enough to follow the request.</p></div>
+</section>
+
+<section>
+  <h2>1. First, name the things on each side</h2>
+  <p>A <strong>registry</strong> is the HTTP service that stores and serves OCI content. A <strong>repository</strong> is one named collection inside that registry.</p>
+  <p>For:</p>
+  <pre><code>registry.example.com/team/app:1.4</code></pre>
+  <table class="table">
+    <thead><tr><th>Part</th><th>Meaning here</th></tr></thead>
+    <tbody>
+      <tr><td><code>registry.example.com</code></td><td>The registry server.</td></tr>
+      <tr><td><code>team/app</code></td><td>The repository name inside that registry.</td></tr>
+      <tr><td><code>1.4</code></td><td>A tag: a human-friendly name used here to ask for a manifest or index. Lesson 40 explains why tags can move.</td></tr>
+    </tbody>
+  </table>
+  <p>You already know a <strong>descriptor</strong> from Lesson 18: it is a small record containing a content object's <code>digest</code>, <code>size</code>, and <code>mediaType</code>. Here, <strong>media type</strong> simply means “what kind of OCI object are these bytes?”</p>
+  <p>We also need one HTTP word: an <strong>endpoint</strong> is a particular method + path that performs one operation. For example:</p>
+  <pre><code>GET /v2/team/app/blobs/sha256:...</code></pre>
+  <p><code>GET</code> asks for the response body. <code>HEAD</code> asks for the response headers without the body. <code>POST</code> starts an operation or creates temporary server-side state. <code>PUT</code> sends the final bytes to a known destination.</p>
+</section>
+
+<section>
+  <div class="kicker">whole mechanism first</div>
+  <h2>2. Keep this picture in your head</h2>
+  <div class="figure">
+  <svg viewBox="0 0 720 900" width="100%" role="img" aria-labelledby="p-title p-desc">
+    <title id="p-title">Registry pull and push movement</title>
+    <desc id="p-desc">Pull begins with a name, resolves manifest metadata, fetches manifest or index JSON and then blobs into containerd. Push starts from local OCI objects, uploads blobs, then commits manifests and indexes.</desc>
+    <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#5ac4b4"/></marker></defs>
+    <style>.box{fill:#111820;stroke:#34404d;stroke-width:1.4}.t{fill:#e9e4d7;font:600 16px ui-monospace,monospace}.s{fill:#9aa4b2;font:13px ui-monospace,monospace}.lab{fill:#e0b155;font:700 13px ui-monospace,monospace;letter-spacing:1px}.arr{stroke:#5ac4b4;stroke-width:2;fill:none;marker-end:url(#a)}</style>
+    <text x="20" y="28" class="lab">PULL — REMOTE OBJECTS → LOCAL CONTENT</text>
+    <rect x="20" y="50" width="190" height="72" rx="11" class="box"/><text x="35" y="78" class="t">Docker CLI</text><text x="35" y="102" class="s">moves: image name</text>
+    <rect x="265" y="50" width="190" height="72" rx="11" class="box"/><text x="280" y="78" class="t">dockerd</text><text x="280" y="102" class="s">asks containerd to pull</text>
+    <rect x="510" y="50" width="190" height="72" rx="11" class="box"/><text x="525" y="78" class="t">containerd</text><text x="525" y="102" class="s">drives registry HTTP</text>
+    <path d="M210 86H260" class="arr"/><path d="M455 86H505" class="arr"/>
+
+    <rect x="180" y="180" width="360" height="92" rx="11" class="box"/><text x="200" y="208" class="t">Registry: manifest endpoint</text><text x="200" y="233" class="s">HEAD/GET → descriptor + manifest/index JSON</text><text x="200" y="255" class="s">JSON points to child descriptors</text>
+    <path d="M605 123 C605 150 520 158 515 178" class="arr"/>
+
+    <rect x="180" y="330" width="360" height="92" rx="11" class="box"/><text x="200" y="358" class="t">Registry: blob endpoint</text><text x="200" y="383" class="s">GET → config bytes + compressed layer bytes</text><text x="200" y="405" class="s">one child object per descriptor</text>
+    <path d="M360 272V325" class="arr"/>
+
+    <rect x="180" y="480" width="360" height="80" rx="11" class="box"/><text x="200" y="509" class="t">containerd content store</text><text x="200" y="534" class="s">objects now exist locally by digest</text>
+    <path d="M360 422V475" class="arr"/>
+
+    <text x="20" y="635" class="lab">PUSH — LOCAL CONTENT → REMOTE REPOSITORY</text>
+    <rect x="20" y="660" width="210" height="78" rx="11" class="box"/><text x="35" y="689" class="t">Local config/layers</text><text x="35" y="714" class="s">upload child bytes first</text>
+    <rect x="255" y="660" width="210" height="78" rx="11" class="box"/><text x="270" y="689" class="t">Registry upload</text><text x="270" y="714" class="s">POST → Location → PUT</text>
+    <rect x="490" y="660" width="210" height="78" rx="11" class="box"/><text x="505" y="689" class="t">Manifest/index</text><text x="505" y="714" class="s">PUT only after children</text>
+    <path d="M230 699H250" class="arr"/><path d="M465 699H485" class="arr"/>
+
+    <rect x="180" y="800" width="360" height="70" rx="11" class="box"/><text x="200" y="828" class="t">Remote repository is complete</text><text x="200" y="852" class="s">metadata references content that is already there</text>
+    <path d="M595 738 C595 775 535 782 530 798" class="arr"/>
+  </svg>
+  <div class="caption">Read this as two different kinds of movement: control information first, content bytes later. On pull, metadata tells containerd what bytes to fetch. On push, bytes are made available before the metadata that references them.</div>
+  </div>
+</section>
+
+<section>
+  <div class="kicker">pull</div>
+  <h2>3. <code>docker pull</code> begins with a name, not layer bytes</h2>
+  <p>Suppose you run:</p>
+  <pre><code>docker pull registry.example.com/team/app:1.4</code></pre>
+  <div class="hop"><div class="hopn">1</div><div><h3>Docker CLI → dockerd</h3><p>The moving thing is the image reference <code>registry.example.com/team/app:1.4</code>, plus options such as platform and registry credentials. <strong>No layer stream is moving through the CLI.</strong></p></div></div>
+  <div class="hop"><div class="hopn">2</div><div><h3>dockerd → containerd</h3><p><code>dockerd</code> prepares the pull and asks containerd to perform it. On this pinned Engine path, it asks containerd to pull <em>and unpack</em>. “Unpack” means that after compressed layer content arrives, the snapshotter from Lesson 16 prepares filesystem snapshots that containers can mount.</p></div></div>
+  <div class="hop"><div class="hopn">3</div><div><h3>containerd → registry</h3><p>containerd is now the component that performs the registry HTTP requests. Its first problem is: <strong>what OCI object does the name <code>team/app:1.4</code> currently identify?</strong></p></div></div>
+  <p class="src">Primary anchors: Docker Engine 29.6.2 source repository, <code>daemon/containerd/image_pull.go</code>; containerd v2.2.6, <code>client/pull.go</code>.</p>
+</section>
+
+<section>
+  <h2>4. Resolve the name: containerd asks the manifest endpoint</h2>
+  <p>To fetch an object graph, containerd needs a <strong>root descriptor</strong>: the descriptor for the first manifest or index.</p>
+  <p>With a tag such as <code>1.4</code>, containerd v2.2.6 normally starts with:</p>
+  <pre><code>HEAD /v2/team/app/manifests/1.4</code></pre>
+  <p>Remember: <code>HEAD</code> asks for headers but no response body. Three headers are enough to describe the object:</p>
+  <ul>
+    <li><code>Docker-Content-Digest</code> — which content digest identifies it;</li>
+    <li><code>Content-Length</code> — how many bytes the object contains;</li>
+    <li><code>Content-Type</code> — whether those bytes are a manifest, index, or another accepted representation.</li>
+  </ul>
+  <p>containerd uses those values to construct the descriptor. If the registry does not provide enough information, containerd falls back to <code>GET</code>, reads the manifest body, and computes the missing digest/size itself.</p>
+  <div class="idea"><div class="label">what moved in this step?</div><p>Usually only <strong>HTTP headers</strong>. The image layers still have not moved.</p></div>
+  <p>The request also carries an <code>Accept</code> header. <strong>Accept</strong> means “these are the manifest/index formats I know how to understand.” That matters because the same tag can resolve to a single-platform manifest or to an index containing several platform manifests.</p>
+  <p class="src">Primary anchor: containerd v2.2.6, <code>core/remotes/docker/resolver.go::Resolve</code>. It issues a manifest <code>HEAD</code>, uses response metadata when sufficient, and falls back to <code>GET</code> when digest/size must be derived.</p>
+</section>
+
+<section>
+  <h2>5. Fetch the metadata object, then follow its child descriptors</h2>
+  <p>Now containerd knows the root descriptor. It must fetch the actual root object.</p>
+  <p>If the descriptor says the object is a manifest or index, containerd fetches it through the <strong>manifest endpoint</strong>:</p>
+  <pre><code>GET /v2/team/app/manifests/sha256:&lt;digest&gt;</code></pre>
+  <p>The response body is JSON. That JSON contains more descriptors.</p>
+  <p>For a normal single-platform image manifest, the children are:</p>
+  <ul>
+    <li>one descriptor for the image configuration JSON;</li>
+    <li>one descriptor for each compressed filesystem layer.</li>
+  </ul>
+  <p>Those child objects are <strong>blobs</strong>. A blob here simply means raw content fetched from the blob endpoint by digest:</p>
+  <pre><code>GET /v2/team/app/blobs/sha256:&lt;config-digest&gt;
+GET /v2/team/app/blobs/sha256:&lt;layer-1-digest&gt;
+GET /v2/team/app/blobs/sha256:&lt;layer-2-digest&gt;</code></pre>
+  <div class="warn"><div class="label">important distinction</div><p><strong>A digest does not by itself tell containerd which URL family to use.</strong> The descriptor's media type tells containerd whether the object is manifest/index metadata or ordinary blob content. Manifest/index objects use <code>/manifests/...</code>; config/layer bytes use <code>/blobs/...</code>.</p></div>
+  <p>If the root is a multi-platform index, containerd reads its platform descriptors, chooses the requested/default platform, then fetches that platform's manifest and follows its config/layer descriptors. That is the network use of the OCI graph you already learned in Lesson 19.</p>
+</section>
+
+<section>
+  <h2>6. Where the downloaded bytes go</h2>
+  <p>At the network boundary, the moving thing is an HTTP response body. containerd writes those bytes into its <strong>content store</strong>, which you learned in Lesson 22.</p>
+  <pre><code>registry response body
+        ↓
+containerd
+        ↓
+content store object identified by digest</code></pre>
+  <p>The expected descriptor travels with the operation, so containerd knows which digest and size it expects. The registry specification also tells clients to verify downloaded content against the requested/declared digest.</p>
+  <p>Once the necessary config and layer blobs are local, the Engine's pull path has also requested unpack. The snapshotter can then turn the selected image layers into the local snapshot state that a later container filesystem will use.</p>
+  <div class="idea"><div class="label">pull in one sentence</div><p><strong>Name → root descriptor → manifest/index JSON → child descriptors → config/layer bytes → content store → unpacked snapshots.</strong></p></div>
+</section>
+
+<section>
+  <div class="kicker">push</div>
+  <h2>7. <code>docker push</code> walks the same graph in reverse</h2>
+  <p>Now run:</p>
+  <pre><code>docker push registry.example.com/team/app:1.4</code></pre>
+  <p>Docker CLI again sends a request to <code>dockerd</code>; it does not itself stream every layer to the registry. <code>dockerd</code> finds the local target OCI descriptor and prepares the remote operation. containerd's registry code performs the HTTP transfer.</p>
+  <p>The key rule is:</p>
+  <div class="idea"><div class="label">push invariant</div><p><strong>Make a manifest's children available before committing the manifest that points to them.</strong></p></div>
+  <p>Why? An image manifest claims that certain config/layer descriptors are available. If the registry accepted the manifest first but did not have those children, a client could fetch metadata that points to missing content. OCI Distribution allows a registry to reject such a manifest.</p>
+  <p>containerd v2.2.6 therefore pushes ordinary child content first, then manifests, then parent indexes. Its source explicitly records the ordering rule that the parent is uploaded after the child.</p>
+  <p class="src">Primary anchors: Docker Engine 29.6.2 source repository, <code>daemon/containerd/image_push.go</code>; containerd v2.2.6, <code>core/remotes/handlers.go::PushContent</code>.</p>
+</section>
+
+<section>
+  <h2>8. Upload one blob: check → start session → send bytes → commit</h2>
+  <p>Take one local layer blob. Before sending its bytes, the registry client can ask whether that exact blob is already present in the target repository:</p>
+  <pre><code>HEAD /v2/team/app/blobs/sha256:&lt;digest&gt;</code></pre>
+  <p>If the registry says it already exists, no upload is needed. <strong>Why that is possible and how digest identity enables transfer reuse is Lesson 40.</strong> For now, treat this as a simple branch: present → skip; missing → upload.</p>
+  <p>If the blob must move, the pinned containerd path starts an <strong>upload session</strong>. An upload session is temporary registry-side state for one in-progress blob upload:</p>
+  <pre><code>POST /v2/team/app/blobs/uploads/
+
+→ 202 Accepted
+  Location: /v2/team/app/blobs/uploads/&lt;session-id&gt;</code></pre>
+  <p>The response header <code>Location</code> tells the client exactly where that temporary upload continues. <strong>Location is not the final blob identity.</strong> It names the upload operation.</p>
+  <p>containerd then sends the whole blob body to that location and includes the expected digest of the completed blob:</p>
+  <pre><code>PUT &lt;Location&gt;?digest=sha256:&lt;digest&gt;
+
+&lt;whole blob bytes&gt;
+
+→ 201 Created</code></pre>
+  <p>After successful commit, the temporary upload session is finished. The content is later fetched through the ordinary blob URL:</p>
+  <pre><code>/v2/team/app/blobs/sha256:&lt;digest&gt;</code></pre>
+  <div class="warn"><div class="label">keep these two identities separate</div><p><code>Location</code> = temporary “where do I continue this upload?” state. <code>sha256:...</code> = identity of the completed content bytes.</p></div>
+</section>
+
+<section>
+  <h2>9. After the blobs exist, commit the manifest</h2>
+  <p>Once the config and layer blobs referenced by a manifest are available, containerd can upload the manifest JSON:</p>
+  <pre><code>PUT /v2/team/app/manifests/&lt;reference&gt;
+Content-Type: application/vnd.oci.image.manifest.v1+json
+
+&lt;manifest JSON bytes&gt;
+
+→ 201 Created</code></pre>
+  <p>The registry stores the exact manifest byte representation supplied by the client. This matters because the manifest's digest is calculated over those exact bytes.</p>
+  <p>For a multi-platform image, each platform manifest must be available before the parent index that points to those manifests is committed.</p>
+  <pre><code>config/layers ─→ platform manifest ─┐
+config/layers ─→ platform manifest ─┼─→ parent index last
+config/layers ─→ platform manifest ─┘</code></pre>
+  <p>This is the entire push dependency rule. We do not need deduplication theory yet to understand it: <strong>children first, metadata that points to them second.</strong></p>
+</section>
+
+<section>
+  <h2>10. Authentication is wrapped around the HTTP API</h2>
+  <p>Before or during any registry request, the server may reply:</p>
+  <pre><code>401 Unauthorized
+WWW-Authenticate: ...</code></pre>
+  <p><code>WWW-Authenticate</code> is a challenge telling the client what authentication scheme is required. containerd has a registry <strong>authorizer</strong>: a helper that processes the challenge, obtains or applies credentials/token information, adds an <code>Authorization</code> header, and retries the registry request.</p>
+  <div class="warn"><div class="label">source-over-folklore correction</div><p><strong>OCI Distribution Spec v1.1.1 does not define the registry authentication protocol itself.</strong> It defines the content-transfer HTTP API and explicitly leaves authentication/authorization outside its scope.</p></div>
+  <p>So when you watch registry traffic, keep two mechanisms separate:</p>
+  <pre><code>authentication challenge/retry
+            wraps
+manifest + blob distribution requests</code></pre>
+</section>
+
+<section>
+  <h2>11. One spec branch Docker does not use on this pinned path</h2>
+  <p>You now understand the pinned Docker/containerd blob upload path: <code>POST → Location → one PUT containing the whole blob</code>.</p>
+  <p>The OCI Distribution Spec also defines <strong>chunked upload</strong>. A <strong>chunk</strong> is simply one consecutive byte range of a larger blob. The protocol can send several chunks before final commit:</p>
+  <pre><code>POST  → create upload session
+PATCH → send bytes 0..N
+PATCH → send bytes N+1..M
+PUT   → close session and verify whole-blob digest</code></pre>
+  <p><code>PATCH</code> here means “append another portion to this existing upload.” <code>Content-Range</code> tells the registry which byte positions this chunk contains. Chunks must arrive in order. The final <code>PUT</code> still names the digest of the <strong>whole blob</strong>, not the digest of the final chunk.</p>
+  <div class="note"><div class="label">why this is separated</div><p>This is protocol completeness, not another pipeline you must hold in your head while learning Docker's actual path. containerd v2.2.6's pusher source still contains the note <code>TODO: Support chunked upload</code>; the pinned path described above uses the monolithic whole-body upload.</p></div>
+</section>
+
+<section>
+  <h2>12. Inspect the movement yourself</h2>
+  <p>Use a local registry so TLS and external authentication do not obscure the protocol.</p>
+  <div class="inspect"><div class="label">terminal 1 — registry</div><pre><code>docker run -d --rm --name lesson39-registry \
+  -p 5000:5000 registry:2
+
+docker logs -f lesson39-registry</code></pre></div>
+  <div class="inspect"><div class="label">terminal 2 — push</div><pre><code>docker pull alpine:latest
+docker tag alpine:latest localhost:5000/course/lesson39:demo
+docker push localhost:5000/course/lesson39:demo</code></pre></div>
+  <p>In the registry log, do not try to memorize every line. Find only these phases:</p>
+  <ol>
+    <li><code>HEAD</code> requests asking whether content exists;</li>
+    <li><code>POST .../blobs/uploads/</code> creating an upload session for missing content;</li>
+    <li><code>PUT</code> requests committing blob bytes;</li>
+    <li>the final manifest <code>PUT</code>.</li>
+  </ol>
+
+  <h3>Observe the pull-side metadata request directly</h3>
+  <pre><code>curl -i -X HEAD \
+  -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json' \
+  http://127.0.0.1:5000/v2/course/lesson39/manifests/demo</code></pre>
+  <p>Look for <code>Docker-Content-Digest</code>, <code>Content-Length</code>, and <code>Content-Type</code>. Those are the values that can let a resolver construct the root descriptor without downloading the manifest body during the initial resolution step.</p>
+
+  <h3>Then fetch the manifest JSON</h3>
+  <pre><code>curl -s \
+  -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json' \
+  http://127.0.0.1:5000/v2/course/lesson39/manifests/demo</code></pre>
+  <p>Find the descriptors inside it. If the response is an index, choose one platform descriptor and fetch that manifest. If it is an image manifest, identify its config descriptor and layer descriptors. You are now manually following the same graph containerd follows.</p>
+  <div class="inspect"><div class="label">cleanup</div><pre><code>docker rm -f lesson39-registry</code></pre></div>
+</section>
+
+<section>
+  <h2>13. Primary-source proof</h2>
+  <p>The mechanism above remains pinned to the established course baseline: Docker Engine/Docker CLI 29.6.2, containerd 2.2.6, OCI Distribution Spec 1.1.1, and OCI Image Spec 1.1.1.</p>
+  <div class="sourcechips">
+    <a href="https://github.com/opencontainers/distribution-spec/blob/v1.1.1/spec.md">OCI distribution-spec v1.1.1</a>
+    <a href="https://github.com/containerd/containerd/blob/v2.2.6/core/remotes/docker/resolver.go">containerd resolver.go</a>
+    <a href="https://github.com/containerd/containerd/blob/v2.2.6/core/remotes/docker/fetcher.go">containerd fetcher.go</a>
+    <a href="https://github.com/containerd/containerd/blob/v2.2.6/core/remotes/docker/pusher.go">containerd pusher.go</a>
+    <a href="https://github.com/containerd/containerd/blob/v2.2.6/core/remotes/handlers.go">containerd handlers.go</a>
+    <a href="https://github.com/containerd/containerd/blob/v2.2.6/core/remotes/docker/authorizer.go">containerd authorizer.go</a>
+  </div>
+  <details><summary>Exact audit anchors — open only when you want the implementation proof</summary>
+    <p class="small"><strong>Pull ownership:</strong> Docker Engine 29.6.2 source repository, <code>daemon/containerd/image_pull.go</code>, configures containerd pull options and adds <code>WithPullUnpack</code>.</p>
+    <p class="small"><strong>Resolve:</strong> containerd v2.2.6 <code>core/remotes/docker/resolver.go::Resolve</code> starts manifest resolution with <code>HEAD</code>; it reads response size/media type and <code>Docker-Content-Digest</code>, and falls back to <code>GET</code> if digest or size is unavailable.</p>
+    <p class="small"><strong>Fetch endpoint choice:</strong> containerd v2.2.6 <code>core/remotes/docker/fetcher.go::dockerFetcher.Fetch</code> distinguishes manifest/index media types from blob content and builds the corresponding registry path.</p>
+    <p class="small"><strong>Push ordering:</strong> containerd v2.2.6 <code>core/remotes/handlers.go::PushContent</code> dispatches child content before saved manifests/indexes; its index loop records that the parent is uploaded after the child.</p>
+    <p class="small"><strong>Blob upload:</strong> containerd v2.2.6 <code>core/remotes/docker/pusher.go</code> handles the registry upload session and the current whole-body writer path; the source still records <code>TODO: Support chunked upload</code>.</p>
+    <p class="small"><strong>Authentication:</strong> containerd v2.2.6 <code>core/remotes/docker/authorizer.go</code> handles registry authentication challenges separately from OCI Distribution's content API.</p>
+  </details>
+</section>
+
+<section>
+  <h2>14. Check yourself</h2>
+  <ol>
+    <li>Immediately after you type <code>docker pull ...</code>, what is moving from Docker CLI to <code>dockerd</code>: layer bytes or a request describing the image?</li>
+    <li>Why does containerd first need a root descriptor?</li>
+    <li>What is the difference between <code>HEAD</code> and <code>GET</code> during manifest resolution?</li>
+    <li>Why does containerd fetch a manifest/index through <code>/manifests/...</code> but config/layers through <code>/blobs/...</code>?</li>
+    <li>Where do downloaded config/layer bytes live after pull?</li>
+    <li>Why does push upload children before their manifest/index parent?</li>
+    <li>What does the upload-session <code>Location</code> identify?</li>
+    <li>What does the final blob digest identify?</li>
+    <li>Why can you see <code>401</code> during a valid registry operation?</li>
+    <li>Does the pinned containerd pusher normally use OCI's chunked <code>PATCH</code> path?</li>
+  </ol>
+  <details><summary>Answers</summary>
+    <ol class="small">
+      <li>A request containing the image reference/options/auth material. Layer bytes are not flowing through Docker CLI.</li>
+      <li>It gives containerd the digest, size, and media type needed to identify and interpret the root OCI object.</li>
+      <li><code>HEAD</code> retrieves headers without the body; <code>GET</code> retrieves the body. containerd can fall back to GET if response metadata is insufficient.</li>
+      <li>The descriptor media type tells containerd what kind of object it is. Registry manifests/indexes and ordinary blobs use different endpoint families.</li>
+      <li>In containerd's content store, identified by content digest; the Engine pull path also requests unpack into snapshotter state.</li>
+      <li>The parent metadata claims its child content exists. Children first prevents committing ordinary image metadata whose dependencies are missing.</li>
+      <li>Temporary server-side state for one in-progress upload and the URL where that upload continues.</li>
+      <li>The identity of the completed content bytes.</li>
+      <li>Authentication can wrap the registry content request; OCI Distribution leaves the auth protocol itself outside its scope.</li>
+      <li>No. OCI defines it, but this pinned containerd path uses the whole-body monolithic path.</li>
+    </ol>
+  </details>
+</section>
+
+<section>
+  <h2>Recap</h2>
+  <p><strong>Pull:</strong> image name → Docker CLI → <code>dockerd</code> → containerd → resolve root descriptor → fetch manifest/index JSON → follow child descriptors → fetch config/layer blobs → content store → unpack.</p>
+  <p><strong>Push:</strong> local descriptor graph → containerd → check/upload child blobs → commit manifest → commit parent index last.</p>
+  <p><strong>The relationship to remember:</strong> metadata tells containerd <em>which content bytes exist and where they fit in the graph</em>. The registry HTTP API moves those metadata objects and content blobs separately.</p>
+  <div class="note"><div class="label">next lesson</div><p>Lesson 40 stays on this exact pipeline and finally asks the identity question we deliberately postponed: <strong>what is the real difference between a tag and a digest, and how does content-addressing let Docker/containerd avoid transferring the same bytes again?</strong></p></div>
+</section>
+
+<nav class="nav"><a href="lesson-38-checkpoint-restore-criu.html">← Lesson 38</a><a href="#">Lesson 40 → planned</a></nav>
+</main></body></html>

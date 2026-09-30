@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 21 · The Runtime-Spec config.json</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.7; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:36px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .oneline{border:1px solid var(--teal-dim); background:linear-gradient(180deg,#0b1615,#0a1210); border-radius:10px; padding:18px 20px; margin:30px 0 8px}
+  .oneline .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); display:block; margin-bottom:8px}
+  .oneline p{margin:0; font-size:20px; line-height:1.5; color:#fff}
+
+  .concept{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:48px 0 4px; display:flex; align-items:center; gap:10px;}
+  .concept .num{width:24px;height:24px;border-radius:50%;border:1px solid var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  h2{font-family:var(--mono); font-weight:600; font-size:21px; margin:8px 0 16px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  .term{color:var(--teal); font-weight:600}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+  .plain{color:var(--dim); font-size:16px; border-left:2px solid var(--rule); padding-left:14px; margin:0 0 18px}
+  .plain b{color:var(--teal); font-weight:600}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--teal); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:20px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  figure.fig{margin:24px 0; border:1px solid var(--rule); border-radius:10px; background:var(--panel); padding:18px; overflow:hidden}
+  figure.fig figcaption{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin:2px 2px 16px}
+  figure.fig svg{display:block; width:100%; height:auto}
+
+  .recap{border:1px solid var(--teal-dim); border-radius:10px; background:#0a1210; padding:20px 22px; margin:30px 0}
+  .recap h3{font-family:var(--mono); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:0 0 14px}
+  .recap ul{margin:0; padding-left:20px} .recap li{margin:0 0 10px; color:var(--bone)} .recap li:last-child{margin:0}
+  .recap li b{color:#fff}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:60px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:38px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-20-oci-image-layout.html">← Lesson 20</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-22-content-store-gc-leases.html">Lesson 22 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part III — Storage &amp; images</div>
+  <div class="lesson-no">21</div>
+  <span class="pill">core</span>
+  <h1>config.json: the blueprint runc executes</h1>
+  <p class="dek">One file pulls the whole course together. The image's defaults, your run flags, and every isolation primitive — namespaces, cgroups, capabilities, seccomp — all land here, as the exact instructions runc follows to build one container.</p>
+</header>
+
+<div class="oneline">
+  <span class="lbl">The idea in one sentence</span>
+  <p>The runtime spec <code class="inl">config.json</code> is the fully resolved blueprint for <em>one</em> container — what to run, which filesystem, and every isolation setting — assembled from the image's defaults plus your <code class="inl">docker run</code> flags.</p>
+</div>
+
+<div class="concept"><span class="num">1</span> Start here</div>
+<h2>Image config vs runtime spec: template vs instructions</h2>
+
+<p class="plain"><b>Plain version:</b> the image config says what the image <em>prefers</em>; config.json says what this <em>one</em> container will <em>actually</em> do. Defaults vs. the final order.</p>
+
+<p>Don't confuse the two "configs." The <strong>image config</strong> (Lesson 18) is a set of <em>defaults</em> baked into the image — "by default, run nginx, as this user, with this PATH." The <strong>runtime spec</strong> <code class="inl">config.json</code> is the <em>resolved</em>, concrete instruction set for a single container: the exact command, the exact uid, the exact rootfs path, the exact namespaces and limits. The daemon produces the runtime spec by taking the image's defaults and overlaying <em>your</em> choices (<code class="inl">docker run -e</code>, <code class="inl">-v</code>, <code class="inl">--memory</code>, <code class="inl">-u</code>…) plus its own built-in defaults. One is a template; the other is the order runc carries out.</p>
+
+<div class="concept"><span class="num">2</span> What to run</div>
+<h2>The <code style="font-size:.85em">process</code> section</h2>
+
+<p class="plain"><b>Plain version:</b> this is the "what command, as whom, with what environment" part — and it's mostly filled from the image config.</p>
+
+<p>The <code class="inl">process</code> object (<span class="srcref">config.md#process</span>) holds <code class="inl">args</code> (the command — from the image's <code class="inl">Entrypoint</code> + <code class="inl">Cmd</code>), <code class="inl">env</code> (from the image's <code class="inl">Env</code> plus your <code class="inl">-e</code> flags), <code class="inl">cwd</code> (from <code class="inl">WorkingDir</code>), and <code class="inl">user</code> (from <code class="inl">User</code>, or your <code class="inl">-u</code>). On Linux it also carries <code class="inl">capabilities</code> (Lesson 11) and <code class="inl">rlimits</code>. So the image config's runtime defaults from Lesson 18 land here, resolved against your flags.</p>
+
+<div class="concept"><span class="num">3</span> The filesystem</div>
+<h2>The <code style="font-size:.85em">root</code> and <code style="font-size:.85em">mounts</code> sections</h2>
+
+<p class="plain"><b>Plain version:</b> this is where the whole storage half of the course plugs in — the merged overlay directory becomes the container's root.</p>
+
+<p>The <code class="inl">root</code> object (<span class="srcref">config.md#root</span>) has a <code class="inl">path</code> — and this is the payoff of all of Part III: <code class="inl">root.path</code> is the <strong>merged OverlayFS directory</strong> that the snapshotter's recipe produced (the pipeline we traced). The <code class="inl">mounts</code> array (<span class="srcref">config.md#mounts</span>) then adds everything else the container needs mounted: the pseudo-filesystems <code class="inl">/proc</code>, <code class="inl">/sys</code>, <code class="inl">/dev</code>, plus any volumes or bind mounts you asked for. So "images at rest" (Lessons 15–20) connect to "container running" right here — as two fields.</p>
+
+<div class="concept"><span class="num">4</span> The convergence</div>
+<h2>The <code style="font-size:.85em">linux</code> section — where the whole course meets</h2>
+
+<p class="plain"><b>Plain version:</b> every isolation feature you've learned is a single field in here. This one section <em>is</em> Part II.</p>
+
+<p>The <code class="inl">linux</code> object (<span class="srcref">config-linux.md</span>) is the striking one: it collects every isolation primitive from the course into named fields. <code class="inl">namespaces</code> (Lessons 6–8) lists which namespaces to create; <code class="inl">uidMappings</code>/<code class="inl">gidMappings</code> (Lesson 7) define the user-namespace mapping; <code class="inl">resources</code> (Lessons 9–10) holds the cgroup limits; <code class="inl">seccomp</code> (Lesson 12) holds the syscall filter; and <code class="inl">maskedPaths</code>/<code class="inl">readonlyPaths</code> hide or protect sensitive kernel files. Everything you studied as a separate mechanism is, to runc, one field in this object.</p>
+
+<figure class="fig">
+  <figcaption>Diagram · the anatomy of config.json — one file, and where each part comes from</figcaption>
+  <svg viewBox="0 0 680 430" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,Consolas,monospace">
+    <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#6b7482" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+    <text x="340" y="24" text-anchor="middle" fill="#9aa4b2" font-size="10.5">assembled from: image config (L18) + your run flags + daemon defaults</text>
+
+    <rect x="50" y="40" width="580" height="288" rx="10" fill="#0d1117" stroke="#4a7fb5"/>
+    <text x="70" y="64" fill="#8fbdf0" font-size="13" font-weight="600">config.json — the blueprint for ONE container</text>
+
+    <rect x="70" y="78" width="540" height="52" rx="7" fill="#0a1210" stroke="#2f5f59"/>
+    <text x="86" y="98" fill="#5ac4b4" font-size="12" font-weight="600">process</text>
+    <text x="86" y="118" fill="#bfe6df" font-size="11">args · env · cwd · user · capabilities · rlimits</text>
+    <text x="598" y="108" text-anchor="end" fill="#e0b155" font-size="10">← image Cmd/Env/User + L11</text>
+
+    <rect x="70" y="136" width="540" height="46" rx="7" fill="#0a1210" stroke="#2f5f59"/>
+    <text x="86" y="154" fill="#5ac4b4" font-size="12" font-weight="600">root</text>
+    <text x="86" y="172" fill="#bfe6df" font-size="11">path = the merged OverlayFS directory</text>
+    <text x="598" y="163" text-anchor="end" fill="#e0b155" font-size="10">← the storage pipeline</text>
+
+    <rect x="70" y="188" width="540" height="46" rx="7" fill="#0a1210" stroke="#2f5f59"/>
+    <text x="86" y="206" fill="#5ac4b4" font-size="12" font-weight="600">mounts</text>
+    <text x="86" y="224" fill="#bfe6df" font-size="11">/proc · /sys · /dev · overlay recipe · volumes</text>
+    <text x="598" y="215" text-anchor="end" fill="#e0b155" font-size="10">← recipe + -v flags</text>
+
+    <rect x="70" y="240" width="540" height="76" rx="7" fill="#0a1210" stroke="#2f5f59"/>
+    <text x="86" y="260" fill="#5ac4b4" font-size="12" font-weight="600">linux</text>
+    <text x="86" y="280" fill="#bfe6df" font-size="11">namespaces · uid/gidMappings · resources (cgroups)</text>
+    <text x="86" y="298" fill="#bfe6df" font-size="11">seccomp · maskedPaths · devices</text>
+    <text x="598" y="289" text-anchor="end" fill="#e0b155" font-size="10">← Lessons 6–12</text>
+
+    <line x1="340" y1="328" x2="340" y2="360" stroke="#6b7482" stroke-width="1.6" marker-end="url(#arrow)"/>
+    <rect x="150" y="362" width="380" height="46" rx="8" fill="#161326" stroke="#7a6bc2"/>
+    <text x="340" y="382" text-anchor="middle" fill="#b3a6ec" font-size="12" font-weight="600">runc reads the bundle</text>
+    <text x="340" y="400" text-anchor="middle" fill="#9aa4b2" font-size="10.5">creates namespaces · applies cgroups · execs the process</text>
+  </svg>
+</figure>
+
+<div class="concept"><span class="num">5</span> Who builds it</div>
+<h2>The bundle: config.json + rootfs</h2>
+
+<p class="plain"><b>Plain version:</b> the daemon writes config.json next to the rootfs; that pair is a "bundle," and a bundle is exactly what runc takes as input.</p>
+
+<p>The daemon (via containerd) assembles <code class="inl">config.json</code> by merging three sources — the image config's defaults, your <code class="inl">docker run</code> flags, and its own built-in defaults (a default seccomp profile, a default capability set, the standard <code class="inl">/proc</code> and <code class="inl">/sys</code> mounts, the standard masked paths). It writes the result into a directory alongside the container's root filesystem. That directory — <code class="inl">config.json</code> + <code class="inl">rootfs</code> — is an OCI <span class="term">bundle</span>, and a bundle is precisely runc's input: point runc at a bundle and it builds the container the spec describes.</p>
+
+<div class="keybox">
+  <div class="h">Why this file is the center of everything</div>
+  <p>Every earlier lesson was really describing a field in this file. Namespaces, cgroups, capabilities, seccomp, the rootfs, the process — separate mechanisms in the kernel, but one JSON document to runc. If you understand <code class="inl">config.json</code>, you understand what a "container" concretely <em>is</em>: a process launched against this exact set of instructions.</p>
+</div>
+
+<span class="step">Inspect it yourself</span>
+<p>Generate a spec, then read the real one from a running container's bundle:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> <span class="o"># generate a default runtime spec to see its shape:</span>
+<span class="p">$</span> runc spec &amp;&amp; jq 'keys' config.json
+<span class="o">[ "hostname", "linux", "mounts", "ociVersion", "process", "root" ]</span>
+
+<span class="p">$</span> <span class="o"># the process + root sections:</span>
+<span class="p">$</span> jq '.process.args, .root.path' config.json
+<span class="o">[ "sh" ]   "rootfs"</span>
+
+<span class="p">$</span> <span class="o"># a REAL container's bundle (written by the daemon), incl. the overlay root + namespaces:</span>
+<span class="p">$</span> sudo cat /run/containerd/io.containerd.runtime.v2.task/moby/&lt;id&gt;/config.json | jq '.root.path, .linux.namespaces'
+<span class="o">"/var/lib/docker/overlay2/&lt;id&gt;/merged"       <span class="hl"># the merged dir = the container root</span></span>
+<span class="o">[ {"type":"pid"}, {"type":"network"}, {"type":"mount"}, … ]   <span class="hl"># the namespaces to create</span></span></pre>
+</figure>
+
+<div class="recap">
+  <h3>Check yourself</h3>
+  <ul>
+    <li>Two configs: the <b>image config</b> is defaults; the <b>runtime spec config.json</b> is the resolved blueprint for one container.</li>
+    <li><b>process</b> = what to run (args/env/cwd/user/capabilities), mostly from the image config + your flags.</li>
+    <li><b>root.path</b> = the <b>merged OverlayFS directory</b> from the storage pipeline; <b>mounts</b> adds /proc, /sys, /dev, volumes.</li>
+    <li><b>linux</b> = the convergence: namespaces, uid/gidMappings, resources (cgroups), seccomp, maskedPaths — one field each.</li>
+    <li>The daemon merges <b>image defaults + run flags + built-in defaults</b> into config.json.</li>
+    <li><b>config.json + rootfs = a bundle</b>, and a bundle is exactly what runc consumes.</li>
+  </ul>
+</div>
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>"Docker configures the container" is vague; concretely, the daemon writes a single <code class="inl">config.json</code> and runc does the rest. And the two configs are genuinely different files with different jobs — mixing them up is why people expect <code class="inl">docker run</code> flags to change the image (they don't; they change <em>this container's</em> runtime spec). The image is immutable defaults; the runtime spec is where your intent for one container actually lives.</p>
+</aside>
+
+<div style="font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:44px 0 4px">Where we are</div>
+<h2>Summary</h2>
+<p>The runtime spec <code class="inl">config.json</code> is the resolved blueprint for a single container, and it's where the whole course converges. <code class="inl">process</code> holds the command, environment, user, and capabilities (largely from the image config); <code class="inl">root.path</code> is the merged OverlayFS directory from the storage pipeline and <code class="inl">mounts</code> adds the pseudo-filesystems and volumes; and <code class="inl">linux</code> gathers namespaces, uid/gid mappings, cgroup <code class="inl">resources</code>, and <code class="inl">seccomp</code> — every isolation primitive as a field. The daemon merges the image's defaults, your run flags, and built-in defaults into this one file, writes it beside the rootfs to form a <strong>bundle</strong>, and hands the bundle to runc. Next, Lesson 22 closes Part III's storage story: the content store's garbage collection and leases — how containerd decides which blobs and snapshots are safe to delete.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 14 · OCI lifecycle &amp; hooks</span>
+  <span class="xref"><b>back ←</b> Lesson 18 · image config (defaults)</span>
+  <span class="xref"><b>forward →</b> Lesson 23 · the run pipeline end-to-end</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">20 · OCI image layout on disk</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">22 · Content store, GC &amp; leases</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 27 · Multi-Stage Builds</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.7; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:36px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .oneline{border:1px solid var(--teal-dim); background:linear-gradient(180deg,#0b1615,#0a1210); border-radius:10px; padding:18px 20px; margin:30px 0 8px}
+  .oneline .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); display:block; margin-bottom:8px}
+  .oneline p{margin:0; font-size:20px; line-height:1.5; color:#fff}
+
+  .concept{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:48px 0 4px; display:flex; align-items:center; gap:10px;}
+  .concept .num{width:24px;height:24px;border-radius:50%;border:1px solid var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  h2{font-family:var(--mono); font-weight:600; font-size:21px; margin:8px 0 16px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  .term{color:var(--teal); font-weight:600}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+  .plain{color:var(--dim); font-size:16px; border-left:2px solid var(--rule); padding-left:14px; margin:0 0 18px}
+  .plain b{color:var(--teal); font-weight:600}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--teal); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .c{color:var(--faint)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:20px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  figure.fig{margin:24px 0; border:1px solid var(--rule); border-radius:10px; background:var(--panel); padding:18px; overflow:hidden}
+  figure.fig figcaption{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin:2px 2px 16px}
+  figure.fig svg{display:block; width:100%; height:auto}
+
+  .recap{border:1px solid var(--teal-dim); border-radius:10px; background:#0a1210; padding:20px 22px; margin:30px 0}
+  .recap h3{font-family:var(--mono); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:0 0 14px}
+  .recap ul{margin:0; padding-left:20px} .recap li{margin:0 0 10px; color:var(--bone)} .recap li:last-child{margin:0}
+  .recap li b{color:#fff}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:60px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:38px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-26-dockerfile-instructions.html">← Lesson 26</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-28-pid1-signals-zombies.html">Lesson 28 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part IV — Building &amp; running</div>
+  <div class="lesson-no">27</div>
+  <span class="pill">core</span>
+  <h1>Multi-stage builds: build fat, ship thin</h1>
+  <p class="dek">Compile in an image full of tools, then copy only the finished artifact into a clean, minimal image. The toolchain never ships — and thanks to the build graph, unused stages never even run.</p>
+</header>
+
+<div class="oneline">
+  <span class="lbl">The idea in one sentence</span>
+  <p>Put several <code class="inl">FROM</code>s in one Dockerfile: build in a heavy stage, then <code class="inl">COPY --from</code> just the finished artifact into a minimal final stage — and only that last stage becomes the image.</p>
+</div>
+
+<div class="concept"><span class="num">1</span> Start here</div>
+<h2>The problem: your toolchain ships with you</h2>
+
+<p class="plain"><b>Plain version:</b> if you compile inside the image, the compiler and all the build junk end up in the image you ship — even though the running app doesn't need any of it.</p>
+
+<p>Say you build a Go binary in a single-stage image. To compile, you need the Go toolchain, source, and dependencies — hundreds of megabytes. But to <em>run</em> the result, you need just the compiled binary. In a single-stage build, all that build machinery stays in the final image: bigger downloads, slower deploys, and a much larger attack surface (a shipped compiler and package manager are gifts to an attacker). You want to build in a rich environment but ship almost nothing.</p>
+
+<div class="concept"><span class="num">2</span> The mechanism</div>
+<h2>Multiple FROMs = multiple stages</h2>
+
+<p class="plain"><b>Plain version:</b> each <code class="inl">FROM</code> line starts a fresh, independent build — a "stage" — and you can give it a name.</p>
+
+<p>A multi-stage Dockerfile simply has more than one <code class="inl">FROM</code>. Each <code class="inl">FROM</code> begins a new <span class="term">stage</span> — in the frontend (Lesson 25), each one becomes its own <code class="inl">dispatchState</code>, an independent branch of the LLB graph (<span class="srcref">convert.go</span>: one dispatch state per parsed stage). You name a stage with <code class="inl">AS</code>:</p>
+
+<figure class="inspect">
+  <div class="tab">Dockerfile</div>
+<pre><span class="c"># stage 0 — the heavy build environment</span>
+FROM golang:1.22 <span class="hl">AS build</span>
+WORKDIR /src
+COPY . .
+RUN go build -o /app/server ./cmd/server
+
+<span class="c"># stage 1 — the minimal final image</span>
+FROM alpine:3.19
+COPY <span class="hl">--from=build</span> /app/server /usr/local/bin/server
+ENTRYPOINT ["server"]</pre>
+</figure>
+
+<div class="concept"><span class="num">3</span> The copy</div>
+<h2>COPY --from: take only the artifact</h2>
+
+<p class="plain"><b>Plain version:</b> the final stage starts clean and pulls just the one file it needs out of the build stage.</p>
+
+<p>The pivot is <code class="inl">COPY --from=build</code>. It copies a path out of an <em>earlier stage's</em> filesystem into the current stage. The final stage starts from a minimal base — <code class="inl">alpine</code>, a distroless image, or even <code class="inl">scratch</code> (an empty image) — and copies in only the compiled artifact. Everything in the <code class="inl">build</code> stage that you didn't copy — the Go toolchain, the source, the module cache — simply isn't part of the final image.</p>
+
+<figure class="fig">
+  <figcaption>Diagram · build in a heavy stage, copy one artifact into a thin final image</figcaption>
+  <svg viewBox="0 0 680 300" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,Consolas,monospace">
+    <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#5ac4b4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+    <!-- build stage (discarded) -->
+    <rect x="24" y="40" width="300" height="210" rx="10" fill="#140c0f" stroke="#6e3540" stroke-dasharray="5 4"/>
+    <text x="44" y="64" fill="#d76d7f" font-size="12" font-weight="600">stage: build  (FROM golang)</text>
+    <rect x="44" y="80" width="260" height="30" rx="5" fill="#0a0d12" stroke="#262d38"/>
+    <text x="58" y="100" fill="#9aa4b2" font-size="11">go toolchain (~300MB)</text>
+    <rect x="44" y="116" width="260" height="30" rx="5" fill="#0a0d12" stroke="#262d38"/>
+    <text x="58" y="136" fill="#9aa4b2" font-size="11">source + modules</text>
+    <rect x="44" y="152" width="260" height="30" rx="5" fill="#0a1614" stroke="#2f5f59"/>
+    <text x="58" y="172" fill="#5ac4b4" font-size="11">RUN go build → /app/server</text>
+    <text x="44" y="208" fill="#d76d7f" font-size="10.5">✗ none of this ships —</text>
+    <text x="44" y="224" fill="#d76d7f" font-size="10.5">the whole stage is discarded</text>
+
+    <!-- copy arrow -->
+    <line x1="304" y1="167" x2="400" y2="140" stroke="#5ac4b4" stroke-width="1.6" marker-end="url(#arrow)"/>
+    <text x="352" y="130" text-anchor="middle" fill="#5ac4b4" font-size="10">COPY --from=build</text>
+    <text x="352" y="176" text-anchor="middle" fill="#9aa4b2" font-size="9.5">just /app/server</text>
+
+    <!-- final stage (ships) -->
+    <rect x="410" y="70" width="246" height="150" rx="10" fill="#0a1210" stroke="#5ac4b4"/>
+    <text x="430" y="94" fill="#5ac4b4" font-size="12" font-weight="600">stage: final (FROM alpine)</text>
+    <rect x="430" y="110" width="206" height="30" rx="5" fill="#0d1117" stroke="#2f5f59"/>
+    <text x="444" y="130" fill="#bfe6df" font-size="11">alpine base (~5MB)</text>
+    <rect x="430" y="146" width="206" height="30" rx="5" fill="#0d1117" stroke="#2f5f59"/>
+    <text x="444" y="166" fill="#bfe6df" font-size="11">/usr/local/bin/server</text>
+    <text x="430" y="200" fill="#5ac4b4" font-size="10.5">✓ this is the shipped image — small</text>
+  </svg>
+</figure>
+
+<div class="concept"><span class="num">4</span> What ships</div>
+<h2>Only the last stage becomes the image</h2>
+
+<p class="plain"><b>Plain version:</b> the final image is just the last <code class="inl">FROM</code>'s stage; earlier stages are scaffolding.</p>
+
+<p>By default, only the <em>last</em> stage becomes the image you get (<span class="srcref">convert.go</span>: the stage is marked <code class="inl">Default</code> when it's the final one in the file). Earlier stages are intermediate scaffolding — their layers are never part of the output unless something <code class="inl">COPY --from</code>s out of them. So the build stage's toolchain isn't "cleaned up" at the end; it was simply never in the final image's layer list to begin with. You can also build up to a specific stage with <code class="inl">--target build</code>, which is handy for debugging or for a shared test stage.</p>
+
+<div class="concept"><span class="num">5</span> The graph payoff</div>
+<h2>Unused stages never even run</h2>
+
+<p class="plain"><b>Plain version:</b> because stages are graph branches, BuildKit skips any stage the target doesn't need — and runs independent ones in parallel.</p>
+
+<p>Here's where Lesson 25 pays off again. Since each stage is a branch of the LLB graph, BuildKit only builds the stages that the target actually <em>depends on</em> — the frontend computes <span class="srcref">allReachableStages</span> from the target and prunes the rest. Build a Dockerfile with a <code class="inl">test</code> stage and target the <code class="inl">final</code> stage, and the test stage doesn't run at all. Independent stages (say, building two separate binaries) run <em>in parallel</em>. The old builder, by contrast, executed every stage top to bottom regardless of need. Multi-stage is not just a size trick — it's a graph the solver can prune and parallelize.</p>
+
+<div class="keybox">
+  <div class="h">The pattern in one line</div>
+  <p>Heavy build stage produces an artifact → minimal final stage <code class="inl">COPY --from</code>s just that artifact → only the final stage ships, and unreachable stages never run. Build fat, ship thin, waste nothing.</p>
+</div>
+
+<span class="step">Inspect it yourself</span>
+<p>See the size difference and confirm only the final stage's layers ship:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> docker build -t app:multi .
+<span class="p">$</span> docker images app
+<span class="o">REPOSITORY  TAG     SIZE</span>
+<span class="o">app         multi   <span class="hl">12MB</span>      <span class="c"># alpine + binary — toolchain gone</span></span>
+
+<span class="p">$</span> <span class="o"># the final image has only the final stage's layers:</span>
+<span class="p">$</span> docker history app:multi
+<span class="o">CREATED BY                              SIZE</span>
+<span class="o">ENTRYPOINT ["server"]                   0B</span>
+<span class="o">COPY --from=build /app/server …         6.5MB   <span class="hl"># just the binary</span></span>
+<span class="o">FROM alpine:3.19                        5.5MB</span>
+<span class="o">                                        <span class="c"># no go toolchain anywhere</span></span>
+
+<span class="p">$</span> <span class="o"># build only up to the build stage (e.g. to run tests):</span>
+<span class="p">$</span> docker build --target build -t app:buildstage .</pre>
+</figure>
+
+<div class="recap">
+  <h3>Check yourself</h3>
+  <ul>
+    <li>A single-stage compiled build ships the whole <b>toolchain</b>; multi-stage fixes that.</li>
+    <li>Each <b>FROM</b> starts a new <b>stage</b> (its own graph branch); name them with <code class="inl">AS</code>.</li>
+    <li><b>COPY --from=stage</b> pulls just the artifact into a minimal final base (alpine / distroless / scratch).</li>
+    <li>Only the <b>last stage</b> (or <code class="inl">--target</code>) becomes the image; earlier stages ship nothing unless copied from.</li>
+    <li>BuildKit builds only stages <b>reachable</b> from the target and runs independent ones <b>in parallel</b>.</li>
+    <li>The toolchain isn't cleaned up — it was <b>never in the final image</b> to begin with.</li>
+  </ul>
+</div>
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>"Multi-stage cleans up the build tools at the end" is the wrong mental model — nothing is cleaned. The final image is a <em>different</em> image built from a minimal base, into which you copied one artifact; the build stage's layers were never in its layer list. This also corrects the old <code class="inl">rm -rf</code> habit from Lesson 17: you can't shrink an image by deleting build tools in a later layer (the bytes persist below), but you <em>can</em> by simply not putting them in the shipping stage. Multi-stage is the real answer to "how do I get build tools out of my image."</p>
+</aside>
+
+<div style="font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:44px 0 4px">Where we are</div>
+<h2>Summary</h2>
+<p>Multi-stage builds put several <code class="inl">FROM</code>s in one Dockerfile: a heavy <strong>build stage</strong> compiles the artifact, and a minimal <strong>final stage</strong> uses <code class="inl">COPY --from</code> to take only that artifact, starting from <code class="inl">alpine</code>, distroless, or <code class="inl">scratch</code>. Only the last stage (or the <code class="inl">--target</code> stage) becomes the shipped image — earlier stages are scaffolding whose layers never ship unless copied from. Because stages are branches of the LLB graph, BuildKit prunes stages unreachable from the target and runs independent ones in parallel. This is the correct way to keep toolchains out of images — not deleting them afterward, but never shipping them. Next, Lesson 28 examines what runs <em>inside</em> the final image: PID 1, signal handling, and zombie reaping.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 25 · stages as graph branches</span>
+  <span class="xref"><b>back ←</b> Lesson 17 · why rm doesn't shrink</span>
+  <span class="xref"><b>forward →</b> Lesson 28 · PID 1 in depth</span>
+  <span class="xref"><b>forward →</b> Lesson 31 · caching &amp; hygiene</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">26 · Dockerfile instructions in depth</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">28 · PID 1, signals &amp; zombies</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

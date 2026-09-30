@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 08 · docker exec &amp; setns(2)</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.65; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:44px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--teal); margin:52px 0 4px; display:flex; align-items:center; gap:10px;}
+  .eyebrow::before{content:""; width:16px; height:1px; background:var(--teal); opacity:.6}
+  h2{font-family:var(--mono); font-weight:600; font-size:22px; margin:6px 0 18px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--gold); display:inline-block; padding:3px 9px; border-radius:3px; margin:40px 0 10px; font-weight:600;}
+  .step.verify{background:var(--teal)}
+
+  figure.src{margin:14px 0 8px; border:1px solid var(--gold-dim); border-radius:8px; overflow:hidden; background:var(--well)}
+  figure.src .tab{font-family:var(--mono); font-size:12px; color:var(--gold); background:linear-gradient(180deg,#1c1a12,#141109); border-bottom:1px solid var(--gold-dim); padding:8px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  figure.src .tab .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none}
+  figure.src .tab .path{overflow-wrap:anywhere}
+  figure.src .tab .repo{color:var(--faint); margin-left:auto; font-size:11px}
+  figure.src pre{margin:0; padding:16px 16px; overflow-x:auto}
+  pre,code{font-family:var(--mono)}
+  pre{font-size:13px; line-height:1.6; color:#d7d2c4}
+  pre .kw{color:var(--rose)} pre .fn{color:var(--teal)} pre .cmt{color:var(--faint); font-style:italic}
+  pre .str{color:var(--gold)} pre .field{color:var(--gold)}
+  .keyline{background:rgba(224,177,81,.10); border-left:2px solid var(--gold); display:block; padding-left:8px; margin-left:-10px}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{padding:14px 16px; color:#bfe6df; font-size:13px}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:16px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0 0 10px}.keybox p:last-child{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  .passes{font-family:var(--mono); font-size:13px; line-height:1.8; background:var(--panel); border:1px solid var(--rule); border-radius:8px; padding:18px 20px; margin:22px 0; overflow-x:auto}
+  .passes .n{color:var(--gold)} .passes .u{color:var(--rose)} .passes .c{color:var(--faint)}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:70px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  .lead{font-size:20px; line-height:1.6; color:var(--bone)}
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:40px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-07-user-namespaces.html">← Lesson 07</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-09-cgroups-v1.html">Lesson 09 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part II — Kernel primitives</div>
+  <div class="lesson-no">08</div>
+  <h1>docker exec: joining a container you already have</h1>
+  <p class="dek">Lesson 6 built namespaces from nothing with <code style="font-size:.8em">clone</code>. This is the exact mirror: a new process that <em>joins</em> the namespaces a running container already owns, using one syscall — <code style="font-size:.8em">setns(2)</code>. It's the same primitive from the other direction, and the ordering rules flip to match.</p>
+</header>
+
+<p class="lead">When you run <code class="inl">docker exec -it web sh</code> and get a shell that sees the container's files, its network, its processes — you are not making a new container. You are dropping a brand-new process into the <em>existing</em> namespaces of a running one. Understanding how turns out to reinforce everything from Lessons 6 and 7, because "joining" is just "getting the same namespace inode you saw before," and the privilege ordering is the userns rule running in reverse.</p>
+
+<div class="eyebrow">The intuition</div>
+<h2>Why joining needs a different syscall than creating</h2>
+
+<p>Think about what you actually want from <code class="inl">docker exec</code>. Not a fresh, empty network namespace — you want the container's <em>own</em> network, with its interfaces and its IP. Not a new PID namespace numbering from 1 — you want to see the container's running processes. So <code class="inl">clone(CLONE_NEWNET)</code> is exactly wrong: it would manufacture a <em>new</em> empty namespace, when you need to attach to a specific <em>existing</em> one.</p>
+
+<p>That's the whole reason a second syscall exists. <code class="inl">setns(2)</code> means "take this process and make it a member of an <em>already-existing</em> namespace, identified by a file descriptor." You get the fd by opening the target namespace as a file — and Lesson 6 already showed where those files live: <code class="inl">/proc/&lt;pid&gt;/ns/</code>. So <code class="inl">docker exec</code> reduces to: find the container's init process, open its namespace files, and <code class="inl">setns</code> a new process into each. Let's watch runc make exactly that decision.</p>
+
+<div class="eyebrow">Mechanism 1</div>
+<h2>One <code style="font-size:.85em">if</code>: create a container, or join one</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>runc uses the same code to start a container's first process and to <code class="inl">exec</code> into a running one. A single boolean, <code class="inl">p.Init</code>, decides which. If this is the container's <em>init</em> process, runc builds a clone-based process that creates namespaces (Lesson 6). Otherwise — a <code class="inl">runc exec</code> — it builds a <em>setns</em> process that joins them.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">libcontainer/container_linux.go — newParentProcess()</span><span class="repo">opencontainers/runc</span></div>
+<pre>if p.Init {
+    ...
+<span class="keyline">    return c.newInitProcess(p, cmd, comm)     // runc create/start → CLONE new namespaces</span>
+}
+<span class="keyline">return c.newSetnsProcess(p, cmd, comm)         // runc exec → SETNS into existing ones</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>The two return statements are the entire fork in the road. <code class="inl">newInitProcess</code> is the Lesson-6 path: <code class="inl">clone()</code> with <code class="inl">CLONE_NEW*</code> flags, making fresh namespaces. <code class="inl">newSetnsProcess</code> is this lesson: no new namespaces created, just joins. Everything else about the two paths — passing the config, wiring stdio — is shared. Create vs join is this one branch.</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 2</div>
+<h2>The target is a set of <code style="font-size:.85em">/proc/PID/ns/</code> files</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>To join the container's namespaces, runc needs to point at them. It knows the container's init PID (saved in the container's state when it started), and it turns each namespace into a path with a trivial helper — the same paths you inspected by hand in Lesson 6. It opens each path to get an fd, then calls <code class="inl">setns(fd, type)</code>. Membership achieved.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">libcontainer/configs/namespaces_linux.go — GetPath()</span><span class="repo">opencontainers/runc</span></div>
+<pre>func (n *Namespace) GetPath(pid int) string {
+<span class="keyline">    return fmt.Sprintf(<span class="str">"/proc/%d/ns/%s"</span>, pid, NsName(n.Type))   // e.g. /proc/4141/ns/net</span>
+}</pre>
+</figure>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">libcontainer/nsenter/nsexec.c — __join_namespaces()</span><span class="repo">opencontainers/runc</span></div>
+<pre>err = setns(ns->fd, type);           <span class="cmt">// join the namespace opened from that path</span>
+...
+if (type == CLONE_NEWUSER) {
+<span class="keyline">    if (setresuid(0, 0, 0) &lt; 0)      // after joining a userns, become root INSIDE it</span>
+        bail("failed to become root in user namespace");
+}</pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p><code class="inl">GetPath</code> produces <code class="inl">/proc/&lt;container-init-pid&gt;/ns/&lt;type&gt;</code> — the very symlinks whose inodes you compared in Lesson 6. Opening one and passing its fd to <code class="inl">setns</code> makes the new process share that <em>exact</em> namespace instance (same inode), which is why an exec'd shell sees the container's network and not a fresh one. The <code class="inl">setresuid(0,0,0)</code> after a userns join is a small but vital detail: joining the container's user namespace switches your credential context, so runc immediately re-asserts root <em>within that namespace</em> or, as the source note warns, "lots of things can break."</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 3</div>
+<h2>The join ordering: the userns rule, mirrored</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Lesson 6's creation rule was "user namespace first, because it grants the privilege to make the others." Joining has the same principle but a more delicate execution, for two reasons. First, once you <code class="inl">setns</code> into the container's <em>mount</em> or <em>user</em> namespace, your view of <code class="inl">/proc</code> changes and you may no longer be able to <em>open</em> the remaining namespace paths — so all the fds must be opened <strong>up front</strong>, before any join. Second, joining the container's user namespace switches your credentials to the container's (possibly unprivileged) user: some namespaces you can only join <em>before</em> that switch (while you still hold host privileges), and — for rootless containers — some you can only join <em>after</em> it (because you gain <code class="inl">CAP_SYS_ADMIN</code> inside the new userns). The only way to satisfy both is to split the joins into passes.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">libcontainer/nsenter/nsexec.c — join_namespaces()</span><span class="repo">opencontainers/runc</span></div>
+<pre><span class="keyline">to_join = __open_namespaces(nsspec, &amp;ns_list, &amp;ns_len);  // open ALL fds first</span>
+
+<span class="cmt">// 1) everything except userns (while we still have host privileges)</span>
+<span class="keyline">joined |= __join_namespaces(to_join &amp; ~(joined | CLONE_NEWUSER), ns_list, ns_len);</span>
+<span class="cmt">// 2) the user namespace (switch credentials)</span>
+<span class="keyline">joined |= __join_namespaces(CLONE_NEWUSER, ns_list, ns_len);</span>
+<span class="cmt">// 3) any leftovers (rootless: only permitted now, after gaining CAP_SYS_ADMIN)</span>
+<span class="keyline">joined |= __join_namespaces(to_join &amp; ~(joined | CLONE_NEWUSER), ns_list, ns_len);</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>Read the three <code class="inl">__join_namespaces</code> calls as three passes: non-userns → userns → leftovers. Pass 1 grabs what needs host privilege before the credential switch; pass 2 enters the userns (flipping you to the container's user); pass 3 catches anything that only became joinable afterward. The <code class="inl">__open_namespaces(...)</code> at the top is the safety move — grab every fd while the paths are still reachable, because after pass 2 they may not be. This is the exact inverse of the creation ordering, and the comment even notes it mirrors what <code class="inl">nsenter(1)</code> does.</p>
+</div>
+
+<div class="passes">
+create (Lesson 6):  <span class="u">userns</span> <span class="c">first</span> → <span class="n">then the rest</span>       <span class="c"># gain privilege, then use it</span>
+join   (this lesson): <span class="n">non-userns</span> → <span class="u">userns</span> → <span class="n">leftovers</span>  <span class="c"># before switch, switch, after switch</span>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 4</div>
+<h2>Why <code style="font-size:.85em">exec</code> forks — and gets a normal PID, not 1</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Recall the PID-namespace quirk from Lesson 6: <code class="inl">setns</code> into a PID namespace does <em>not</em> move the calling process — it only affects the caller's future <em>children</em>. So after joining the PID namespace, runc must <code class="inl">fork</code>; the forked child is the process that actually becomes a member of the container's PID namespace, and that child is what runs your <code class="inl">sh</code>. Because it's an ordinary new process joining an already-populated namespace, it gets the <em>next available</em> PID in the container's numbering — something like 14 — <strong>not</strong> PID 1. Only the container's init process is PID 1; exec'd processes are just additional members.</p>
+
+<aside class="note"><b>It's not only namespaces — the cgroup comes too.</b> <code class="inl">newSetnsProcess</code> also runs <code class="inl">addIntoCgroup</code>, placing the exec'd process into the container's cgroup. So a shell you <code class="inl">exec</code> in is bound by the same memory and CPU limits as the container (Lessons 9–10), not just its namespaces. Joining is full confinement, not partial.</aside>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<p>Prove the exec'd process shares the container's exact namespace (same inode), sits at a normal PID, and that the whole thing is just <code class="inl">setns</code> — reproducible with <code class="inl">nsenter</code> and no Docker at all:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> docker run -d --name web alpine sleep 1000
+<span class="p">$</span> cpid=$(docker inspect -f '{{.State.Pid}}' web)
+
+<span class="p">$</span> <span class="o"># the container's net namespace inode:</span>
+<span class="p">$</span> sudo readlink /proc/$cpid/ns/net
+<span class="o"><span class="hl">net:[4026532567]</span></span>
+<span class="p">$</span> docker exec web readlink /proc/self/ns/net
+<span class="o"><span class="hl">net:[4026532567]</span></span>              <span class="o"># SAME inode → exec joined the container's own net ns</span>
+
+<span class="p">$</span> docker exec web sh -c 'echo $$'
+<span class="o">14</span>                            <span class="o"># a normal PID in the container's numbering, NOT 1</span>
+
+<span class="p">$</span> <span class="o"># docker exec IS setns — nsenter does the same join with no daemon:</span>
+<span class="p">$</span> sudo nsenter -t $cpid -m -u -i -n -p ip addr | grep inet
+<span class="o">inet 172.17.0.3/16 ...</span>       <span class="o"># you now see the container's interfaces, from the host</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>The matching <code class="inl">net:[4026532567]</code> inodes are the proof that "join" means "same namespace," exactly as Lesson 6 defined identity. <code class="inl">$$ = 14</code> confirms the fork-and-join produces an ordinary member of the PID namespace, not a second init. And <code class="inl">nsenter -t &lt;pid&gt; -m -u -i -n -p</code> is the pure primitive: each flag opens one <code class="inl">/proc/&lt;pid&gt;/ns/*</code> file and <code class="inl">setns</code>es into it — <code class="inl">docker exec</code> with the plumbing stripped away.</p>
+</div>
+
+<hr class="soft">
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>"<code class="inl">docker exec</code> starts a shell in the container" makes it sound like the container runs the shell. It doesn't. The daemon (via containerd's shim <code class="inl">Exec</code> and <code class="inl">runc exec</code>) spawns a <em>new host process</em> that <code class="inl">setns</code>es into the container's namespaces and cgroup. Two consequences worth holding: the exec'd process is <em>not</em> a child of the container's PID 1 (it's injected from outside), so it isn't reaped by your app's init — and if the container's PID 1 exits, the PID namespace is destroyed and your exec'd shell dies with it. The container didn't launch your shell; the runtime injected it.</p>
+</aside>
+
+<div class="eyebrow">Where we are</div>
+<h2>Summary</h2>
+<p><code class="inl">docker exec</code> is <code class="inl">setns(2)</code>. runc chooses between creating and joining with a single branch (<code class="inl">p.Init</code> → <code class="inl">newInitProcess</code> vs <code class="inl">newSetnsProcess</code>). To join, it forms the container's namespace paths <code class="inl">/proc/&lt;init-pid&gt;/ns/&lt;type&gt;</code>, opens them, and <code class="inl">setns</code>es a new process into each — acquiring the same namespace inodes you compared in Lesson 6. The ordering is the userns rule in reverse: open every fd up front (before mnt/user joins cut off access), then join non-userns, then userns, then leftovers, becoming root inside the userns along the way. Because the PID namespace "only applies to children," runc forks so the exec'd process is a true member of the container's PID namespace — with a normal PID, not 1 — and it's dropped into the container's cgroup too, so limits apply. That completes the namespace arc. Next, Part II turns from isolation to <em>limitation</em>: cgroups, starting with v1.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 06 · Namespaces &amp; /proc/PID/ns</span>
+  <span class="xref"><b>back ←</b> Lesson 07 · User namespaces</span>
+  <span class="xref"><b>forward →</b> Lesson 09 · cgroups v1</span>
+  <span class="xref"><b>forward →</b> Lesson 28 · PID 1 &amp; reaping</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">07 · User namespaces</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">09 · cgroups v1</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lesson 30 · ARG vs ENV &amp; the History Leak</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.7; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:36px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .oneline{border:1px solid var(--teal-dim); background:linear-gradient(180deg,#0b1615,#0a1210); border-radius:10px; padding:18px 20px; margin:30px 0 8px}
+  .oneline .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); display:block; margin-bottom:8px}
+  .oneline p{margin:0; font-size:20px; line-height:1.5; color:#fff}
+
+  .concept{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:48px 0 4px; display:flex; align-items:center; gap:10px;}
+  .concept .num{width:24px;height:24px;border-radius:50%;border:1px solid var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  h2{font-family:var(--mono); font-weight:600; font-size:21px; margin:8px 0 16px; color:var(--bone); letter-spacing:-.01em;}
+  h3{font-family:var(--mono); font-size:15px; color:var(--bone); margin:24px 0 10px}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  .term{color:var(--teal); font-weight:600}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+  .plain{color:var(--dim); font-size:16px; border-left:2px solid var(--rule); padding-left:14px; margin:0 0 18px}
+  .plain b{color:var(--teal); font-weight:600}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--teal); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .c{color:var(--faint)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:20px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  .flow{display:grid; grid-template-columns:1fr; gap:8px; margin:22px 0}
+  .flow .row{display:grid; grid-template-columns:42px 1fr; gap:12px; align-items:start; border:1px solid var(--rule); background:var(--panel); border-radius:8px; padding:12px 14px}
+  .flow .n{font-family:var(--mono); color:var(--teal); border:1px solid var(--teal-dim); border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:12px}
+  .flow .t{font-family:var(--mono); font-size:13px; color:#fff; margin-bottom:3px}
+  .flow .d{font-size:15px; color:var(--dim); line-height:1.5}
+
+  table{width:100%; border-collapse:collapse; margin:18px 0 26px; font-size:15.5px}
+  th{font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); text-align:left; border-bottom:1px solid var(--rule); padding:9px 10px}
+  td{vertical-align:top; border-bottom:1px solid var(--rule); padding:10px; color:var(--dim)}
+  td:first-child{font-family:var(--mono); color:var(--gold); white-space:nowrap}
+  td strong{font-family:var(--serif)}
+
+  .patterns{font-family:var(--mono); font-size:13.5px; background:var(--well); border:1px solid var(--rule); border-radius:8px; padding:16px 18px; margin:16px 0; line-height:1.85; overflow-x:auto}
+  .patterns .x{color:var(--rose)} .patterns .i{color:var(--teal)} .patterns .c{color:var(--faint)}
+
+  .compare{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:20px 0}
+  .compare .card{border:1px solid var(--rule); border-radius:8px; padding:16px; background:var(--panel)}
+  .compare .card h3{font-size:13px; margin:0 0 10px; color:var(--gold)}
+  .compare .card p{font-size:15px; color:var(--dim); margin:0}
+  @media(max-width:640px){.compare{grid-template-columns:1fr} td:first-child{white-space:normal}}
+
+  .recap{border:1px solid var(--teal-dim); border-radius:10px; background:#0a1210; padding:20px 22px; margin:30px 0}
+  .recap h3{font-family:var(--mono); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:0 0 14px}
+  .recap ul{margin:0; padding-left:20px} .recap li{margin:0 0 10px; color:var(--bone)} .recap li:last-child{margin:0}
+  .recap li b{color:#fff}
+
+  .sources{border:1px solid var(--gold-dim); border-radius:9px; background:#15130d; padding:18px 20px; margin:26px 0}
+  .sources h3{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin:0 0 12px}
+  .sources ul{margin:0; padding-left:20px}
+  .sources li{margin:0 0 9px; color:var(--dim); font-size:15px}
+  .sources li:last-child{margin-bottom:0}
+  .sources code{font-family:var(--mono); color:var(--gold); font-size:.88em}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:60px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:38px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+
+  .pill.clarity{color:var(--gold);border-color:var(--gold-dim);margin-left:6px}
+  .tree{font-family:var(--mono);font-size:13.5px;line-height:1.75;background:var(--well);border:1px solid var(--rule);border-radius:8px;padding:16px 18px;margin:18px 0;overflow-x:auto;color:var(--dim)}
+  .tree .keep{color:var(--teal)} .tree .drop{color:var(--rose)} .tree .meta{color:var(--gold)}
+  .formula{font-family:var(--mono);font-size:15px;border:1px solid var(--teal-dim);background:#081412;border-radius:8px;padding:15px 18px;margin:20px 0;color:#fff;overflow-x:auto}
+  .three-gates{display:grid;grid-template-columns:1fr;gap:10px;margin:22px 0}
+  .gate{border:1px solid var(--rule);background:var(--panel);border-radius:9px;padding:15px 17px;display:grid;grid-template-columns:38px 1fr;gap:12px;align-items:start}
+  .gate .gno{font-family:var(--mono);width:28px;height:28px;border:1px solid var(--teal-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--teal);font-size:12px}
+  .gate h3{margin:0 0 5px;font-size:13px;color:#fff}.gate p{margin:0;color:var(--dim);font-size:15.5px;line-height:1.55}
+  .result{border:1px solid var(--rule);border-radius:8px;overflow:hidden;margin:18px 0}
+  .result .rrow{display:grid;grid-template-columns:1.15fr .85fr;border-bottom:1px solid var(--rule)}
+  .result .rrow:last-child{border-bottom:0}.result .rrow>div{padding:11px 13px;font-size:15px}.result .path{font-family:var(--mono);color:var(--gold);background:var(--well)}.result .why{color:var(--dim);background:var(--panel)}
+  details.source-appendix{border:1px solid var(--gold-dim);border-radius:9px;background:#15130d;margin:28px 0}
+  details.source-appendix summary{cursor:pointer;font-family:var(--mono);font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:var(--gold);padding:14px 17px;list-style:none}
+  details.source-appendix summary::-webkit-details-marker{display:none}
+  details.source-appendix summary::before{content:'+';display:inline-block;width:18px;color:var(--gold)}
+  details.source-appendix[open] summary::before{content:'−'}
+  details.source-appendix .inside{padding:0 18px 17px;color:var(--dim);font-size:15px}
+  details.source-appendix ul{margin:0;padding-left:20px}details.source-appendix li{margin:0 0 9px}
+  .firstread{border:1px dashed var(--teal-dim);border-radius:8px;padding:16px 18px;margin:20px 0;color:var(--dim)}
+  .firstread b{color:var(--teal)}
+  @media(max-width:640px){.result .rrow{grid-template-columns:1fr}.result .path{border-bottom:1px solid var(--rule)}}
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-29-build-context-dockerignore.html">← Lesson 29</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-31-layer-caching-hygiene.html">Lesson 31 →</a></span></nav>
+<div class="wrap">
+<header class="top">
+  <div class="course-tag">Part IV · Pipelines &amp; Dockerfiles</div>
+  <div class="lesson-no">30</div>
+  <span class="pill">CORE</span>
+  <h1>ARG vs ENV &amp; the history leak</h1>
+  <p class="dek">Two values may look identical while a build is running, yet one is only a build input and the other becomes a default stored in the finished image. The dangerous part is that neither is a safe place for secrets.</p>
+</header>
+
+<section class="oneline">
+  <span class="lbl">Governing idea</span>
+  <p><code class="inl">ARG</code> supplies a value to the build. <code class="inl">ENV</code> changes the configuration of the image produced by the build.</p>
+</section>
+
+<div class="concept"><span class="num">1</span> Start with one build</div>
+<h2>Both values can exist during a RUN — that is why they are easy to confuse</h2>
+<p>Use one Dockerfile and follow two values all the way through it:</p>
+<div class="patterns"><span class="c"># syntax=docker/dockerfile:1</span>
+<span class="i">FROM alpine:3.21</span>
+
+<span class="i">ARG APP_VERSION=dev</span>
+<span class="i">ENV APP_MODE=production</span>
+
+<span class="i">RUN printf 'version=%s mode=%s\n' "$APP_VERSION" "$APP_MODE" \
+    &gt; /build-info.txt</span>
+
+<span class="i">CMD ["sh", "-c", "env | grep '^APP_' || true; cat /build-info.txt"]</span></div>
+<p>During the <code class="inl">RUN</code>, both variables are available:</p>
+<div class="result">
+  <div class="rrow"><div class="path">APP_VERSION</div><div class="why">Comes from <code class="inl">ARG</code>; it is available while this stage is being built.</div></div>
+  <div class="rrow"><div class="path">APP_MODE</div><div class="why">Comes from <code class="inl">ENV</code>; it is available while the stage is built and is also written into the output image configuration.</div></div>
+</div>
+<p>After the image is built, the difference appears:</p>
+<div class="compare">
+  <div class="card">
+    <h3>ARG APP_VERSION</h3>
+    <p>It is not automatically supplied as an environment variable when a container starts.</p>
+  </div>
+  <div class="card">
+    <h3>ENV APP_MODE</h3>
+    <p>It is stored in the image configuration, so a new container receives it as a runtime default.</p>
+  </div>
+</div>
+<aside class="note"><b>Do not translate that into “ARG leaves no trace.”</b> The value can affect files, installed packages, cache keys, image history, and provenance. It merely does not become a runtime environment default automatically.</aside>
+
+<div class="concept"><span class="num">2</span> Three places to track</div>
+<h2>A value can live in the build state, the output image config, or the metadata trail</h2>
+<p>Most confusion disappears once you stop asking only “does the variable exist?” and instead ask <strong>where</strong> it exists.</p>
+<div class="three-gates">
+  <div class="gate"><div class="gno">1</div><div><h3>Current build-stage state</h3><p>Values that Dockerfile instructions can expand and that a later <code class="inl">RUN</code> can receive. Both <code class="inl">ARG</code> and <code class="inl">ENV</code> can enter this state.</p></div></div>
+  <div class="gate"><div class="gno">2</div><div><h3>Finished image configuration</h3><p>The OCI image config holds runtime defaults such as environment variables, entrypoint, command, user, and working directory. <code class="inl">ENV</code> writes here; ordinary <code class="inl">ARG</code> does not.</p></div></div>
+  <div class="gate"><div class="gno">3</div><div><h3>History and provenance</h3><p>The image and build records explain how the artifact was produced. Resolved build arguments can appear here even though they are absent from the runtime environment.</p></div></div>
+</div>
+<div class="formula">ARG → build-stage value + possible metadata/effects<br/>ENV → build-stage value + image.Config.Env + metadata</div>
+
+<div class="concept"><span class="num">3</span> ARG</div>
+<h2><code style="font-size:.88em">ARG</code> is a parameter accepted by the Dockerfile</h2>
+<p>A Dockerfile declares the name and may provide a default:</p>
+<div class="patterns"><span class="i">ARG APP_VERSION=dev</span></div>
+<p>The caller may replace that default:</p>
+<div class="patterns"><span class="i">docker build --build-arg APP_VERSION=2.4 -t demo:arg .</span></div>
+<p>For this build, the resolved value is <code class="inl">2.4</code>. BuildKit makes it available to later instructions in that stage, so these are valid uses:</p>
+<div class="patterns"><span class="i">RUN echo "$APP_VERSION"</span>
+<span class="i">LABEL org.example.version="$APP_VERSION"</span>
+<span class="i">COPY app-$APP_VERSION /app</span></div>
+<p>The last two examples are important: an <code class="inl">ARG</code> may not survive as an environment variable, but its <strong>effect</strong> can survive permanently. It can select a package, choose a base tag, change a label, or cause a value to be written into a file.</p>
+<div class="keybox">
+  <div class="h">The precise boundary</div>
+  <p><code class="inl">ARG</code> is available to Dockerfile processing and build execution after it is declared in the relevant scope. BuildKit does not automatically append it to the finished image's <code class="inl">Config.Env</code> array.</p>
+</div>
+
+<div class="concept"><span class="num">4</span> ENV</div>
+<h2><code style="font-size:.88em">ENV</code> changes both the current build and the future container default</h2>
+<p>Consider:</p>
+<div class="patterns"><span class="i">ENV APP_MODE=production</span></div>
+<p>BuildKit performs two logically separate updates:</p>
+<div class="flow">
+  <div class="row"><div class="n">1</div><div><div class="t">Update the current stage</div><div class="d">Later instructions and <code class="inl">RUN</code> processes can see <code class="inl">APP_MODE=production</code>.</div></div></div>
+  <div class="row"><div class="n">2</div><div><div class="t">Update the output image config</div><div class="d">The pair is appended or replaced in the OCI image's <code class="inl">config.Env</code> array.</div></div></div>
+</div>
+<p>The OCI Image Specification defines those entries as defaults used when a container is created. Therefore this image:</p>
+<div class="patterns"><span class="i">FROM alpine:3.21</span>
+<span class="i">ENV APP_MODE=production</span></div>
+<p>supplies the value here:</p>
+<div class="patterns"><span class="i">docker run --rm IMAGE sh -c 'echo "$APP_MODE"'</span>
+<span class="c">production</span></div>
+<p>A runtime option may override the default without changing the image:</p>
+<div class="patterns"><span class="i">docker run --rm -e APP_MODE=debug IMAGE sh -c 'echo "$APP_MODE"'</span>
+<span class="c">debug</span></div>
+<aside class="note"><b><code class="inl">ENV</code> is metadata, not a filesystem file.</b> The instruction changes the image configuration and creates a history entry, but it does not need to create a filesystem diff layer.</aside>
+
+<div class="concept"><span class="num">5</span> Deliberate conversion</div>
+<h2>To make a build argument become a runtime default, copy it into ENV explicitly</h2>
+<p>This common pattern connects the two mechanisms:</p>
+<div class="patterns"><span class="i">ARG APP_VERSION=dev</span>
+<span class="i">ENV APP_VERSION=$APP_VERSION</span></div>
+<p>Build with:</p>
+<div class="patterns"><span class="i">docker build --build-arg APP_VERSION=2.4 -t demo:2.4 .</span></div>
+<p>The value travels in a deliberate sequence:</p>
+<div class="flow">
+  <div class="row"><div class="n">1</div><div><div class="t">CLI supplies 2.4</div><div class="d"><code class="inl">--build-arg</code> provides a candidate value for the declared <code class="inl">ARG APP_VERSION</code>.</div></div></div>
+  <div class="row"><div class="n">2</div><div><div class="t">ARG exposes 2.4 to the stage</div><div class="d">Dockerfile expansion can now resolve <code class="inl">$APP_VERSION</code>.</div></div></div>
+  <div class="row"><div class="n">3</div><div><div class="t">ENV writes 2.4 into the image config</div><div class="d">Future containers receive <code class="inl">APP_VERSION=2.4</code> unless the runtime overrides it.</div></div></div>
+</div>
+<aside class="correction">
+  <span class="lbl">Correction</span>
+  <p><code class="inl">--build-arg APP_VERSION=2.4</code> does not directly edit an <code class="inl">ENV</code> instruction. It supplies the <code class="inl">ARG</code>; the Dockerfile's <code class="inl">ENV APP_VERSION=$APP_VERSION</code> is the separate step that publishes the resolved value into the image.</p>
+</aside>
+<div class="firstread"><b>You can stop here on a first read.</b> Remember: <code class="inl">ARG</code> parameterizes the build; <code class="inl">ENV</code> publishes a runtime default. The remaining sections explain stage scope, the metadata leak, and the correct secret mechanism.</div>
+
+<div class="concept"><span class="num">6</span> Scope</div>
+<h2><code style="font-size:.88em">ARG</code> follows the stage graph — textual position alone is not enough</h2>
+<h3>Before the first FROM</h3>
+<p>An <code class="inl">ARG</code> declared before the first <code class="inl">FROM</code> belongs to the global pre-stage scope. Its special job is to parameterize <code class="inl">FROM</code>:</p>
+<div class="patterns"><span class="i">ARG ALPINE_VERSION=3.21</span>
+<span class="i">FROM alpine:${ALPINE_VERSION}</span></div>
+<p>That global declaration does not automatically make the value available to later instructions inside the stage. Consume it again:</p>
+<div class="patterns"><span class="i">ARG ALPINE_VERSION=3.21</span>
+<span class="i">FROM alpine:${ALPINE_VERSION}</span>
+<span class="i">ARG ALPINE_VERSION</span>
+<span class="i">RUN echo "$ALPINE_VERSION"</span></div>
+<h3>Across stages</h3>
+<p>A stage created <em>from an earlier named stage</em> inherits that stage's state and declared build arguments. An unrelated stage begins from its own base instead.</p>
+<div class="patterns"><span class="i">FROM alpine:3.21 AS base</span>
+<span class="i">ARG APP_VERSION=2.4</span>
+<span class="i">ENV APP_MODE=production</span>
+
+<span class="i">FROM base AS child</span>
+<span class="c"># APP_VERSION and APP_MODE are inherited through the base relationship</span>
+<span class="i">RUN echo "$APP_VERSION $APP_MODE"</span>
+
+<span class="i">FROM alpine:3.21 AS unrelated</span>
+<span class="c"># this stage does not descend from "base"</span>
+<span class="i">RUN echo "$APP_VERSION $APP_MODE"</span></div>
+<table>
+<thead><tr><th>Declaration</th><th>Where it is available</th></tr></thead>
+<tbody>
+<tr><td>ARG before first FROM</td><td>Global Dockerfile scope for <code class="inl">FROM</code> expansion; redeclare inside a stage to consume it there.</td></tr>
+<tr><td>ARG inside a stage</td><td>That stage and child stages derived from it.</td></tr>
+<tr><td>ENV inside a stage</td><td>That stage's later instructions and its output image config; child stages derived from it inherit the config/state.</td></tr>
+<tr><td>New unrelated FROM</td><td>Starts from that selected base image, not from the previous textual stage.</td></tr>
+</tbody>
+</table>
+<p>This is the same graph relationship from Lesson 27. A stage does not inherit merely because it appears later in the file.</p>
+
+<div class="concept"><span class="num">7</span> The history leak</div>
+<h2>“ARG is build-only” does not mean “ARG is secret”</h2>
+<p>An OCI image is more than filesystem layers. Its configuration blob also contains a <code class="inl">history</code> array. Each entry may contain <code class="inl">created_by</code>: the command or instruction associated with that build point.</p>
+<p>In the pinned BuildKit frontend, handling an <code class="inl">ARG</code> creates a history message containing the resolved <code class="inl">KEY=value</code>. When BuildKit records a later <code class="inl">RUN</code>, it also prefixes the recorded command with declared build arguments and their resolved values.</p>
+<div class="patterns"><span class="x">ARG API_TOKEN</span>
+<span class="x">RUN curl -H "Authorization: Bearer $API_TOKEN" https://private.example/file</span></div>
+<p>Even when a future container has no <code class="inl">API_TOKEN</code> environment variable, the token may still be recoverable from image history or fuller provenance metadata. If the command writes it into a file or output artifact, it can also enter a filesystem layer.</p>
+<aside class="correction">
+  <span class="lbl">Security correction</span>
+  <p><strong>Never use “it is only an ARG” as a security claim.</strong> <code class="inl">ARG</code> controls runtime persistence, not confidentiality. <code class="inl">ENV</code> is worse for a secret because it intentionally stores the value in <code class="inl">Config.Env</code>, but neither instruction is a secret transport.</p>
+</aside>
+<table>
+<thead><tr><th>Mechanism</th><th>Automatic places the value may remain</th><th>Runtime environment</th></tr></thead>
+<tbody>
+<tr><td>ARG</td><td>History; cache keys for instructions that use it; fuller provenance; plus any file, label, or content produced with it.</td><td>Not automatic.</td></tr>
+<tr><td>ENV</td><td><code class="inl">image.Config.Env</code> and history; plus any later build effects.</td><td>Yes, as a default.</td></tr>
+<tr><td>secret mount</td><td>The payload is not automatically placed in image config or history; provenance records the secret ID, not its contents.</td><td>No.</td></tr>
+</tbody>
+</table>
+
+<div class="concept"><span class="num">8</span> Correct secret path</div>
+<h2>Mount a secret only for the RUN operation that needs it</h2>
+<p>Pass the secret separately from the Dockerfile and consume it through a BuildKit secret mount:</p>
+<div class="patterns"><span class="c"># Dockerfile</span>
+<span class="i">RUN --mount=type=secret,id=api_token \
+    token="$(cat /run/secrets/api_token)" &amp;&amp; \
+    curl -H "Authorization: Bearer $token" https://private.example/file</span></div>
+<div class="patterns"><span class="c"># build command</span>
+<span class="i">docker build --secret id=api_token,src=token.txt .</span></div>
+<p>For that one <code class="inl">RUN</code>, BuildKit mounts the payload at <code class="inl">/run/secrets/api_token</code>. The mount is not part of the resulting root filesystem snapshot, so it is absent from the next build step and from the finished image.</p>
+<aside class="note"><b>A secret mount prevents automatic persistence, not deliberate leakage.</b> A command can still copy the secret into the image or print it into build logs. The mechanism gives the process temporary access; your command must still handle the value safely.</aside>
+
+<div class="concept"><span class="num">9</span> Provenance and one exception</div>
+<h2>The build request itself may be recorded</h2>
+<p>BuildKit provenance describes how an artifact was produced. In maximal provenance, external parameters can include build arguments. In minimal mode, BuildKit explicitly removes request entries whose keys begin with <code class="inl">build-arg:</code>. This is another reason build arguments are not a secret boundary.</p>
+<p>Secret mounts have a deliberately smaller record: BuildKit captures the secret <strong>ID</strong> and whether it was optional, not the payload.</p>
+<h3>Predefined proxy arguments</h3>
+<p><code class="inl">HTTP_PROXY</code>, <code class="inl">HTTPS_PROXY</code>, <code class="inl">NO_PROXY</code>, and related predefined proxy arguments receive special treatment when supplied without a matching Dockerfile <code class="inl">ARG</code>. Docker excludes them from normal history and cache behavior by default. Explicitly declaring or referencing the proxy argument opts back into ordinary Dockerfile argument behavior.</p>
+<aside class="note"><b>Narrow exception, not a secret system.</b> The proxy special case exists to avoid baking ordinary proxy configuration into images and cache keys. General credentials still belong in secret or SSH mounts.</aside>
+
+<div class="step">Inspect it yourself</div>
+<h2>See the runtime difference, then expose the history trail</h2>
+<p>This experiment makes the distinction observable without relying on prose.</p>
+<figure class="inspect">
+  <div class="tab">host shell · BuildKit enabled</div>
+<pre><span class="p">$</span> rm -rf /tmp/l30-arg-env &amp;&amp; mkdir /tmp/l30-arg-env &amp;&amp; cd /tmp/l30-arg-env
+
+<span class="p">$</span> cat &gt; Dockerfile &lt;&lt;'EOF'
+<span class="o"># syntax=docker/dockerfile:1
+FROM alpine:3.21
+ARG APP_VERSION=dev
+ENV APP_MODE=production
+RUN printf 'built-version=%s built-mode=%s\n' "$APP_VERSION" "$APP_MODE" &gt; /build-info.txt
+CMD ["sh", "-c", "printf 'runtime-version=%s runtime-mode=%s\n' \"$APP_VERSION\" \"$APP_MODE\"; cat /build-info.txt"]</span>
+<span class="p">EOF</span>
+
+<span class="p">$</span> docker build --build-arg APP_VERSION=2.4 -t l30:arg-env .
+
+<span class="p">$</span> docker run --rm l30:arg-env
+<span class="o">runtime-version= runtime-mode=production
+built-version=2.4 built-mode=production</span>
+<span class="c"># ARG is not a runtime env default; its effect in /build-info.txt remains.</span>
+
+<span class="p">$</span> docker image inspect l30:arg-env \
+    --format '{{range .Config.Env}}{{println .}}{{end}}' | grep '^APP_'
+<span class="o">APP_MODE=production</span>
+<span class="c"># Config.Env contains ENV, not APP_VERSION from ARG.</span>
+
+<span class="p">$</span> docker history --no-trunc --format '{{.CreatedBy}}' l30:arg-env \
+    | grep -E 'APP_VERSION|APP_MODE'
+<span class="o">... ARG APP_VERSION=2.4 ...
+... APP_VERSION=2.4 ... RUN ...
+... ENV APP_MODE=production ...</span>
+<span class="c"># Exact formatting varies, but the resolved build argument can be visible.</span>
+
+<span class="p">$</span> docker run --rm -e APP_MODE=debug l30:arg-env
+<span class="o">runtime-version= runtime-mode=debug
+built-version=2.4 built-mode=production</span>
+<span class="c"># Runtime override changes the container env, not the file created during build.</span></pre>
+</figure>
+
+<h3>Now compare a secret mount</h3>
+<figure class="inspect">
+  <div class="tab">host shell · temporary BuildKit secret</div>
+<pre><span class="p">$</span> printf 'do-not-store' &gt; token.txt
+<span class="p">$</span> cat &gt; Dockerfile.secret &lt;&lt;'EOF'
+<span class="o"># syntax=docker/dockerfile:1
+FROM alpine:3.21
+RUN --mount=type=secret,id=token \
+    test -s /run/secrets/token &amp;&amp; \
+    printf 'secret was available during build\n' &gt; /proof.txt
+CMD ["sh", "-c", "test ! -e /run/secrets/token &amp;&amp; cat /proof.txt"]</span>
+<span class="p">EOF</span>
+
+<span class="p">$</span> docker build --secret id=token,src=token.txt \
+    -f Dockerfile.secret -t l30:secret .
+
+<span class="p">$</span> docker run --rm l30:secret
+<span class="o">secret was available during build</span>
+<span class="c"># /run/secrets/token is not present in the finished container.</span>
+
+<span class="p">$</span> docker history --no-trunc --format '{{.CreatedBy}}' l30:secret \
+    | grep -F 'do-not-store' || echo 'secret payload not present in image history'
+<span class="o">secret payload not present in image history</span></pre>
+</figure>
+
+<div class="recap">
+  <h3>Check yourself</h3>
+  <ul>
+    <li><code class="inl">ARG</code> accepts a <b>build parameter</b>; <code class="inl">ENV</code> writes an <b>image/runtime default</b>.</li>
+    <li>Both may be visible to later instructions in the current build stage.</li>
+    <li>Only <code class="inl">ENV</code> automatically enters the OCI image's <code class="inl">config.Env</code> array.</li>
+    <li>An <code class="inl">ARG</code> can still leave permanent <b>effects and metadata</b>.</li>
+    <li><code class="inl">ARG X</code> before the first <code class="inl">FROM</code> is global for base resolution; consume it again inside a stage.</li>
+    <li>Stage inheritance follows the build graph: a child of a named stage inherits its state; an unrelated <code class="inl">FROM</code> does not.</li>
+    <li>Resolved build arguments may appear in image history and fuller provenance.</li>
+    <li>Neither <code class="inl">ARG</code> nor <code class="inl">ENV</code> is appropriate for secrets; use <code class="inl">RUN --mount=type=secret</code>.</li>
+  </ul>
+</div>
+
+<details class="source-appendix">
+  <summary>Primary-source map · second read</summary>
+  <div class="inside">
+    <ul>
+      <li><code>moby/buildkit v0.31.1 · frontend/dockerfile/dockerfile2llb/convert.go · dispatchArg</code> — resolves CLI/default values, adds ordinary arguments to the current LLB state, tracks stage build arguments, and writes an <code>ARG KEY=value</code> history entry.</li>
+      <li><code>moby/buildkit v0.31.1 · frontend/dockerfile/dockerfile2llb/convert.go · dispatchEnv</code> — updates both the current LLB environment and <code>image.Config.Env</code>, then commits a metadata-only history entry.</li>
+      <li><code>moby/buildkit v0.31.1 · frontend/dockerfile/dockerfile2llb/convert.go · runCommandString / commitToHistory</code> — records declared build arguments and resolved values with a <code>RUN</code> history item.</li>
+      <li><code>moby/buildkit v0.31.1 · dispatch-state initialization</code> — copies a parent stage's state, image config, and <code>buildArgs</code> into a child stage.</li>
+      <li><code>moby/buildkit v0.31.1 · solver/llbsolver/provenance.go</code> — maximal provenance keeps the fuller build request; minimal mode scrubs <code>build-arg:</code> entries. Secret capture records ID and optionality, not payload.</li>
+      <li><code>opencontainers/image-spec v1.1.1 · config.md</code> — <code>config.Env</code> entries are container defaults; <code>history.created_by</code> records the command; <code>empty_layer</code> marks metadata-only history such as <code>ENV</code>.</li>
+      <li><code>docs.docker.com/build/building/variables/</code> and <code>build/building/secrets/</code> — user-facing scope, proxy-argument exception, and secret-mount contract.</li>
+    </ul>
+  </div>
+</details>
+
+<hr class="soft"/>
+<div class="concept"><span class="num">→</span> Where we are</div>
+<h2>Summary</h2>
+<p><code class="inl">ARG</code> is an input to the build graph. <code class="inl">ENV</code> is a mutation of the image configuration as well as the current build environment. The fact that an <code class="inl">ARG</code> is absent from a future container's environment does not erase its history, provenance, cache influence, or filesystem effects. Lesson 31 uses that same build graph to explain exactly what enters a cache key and why deleting data in a later layer does not recover the earlier bytes.</p>
+<div class="xrefs">
+  <span class="xref"><b>back ←</b>Lesson 18 · image config &amp; history</span>
+  <span class="xref"><b>back ←</b>Lesson 25 · BuildKit &amp; LLB</span>
+  <span class="xref"><b>back ←</b>Lesson 27 · stage graph</span>
+  <span class="xref"><b>back ←</b>Lesson 29 · build context</span>
+  <span class="xref"><b>forward →</b>Lesson 31 · cache &amp; hygiene</span>
+</div>
+<footer class="nav">
+  <div class="card"><span class="k">← Previous</span><span class="ti">29 · Build context &amp; .dockerignore</span></div>
+  <div class="card next"><span class="k">Next →</span><span class="ti">31 · Layer caching &amp; hygiene</span></div>
+</footer>
+</div>
+</body>
+</html>

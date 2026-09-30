@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><title>Lesson 31 · Layer Caching &amp; Hygiene</title><style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.7; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:36px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .oneline{border:1px solid var(--teal-dim); background:linear-gradient(180deg,#0b1615,#0a1210); border-radius:10px; padding:18px 20px; margin:30px 0 8px}
+  .oneline .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); display:block; margin-bottom:8px}
+  .oneline p{margin:0; font-size:20px; line-height:1.5; color:#fff}
+
+  .concept{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:48px 0 4px; display:flex; align-items:center; gap:10px;}
+  .concept .num{width:24px;height:24px;border-radius:50%;border:1px solid var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  h2{font-family:var(--mono); font-weight:600; font-size:21px; margin:8px 0 16px; color:var(--bone); letter-spacing:-.01em;}
+  h3{font-family:var(--mono); font-size:15px; color:var(--bone); margin:24px 0 10px}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  .term{color:var(--teal); font-weight:600}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+  .plain{color:var(--dim); font-size:16px; border-left:2px solid var(--rule); padding-left:14px; margin:0 0 18px}
+  .plain b{color:var(--teal); font-weight:600}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--teal); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .c{color:var(--faint)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:20px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  .flow{display:grid; grid-template-columns:1fr; gap:8px; margin:22px 0}
+  .flow .row{display:grid; grid-template-columns:42px 1fr; gap:12px; align-items:start; border:1px solid var(--rule); background:var(--panel); border-radius:8px; padding:12px 14px}
+  .flow .n{font-family:var(--mono); color:var(--teal); border:1px solid var(--teal-dim); border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:12px}
+  .flow .t{font-family:var(--mono); font-size:13px; color:#fff; margin-bottom:3px}
+  .flow .d{font-size:15px; color:var(--dim); line-height:1.5}
+
+  table{width:100%; border-collapse:collapse; margin:18px 0 26px; font-size:15.5px}
+  th{font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); text-align:left; border-bottom:1px solid var(--rule); padding:9px 10px}
+  td{vertical-align:top; border-bottom:1px solid var(--rule); padding:10px; color:var(--dim)}
+  td:first-child{font-family:var(--mono); color:var(--gold); white-space:nowrap}
+  td strong{font-family:var(--serif)}
+
+  .patterns{font-family:var(--mono); font-size:13.5px; background:var(--well); border:1px solid var(--rule); border-radius:8px; padding:16px 18px; margin:16px 0; line-height:1.85; overflow-x:auto}
+  .patterns .x{color:var(--rose)} .patterns .i{color:var(--teal)} .patterns .c{color:var(--faint)}
+
+  .compare{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:20px 0}
+  .compare .card{border:1px solid var(--rule); border-radius:8px; padding:16px; background:var(--panel)}
+  .compare .card h3{font-size:13px; margin:0 0 10px; color:var(--gold)}
+  .compare .card p{font-size:15px; color:var(--dim); margin:0}
+  @media(max-width:640px){.compare{grid-template-columns:1fr} td:first-child{white-space:normal}}
+
+  .recap{border:1px solid var(--teal-dim); border-radius:10px; background:#0a1210; padding:20px 22px; margin:30px 0}
+  .recap h3{font-family:var(--mono); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:0 0 14px}
+  .recap ul{margin:0; padding-left:20px} .recap li{margin:0 0 10px; color:var(--bone)} .recap li:last-child{margin:0}
+  .recap li b{color:#fff}
+
+  .sources{border:1px solid var(--gold-dim); border-radius:9px; background:#15130d; padding:18px 20px; margin:26px 0}
+  .sources h3{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin:0 0 12px}
+  .sources ul{margin:0; padding-left:20px}
+  .sources li{margin:0 0 9px; color:var(--dim); font-size:15px}
+  .sources li:last-child{margin-bottom:0}
+  .sources code{font-family:var(--mono); color:var(--gold); font-size:.88em}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:60px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:38px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+
+  .pill.clarity{color:var(--gold);border-color:var(--gold-dim);margin-left:6px}
+  .tree{font-family:var(--mono);font-size:13.5px;line-height:1.75;background:var(--well);border:1px solid var(--rule);border-radius:8px;padding:16px 18px;margin:18px 0;overflow-x:auto;color:var(--dim)}
+  .tree .keep{color:var(--teal)} .tree .drop{color:var(--rose)} .tree .meta{color:var(--gold)}
+  .formula{font-family:var(--mono);font-size:15px;border:1px solid var(--teal-dim);background:#081412;border-radius:8px;padding:15px 18px;margin:20px 0;color:#fff;overflow-x:auto}
+  .three-gates{display:grid;grid-template-columns:1fr;gap:10px;margin:22px 0}
+  .gate{border:1px solid var(--rule);background:var(--panel);border-radius:9px;padding:15px 17px;display:grid;grid-template-columns:38px 1fr;gap:12px;align-items:start}
+  .gate .gno{font-family:var(--mono);width:28px;height:28px;border:1px solid var(--teal-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--teal);font-size:12px}
+  .gate h3{margin:0 0 5px;font-size:13px;color:#fff}.gate p{margin:0;color:var(--dim);font-size:15.5px;line-height:1.55}
+  .result{border:1px solid var(--rule);border-radius:8px;overflow:hidden;margin:18px 0}
+  .result .rrow{display:grid;grid-template-columns:1.15fr .85fr;border-bottom:1px solid var(--rule)}
+  .result .rrow:last-child{border-bottom:0}.result .rrow>div{padding:11px 13px;font-size:15px}.result .path{font-family:var(--mono);color:var(--gold);background:var(--well)}.result .why{color:var(--dim);background:var(--panel)}
+  details.source-appendix{border:1px solid var(--gold-dim);border-radius:9px;background:#15130d;margin:28px 0}
+  details.source-appendix summary{cursor:pointer;font-family:var(--mono);font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:var(--gold);padding:14px 17px;list-style:none}
+  details.source-appendix summary::-webkit-details-marker{display:none}
+  details.source-appendix summary::before{content:'+';display:inline-block;width:18px;color:var(--gold)}
+  details.source-appendix[open] summary::before{content:'−'}
+  details.source-appendix .inside{padding:0 18px 17px;color:var(--dim);font-size:15px}
+  details.source-appendix ul{margin:0;padding-left:20px}details.source-appendix li{margin:0 0 9px}
+  .firstread{border:1px dashed var(--teal-dim);border-radius:8px;padding:16px 18px;margin:20px 0;color:var(--dim)}
+  .firstread b{color:var(--teal)}
+  @media(max-width:640px){.result .rrow{grid-template-columns:1fr}.result .path{border-bottom:1px solid var(--rule)}}
+
+  .cachechain{margin:22px 0;display:grid;gap:8px}
+  .cachechain .node{border:1px solid var(--rule);background:var(--panel);border-radius:8px;padding:13px 15px;display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:start}
+  .cachechain .badge{font-family:var(--mono);font-size:11px;color:var(--teal);border:1px solid var(--teal-dim);border-radius:50%;width:27px;height:27px;display:flex;align-items:center;justify-content:center}
+  .cachechain .name{font-family:var(--mono);font-size:13px;color:#fff;margin-bottom:3px}
+  .cachechain .desc{font-size:15px;color:var(--dim);line-height:1.5}
+  .cachechain .arrow{font-family:var(--mono);color:var(--faint);padding-left:12px;line-height:1}
+  .splitcache{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0}
+  .splitcache .box{border:1px solid var(--rule);background:var(--panel);border-radius:9px;padding:16px}
+  .splitcache h3{font-size:13px;color:var(--gold);margin:0 0 10px}
+  .splitcache p{font-size:15px;color:var(--dim);margin:0 0 9px}
+  .splitcache p:last-child{margin:0}
+  @media(max-width:640px){.splitcache{grid-template-columns:1fr}}
+
+
+  .three-answers{display:grid;grid-template-columns:1fr;gap:10px;margin:18px 0}
+  .three-answers .row{border:1px solid var(--rule);background:var(--panel);border-radius:8px;padding:14px 16px;display:grid;grid-template-columns:155px 1fr;gap:14px}
+  .three-answers .q{font-family:var(--mono);font-size:12px;color:var(--gold)}
+  .three-answers .a{font-size:16px;color:var(--dim)}
+  .runstrip{display:grid;gap:8px;margin:20px 0}
+  .runstrip .row{border:1px solid var(--rule);border-radius:8px;background:var(--panel);padding:12px 14px;display:grid;grid-template-columns:72px 1fr 94px;gap:12px;align-items:center}
+  .runstrip .n{font-family:var(--mono);font-size:12px;color:var(--teal)}
+  .runstrip .op{font-family:var(--mono);font-size:13px;color:#fff}
+  .runstrip .status{font-family:var(--mono);font-size:11px;text-align:right;color:var(--gold)}
+  .layerstack{display:grid;gap:8px;margin:20px 0}
+  .layerstack .layer{border:1px solid var(--rule);background:var(--panel);border-radius:8px;padding:13px 15px}
+  .layerstack .layer b{font-family:var(--mono);font-size:12px;color:var(--gold)}
+  .layerstack .layer span{display:block;color:var(--dim);font-size:15px;margin-top:3px}
+  .memory{border:1px solid var(--gold-dim);background:#15130d;border-radius:9px;padding:17px 19px;margin:24px 0}
+  .memory .h{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:7px}
+  .memory p{margin:0;color:#fff;font-size:18px}
+  @media(max-width:640px){
+    .three-answers .row{grid-template-columns:1fr;gap:4px}
+    .runstrip .row{grid-template-columns:55px 1fr}.runstrip .status{grid-column:2;text-align:left}
+  }
+
+
+.statechain{display:grid;gap:8px;margin:22px 0}.state{display:grid;grid-template-columns:52px 1fr;gap:13px;align-items:start;border:1px solid var(--teal-dim);background:#0a1513;border-radius:9px;padding:14px 16px}.state .sid{font-family:var(--mono);font-size:13px;color:var(--teal);border:1px solid var(--teal-dim);border-radius:6px;padding:3px 7px;text-align:center}.state b{display:block;font-family:var(--mono);font-size:13px;color:#fff;margin-bottom:3px}.state span{display:block;color:var(--dim);font-size:15px;line-height:1.5}.transition{margin-left:25px;border-left:1px solid var(--gold-dim);padding:6px 0 6px 20px;display:grid;gap:2px}.transition span{font-family:var(--mono);font-size:12px;color:var(--gold)}.transition b{font-size:14px;color:var(--dim);font-weight:400}.cache-record{display:grid;grid-template-columns:1fr 30px 1fr 44px 1fr;gap:8px;align-items:center;margin:22px 0}.cache-record>div:not(.plus):not(.arrowbig){border:1px solid var(--rule);background:var(--panel);border-radius:8px;padding:14px}.cache-record span,.layerrelation span,.statepair span,.twofs .fs>span{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);margin-bottom:5px}.cache-record b{display:block;font-family:var(--mono);font-size:12.5px;color:#fff}.cache-record .rhs{border-color:var(--teal-dim)!important;background:#0a1513!important}.plus,.arrowbig{font-family:var(--mono);color:var(--gold);text-align:center;font-size:22px}.layerrelation{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:10px;align-items:stretch;margin:22px 0}.layerrelation>div{border:1px solid var(--rule);background:var(--panel);border-radius:8px;padding:15px}.layerrelation .mid{border-color:var(--gold-dim);background:#15130d}.layerrelation b{font-family:var(--mono);font-size:13px;color:#fff}.layerstory{display:grid;gap:10px;margin:22px 0}.story{display:grid;grid-template-columns:110px 1fr;gap:14px;border:1px solid var(--rule);background:var(--panel);border-radius:8px;padding:14px 16px}.story .tag{font-family:var(--mono);font-size:11px;color:var(--gold)}.story b{display:block;font-family:var(--mono);font-size:13px;color:#fff;margin-bottom:4px}.story span{display:block;color:var(--dim);font-size:15px}.statepair{display:grid;grid-template-columns:1fr 48px 1fr;gap:10px;align-items:center;margin:22px 0}.statepair>div:not(.arrowbig){border:1px solid var(--teal-dim);background:#0a1513;border-radius:8px;padding:15px}.statepair b{font-family:var(--mono);font-size:16px;color:#fff}.statepair p{font-size:15px;color:var(--dim);margin:5px 0 0}.twofs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:22px 0}.twofs .fs{border:1px solid var(--rule);background:var(--panel);border-radius:9px;padding:16px}.twofs .root{border-color:var(--teal-dim)}.twofs .cache{border-color:var(--gold-dim);background:#15130d}.twofs b{display:block;font-family:var(--mono);font-size:13px;color:#fff;margin-bottom:6px}.twofs p{font-size:15px;color:var(--dim);margin:0}@media(max-width:700px){.cache-record{grid-template-columns:1fr}.cache-record .plus,.cache-record .arrowbig{transform:rotate(90deg)}.layerrelation,.statepair,.twofs{grid-template-columns:1fr}.statepair .arrowbig{transform:rotate(90deg)}.story{grid-template-columns:1fr;gap:5px}}
+</style></head><body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-30-arg-vs-env-history-leak.html">← Lesson 30</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-32-volumes-bind-mounts-tmpfs.html">Lesson 32 →</a></span></nav>
+<div class="wrap">
+<header class="top">
+  <div class="course-tag">Part IV · Pipelines &amp; Dockerfiles</div>
+  <div class="lesson-no">31</div>
+  <span class="pill">CORE</span><span class="pill clarity">rebuilt from first principles</span>
+  <h1>Layer caching &amp; hygiene</h1>
+  <p class="dek">A Docker build is a chain of filesystem states. Each instruction receives one state and produces the next. BuildKit’s cache may reuse a previously produced next state; image layers record the filesystem change between those states.</p>
+</header>
+
+<section class="oneline">
+  <span class="lbl">The one relationship this lesson builds</span>
+  <p><strong>instruction + starting filesystem state → resulting filesystem state</strong></p>
+</section>
+
+<p class="plain"><b>Why the earlier versions were hard:</b> they introduced cache keys, layer cleanup, and cache mounts as separate rules before showing the object they all act on. The missing foundation is the chain of filesystem states. We will build that first, then derive every rule from it.</p>
+
+<div class="concept"><span class="num">1</span> Before cache: what one build instruction does</div>
+<h2>Every filesystem instruction transforms one state into another</h2>
+<p>Start with a base image. It gives the build an initial root filesystem. Call that state <code class="inl">S0</code>.</p>
+<div class="patterns"><span class="i">FROM alpine:3.21</span>
+<span class="i">COPY deps.txt /app/deps.txt</span>
+<span class="i">RUN install-dependencies</span>
+<span class="i">COPY src/ /app/src/</span>
+<span class="i">RUN build-application</span></div>
+<p>Ignore caching for a moment. Follow only the filesystem:</p>
+<div class="statechain">
+  <div class="state"><div class="sid">S0</div><div><b>Base filesystem</b><span>Files supplied by <code class="inl">alpine:3.21</code>.</span></div></div>
+  <div class="transition"><span>COPY deps.txt</span><b>takes S0, produces S1</b></div>
+  <div class="state"><div class="sid">S1</div><div><b>Base + dependency file</b><span><code class="inl">/app/deps.txt</code> now exists.</span></div></div>
+  <div class="transition"><span>RUN install-dependencies</span><b>takes S1, produces S2</b></div>
+  <div class="state"><div class="sid">S2</div><div><b>Dependencies installed</b><span>The installed files are now part of the root filesystem.</span></div></div>
+  <div class="transition"><span>COPY src/</span><b>takes S2, produces S3</b></div>
+  <div class="state"><div class="sid">S3</div><div><b>Application source added</b><span>The source tree is now present.</span></div></div>
+  <div class="transition"><span>RUN build-application</span><b>takes S3, produces S4</b></div>
+  <div class="state"><div class="sid">S4</div><div><b>Finished filesystem</b><span>This becomes the final image root filesystem.</span></div></div>
+</div>
+<p>The crucial relationship is not “line 2 comes after line 1.” It is:</p>
+<div class="formula">operation O receives state S<sub>before</sub> and produces state S<sub>after</sub></div>
+<p>Each later operation receives the state produced by the previous operation. That dependency is why a change can propagate forward.</p>
+<aside class="note"><b>Source anchor.</b> BuildKit models these as graph operations with input dependencies. The cache-key structure in <span class="srcref">moby/buildkit v0.31.1 · solver/cachekey.go</span> connects an operation to the cache identities of the states it reads.</aside>
+
+<div class="concept"><span class="num">2</span> Now add the cache</div>
+<h2>The cache remembers a solved state transition</h2>
+<p>When BuildKit performs an operation, it can remember this fact:</p>
+<div class="cache-record">
+  <div class="lhs"><span>operation</span><b>RUN install-dependencies</b></div>
+  <div class="plus">+</div>
+  <div class="lhs"><span>starting state</span><b>S1</b></div>
+  <div class="arrowbig">→</div>
+  <div class="rhs"><span>saved result</span><b>S2</b></div>
+</div>
+<p>On the next build, BuildKit reaches the same operation. It asks two questions:</p>
+<div class="three-answers">
+  <div class="row"><div class="q">Is the operation the same?</div><div class="a">Same command, environment, working directory, user, mounts, platform details, and other execution settings.</div></div>
+  <div class="row"><div class="q">Is the starting state the same?</div><div class="a">The filesystem arriving from earlier operations has the same cache identity.</div></div>
+</div>
+<p>If both answers are yes, BuildKit returns the saved <code class="inl">S2</code>. The command does not run. That is a <strong>cache hit</strong>.</p>
+<p>If either answer is no, BuildKit performs the operation and produces a new result state.</p>
+<div class="memory"><div class="h">Memory rule</div><p>BuildKit does not cache “line 4.” It caches “this operation, starting from this input state, produced this output state.”</p></div>
+
+<div class="concept"><span class="num">3</span> Why a change propagates forward</div>
+<h2>A later instruction misses because the state entering it changed</h2>
+<p>Use this order:</p>
+<div class="patterns"><span class="i">COPY deps.txt .</span>
+<span class="i">RUN install-dependencies</span>
+<span class="i">COPY src/ .</span>
+<span class="i">RUN build-application</span></div>
+<h3>Nothing changed</h3>
+<table>
+  <thead><tr><th>Operation</th><th>Starting state</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>COPY deps.txt</td><td>Same base and same selected file</td><td><strong>Reuse S1</strong></td></tr>
+    <tr><td>RUN install</td><td>Receives the same S1</td><td><strong>Reuse S2</strong></td></tr>
+    <tr><td>COPY src</td><td>Same S2 and same source files</td><td><strong>Reuse S3</strong></td></tr>
+    <tr><td>RUN build</td><td>Receives the same S3</td><td><strong>Reuse S4</strong></td></tr>
+  </tbody>
+</table>
+<h3>Only <code class="inl">src/app.c</code> changed</h3>
+<table>
+  <thead><tr><th>Operation</th><th>What BuildKit sees</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>COPY deps.txt</td><td>Its selected input did not change</td><td><strong>Reuse S1</strong></td></tr>
+    <tr><td>RUN install</td><td>It still receives the same S1</td><td><strong>Reuse S2</strong></td></tr>
+    <tr><td>COPY src</td><td>Selected source content changed</td><td><strong>Produce new S3′</strong></td></tr>
+    <tr><td>RUN build</td><td>Its command is unchanged, but it now receives S3′ instead of S3</td><td><strong>Produce new S4′</strong></td></tr>
+  </tbody>
+</table>
+<p>The last <code class="inl">RUN</code> misses even though its command text did not change. Its <em>starting filesystem state</em> changed.</p>
+<aside class="correction"><span class="lbl">Correction to the beginner shortcut</span><p>“When one Dockerfile line changes, every line below it is invalidated” describes a common visible result, but not the mechanism. Each later operation is checked separately. It misses when its own operation definition or one of its input dependencies changed.</p></aside>
+
+<div class="concept"><span class="num">4</span> What counts as an input</div>
+<h2><code class="inl">COPY</code> and <code class="inl">RUN</code> receive different kinds of input</h2>
+<h3><code class="inl">COPY</code>: selected client files are inputs</h3>
+<p>For:</p>
+<div class="patterns"><span class="i">COPY deps.txt /app/deps.txt</span></div>
+<p>BuildKit computes a content identity for the selected source. The source path, contents, permissions, ownership, symlink target, and other relevant metadata can affect it. Ordinary modification time is deliberately omitted from the selected v1 checksum fields.</p>
+<div class="compare">
+  <div class="card"><h3>Changes the COPY input</h3><p>Editing <code class="inl">deps.txt</code>, changing its executable bit, changing ownership represented in the source, or changing a symlink target.</p></div>
+  <div class="card"><h3>Does not normally change it alone</h3><p>Running <code class="inl">touch deps.txt</code> without changing the file contents or other relevant metadata.</p></div>
+</div>
+<p>Changing an unrelated file is irrelevant when that file is outside the source selected by this <code class="inl">COPY</code>.</p>
+<h3><code class="inl">RUN</code>: the execution request and incoming state are inputs</h3>
+<p>For:</p>
+<div class="patterns"><span class="i">RUN gcc source.c -o app</span></div>
+<p>BuildKit’s execution cache description includes the command and execution settings, plus the dependency state mounted as the operation’s root filesystem. Important settings include environment, working directory, user, mounts, network mode, security mode, and platform.</p>
+<aside class="note"><b>Source anchors.</b> <span class="srcref">solver/llbsolver/ops/file.go</span> assigns content-hash functions to file-operation dependencies. <span class="srcref">cache/contenthash/filehash.go</span> defines the selected file checksum fields. <span class="srcref">solver/llbsolver/ops/exec.go · ExecOp.CacheMap</span> constructs the execution-operation cache description and its dependencies.</aside>
+<h3>The network is not an automatic input</h3>
+<div class="patterns"><span class="i">RUN curl -o /tmp/tool.tar.gz https://example.com/latest.tar.gz</span></div>
+<p>If the operation definition and its declared input state still match, BuildKit can reuse the old result. It does not normally contact the URL merely to ask whether the remote bytes changed.</p>
+<p>That is why moving names such as <code class="inl">latest.tar.gz</code> are bad reproducible-build inputs. Prefer a pinned version, digest, release URL, or verified checksum.</p>
+<h3>Forcing execution is different from defining better inputs</h3>
+<div class="compare">
+  <div class="card"><h3><code class="inl">--no-cache</code></h3><p>Do not reuse ordinary operation-result cache entries for this build. The operations execute again.</p></div>
+  <div class="card"><h3><code class="inl">--no-cache-filter STAGE</code></h3><p>With Buildx, invalidate the named stage while allowing unrelated stages to keep using cache.</p></div>
+</div>
+<p>Neither option makes a moving remote resource reproducible. They only control whether BuildKit may reuse a previous result. Reproducibility still requires an immutable or verified external input.</p>
+
+<div class="concept"><span class="num">5</span> Derive the ordering rule</div>
+<h2>Put stable inputs before frequently changing inputs</h2>
+<p>Now the common Dockerfile recommendation follows directly from the state chain.</p>
+<h3>Poor ordering</h3>
+<div class="patterns"><span class="x">COPY . .</span>
+<span class="x">RUN npm ci</span>
+<span class="x">RUN npm run build</span></div>
+<p>Any application-source edit changes the broad <code class="inl">COPY . .</code> result. Therefore <code class="inl">npm ci</code> receives a different starting state and cannot reuse its previous result.</p>
+<h3>Better ordering</h3>
+<div class="patterns"><span class="i">COPY package.json package-lock.json ./</span>
+<span class="i">RUN npm ci</span>
+<span class="i">COPY . .</span>
+<span class="i">RUN npm run build</span></div>
+<p>Application edits occur after dependency installation. As long as the package manifests do not change, the <code class="inl">npm ci</code> operation keeps receiving the same starting state and can remain cached.</p>
+<div class="keybox"><div class="h">The reason—not merely the rule</div><p>Instruction order controls which earlier filesystem states are dependencies of expensive later work.</p></div>
+
+<hr class="soft"/>
+<section class="oneline">
+  <span class="lbl">Second half: image hygiene</span>
+  <p>The cache decides whether to reuse a state transition. A layer records the filesystem change produced by a transition that becomes part of the image.</p>
+</section>
+
+<div class="concept"><span class="num">6</span> Connect states to image layers</div>
+<h2>A layer records the difference between the starting and resulting states</h2>
+<p>Return to one operation:</p>
+<div class="formula">S<sub>before</sub> -- operation --&gt; S<sub>after</sub></div>
+<p>For a filesystem-producing image operation, the image needs the change that turns <code class="inl">Sbefore</code> into <code class="inl">Safter</code>. That change is the layer changeset.</p>
+<div class="layerrelation">
+  <div><span>starting state</span><b>S0</b></div>
+  <div class="mid"><span>RUN creates /tmp/blob</span><b>filesystem change Δ1</b></div>
+  <div><span>result state</span><b>S1</b></div>
+</div>
+<p>Cache and layer are therefore different:</p>
+<table>
+  <thead><tr><th>Mechanism</th><th>Question answered</th></tr></thead>
+  <tbody>
+    <tr><td>Build cache</td><td>Can BuildKit reuse a state it produced before instead of executing the operation?</td></tr>
+    <tr><td>Image layer</td><td>What filesystem changes must be applied to transform the parent state into this image state?</td></tr>
+  </tbody>
+</table>
+<p>A cached operation may supply a previously created layer/result without executing again. The concepts are connected, but they are not the same object.</p>
+
+<div class="concept"><span class="num">7</span> Why deleting later does not shrink the image</div>
+<h2>Each operation can only add a new changeset; it cannot rewrite an old one</h2>
+<p>Consider three operations:</p>
+<div class="patterns"><span class="x">RUN curl -o /tmp/tool.tar.gz https://example.com/tool.tar.gz</span>
+<span class="x">RUN tar -xf /tmp/tool.tar.gz -C /usr/local</span>
+<span class="x">RUN rm /tmp/tool.tar.gz</span></div>
+<p>Follow the states and layers:</p>
+<div class="layerstory">
+  <div class="story"><div class="tag">Operation 1</div><div><b>S0 → S1</b><span><code class="inl">/tmp/tool.tar.gz</code> exists in S1. Layer Δ1 contains the archive bytes.</span></div></div>
+  <div class="story"><div class="tag">Operation 2</div><div><b>S1 → S2</b><span>The extracted program files are added. The archive still exists.</span></div></div>
+  <div class="story"><div class="tag">Operation 3</div><div><b>S2 → S3</b><span>The final state no longer shows the archive. Layer Δ3 records a whiteout hiding the parent path.</span></div></div>
+</div>
+<p>The final merged filesystem shows no archive. But Δ1 is an immutable earlier layer blob, so its bytes still exist in the image.</p>
+<aside class="correction"><span class="lbl">Security consequence</span><p>Deleting a secret in a later <code class="inl">RUN</code> does not erase it from an earlier layer. Anyone who obtains the image can inspect the earlier layer blob.</p></aside>
+<p>The OCI Image Specification defines deletion from a parent layer using a <code class="inl">.wh.&lt;name&gt;</code> whiteout. A later changeset hides the path; it does not rewrite the parent blob. <span class="srcref">opencontainers/image-spec v1.1.1 · layer.md</span></p>
+
+<div class="concept"><span class="num">8</span> Why same-<code class="inl">RUN</code> cleanup works</div>
+<h2>Only the final state of that operation is committed as its filesystem change</h2>
+<div class="patterns"><span class="i">RUN curl -o /tmp/tool.tar.gz https://example.com/tool.tar.gz \</span>
+<span class="i"> &amp;&amp; tar -xf /tmp/tool.tar.gz -C /usr/local \</span>
+<span class="i"> &amp;&amp; rm /tmp/tool.tar.gz</span></div>
+<p>During the command, the temporary archive exists. But BuildKit commits the operation’s root-filesystem result after the complete command finishes.</p>
+<div class="statepair">
+  <div><span>Before RUN</span><b>S0</b><p>No archive; program not installed.</p></div>
+  <div class="arrowbig">→</div>
+  <div><span>After complete RUN</span><b>S1</b><p>Program installed; temporary archive absent.</p></div>
+</div>
+<p>The changeset needed to transform S0 into S1 includes the installed files. It does not need to include the temporary archive as an added final path, because that path is absent when the operation finishes.</p>
+<div class="memory"><div class="h">Layer-hygiene rule</div><p>If temporary bytes must never enter an image layer, create, use, and remove them before the same filesystem-producing operation finishes.</p></div>
+<h3>This does not mean “put the whole Dockerfile in one giant RUN”</h3>
+<table>
+  <thead><tr><th>Keep together</th><th>Keep separate</th></tr></thead>
+  <tbody>
+    <tr><td>Creation, use, and deletion of one temporary archive, package index, or temporary credential.</td><td>Independent work whose results can be reused separately, such as dependency installation and application compilation.</td></tr>
+    <tr><td>The reason is layer hygiene: temporary bytes must be absent from the operation’s final state.</td><td>The reason is cache reuse: a later application edit should not invalidate earlier stable work.</td></tr>
+  </tbody>
+</table>
+
+<div class="concept"><span class="num">9</span> A second cache mechanism: cache mounts</div>
+<h2>A cache mount is an extra filesystem attached to a <code class="inl">RUN</code>, not part of the image root state</h2>
+<p>Package managers often need downloaded archives again. You want those files to survive for future builds, but you do not want them in the image layer.</p>
+<div class="patterns"><span class="i">RUN --mount=type=cache,target=/root/.cache/pip \</span>
+<span class="i">    pip install -r requirements.txt</span></div>
+<p>During this operation, there are two writable filesystems:</p>
+<div class="twofs">
+  <div class="fs root"><span>Root filesystem</span><b>the image state</b><p>Installed application files written here may become part of the operation’s output state and image layer.</p></div>
+  <div class="fs cache"><span>Cache mount</span><b>separate BuildKit storage</b><p>Downloaded package archives written here can remain for a future execution, but are not automatically part of the image rootfs result.</p></div>
+</div>
+<p>This produces two very different forms of reuse:</p>
+<table>
+  <thead><tr><th>Result cache</th><th>Cache mount</th></tr></thead>
+  <tbody>
+    <tr><td>BuildKit reuses the complete previous output state.</td><td>The operation runs, but one mounted directory may already contain downloaded files.</td></tr>
+    <tr><td>On a hit, the command does not execute.</td><td>The command can execute again and use the retained directory.</td></tr>
+    <tr><td>Represents a solved transition.</td><td>Represents auxiliary mutable storage outside the normal rootfs output.</td></tr>
+  </tbody>
+</table>
+<p>The build must remain correct if the cache mount is empty. BuildKit may garbage-collect it, another builder may not have it, or the build may run for the first time.</p>
+<h3>Sharing modes</h3>
+<table>
+  <tbody>
+    <tr><td>shared</td><td>Concurrent builds may use the same cache directory simultaneously.</td></tr>
+    <tr><td>private</td><td>A concurrent writer gets a separate cache instance.</td></tr>
+    <tr><td>locked</td><td>A second writer waits. This is useful for package managers such as APT that require exclusive access.</td></tr>
+  </tbody>
+</table>
+<aside class="note"><b>Source anchors.</b> The Dockerfile frontend maps cache mounts and sharing modes in <span class="srcref">frontend/dockerfile/dockerfile2llb/convert_runmount.go</span>. BuildKit’s mount manager creates separate mutable cache references in <span class="srcref">solver/llbsolver/mounts/mount.go</span>.</aside>
+
+<div class="step">Inspect it yourself · Part A</div>
+<h2>Watch state dependencies control cache reuse</h2>
+<figure class="inspect"><div class="tab">Create one small project</div><pre><span class="p">$</span> rm -rf /tmp/l31 && mkdir -p /tmp/l31/src && cd /tmp/l31
+<span class="p">$</span> printf 'lib=v1\n' &gt; deps.txt
+<span class="p">$</span> printf 'app=v1\n' &gt; src/app.txt
+<span class="p">$</span> cat &gt; Dockerfile &lt;&lt;'EOF'
+FROM alpine:3.21
+WORKDIR /app
+COPY deps.txt .
+RUN printf 'installed %s\n' "$(cat deps.txt)" &gt; /deps-installed.txt
+COPY src/ .
+RUN cp app.txt /built-app.txt
+EOF</pre></figure>
+<figure class="inspect"><div class="tab">Build twice, then change only the late source</div><pre><span class="p">$</span> docker build --progress=plain -t l31:state .
+<span class="p">$</span> docker build --progress=plain -t l31:state .
+<span class="c"># The second build should reuse all four operations.</span>
+
+<span class="p">$</span> printf 'app=v2\n' &gt; src/app.txt
+<span class="p">$</span> docker build --progress=plain -t l31:state .
+<span class="c"># COPY deps.txt and its RUN remain cached.</span>
+<span class="c"># COPY src and the final RUN execute.</span>
+
+<span class="p">$</span> touch deps.txt
+<span class="p">$</span> docker build --progress=plain -t l31:state .
+<span class="c"># A pure mtime change should not invalidate the selected COPY checksum.</span>
+
+<span class="p">$</span> printf 'lib=v2\n' &gt; deps.txt
+<span class="p">$</span> docker build --progress=plain -t l31:state .
+<span class="c"># The early COPY now changes, so every operation depending on its new state executes.</span></pre></figure>
+<p>Read the output using the state-chain model: the changed application source makes a new state only at the late <code class="inl">COPY</code>. Changing <code class="inl">deps.txt</code> makes a new early state, so every later dependent operation receives a different starting state.</p>
+
+<div class="step">Inspect it yourself · Part B</div>
+<h2>Prove that later deletion leaves earlier bytes</h2>
+<figure class="inspect"><div class="tab">Build a bad and good cleanup case</div><pre><span class="p">$</span> cat &gt; Dockerfile.bad &lt;&lt;'EOF'
+FROM alpine:3.21
+RUN head -c 8388608 /dev/zero &gt; /tmp/blob.bin
+RUN rm /tmp/blob.bin
+EOF
+
+<span class="p">$</span> cat &gt; Dockerfile.good &lt;&lt;'EOF'
+FROM alpine:3.21
+RUN head -c 8388608 /dev/zero &gt; /tmp/blob.bin \
+ &amp;&amp; wc -c /tmp/blob.bin \
+ &amp;&amp; rm /tmp/blob.bin
+EOF
+
+<span class="p">$</span> docker build -f Dockerfile.bad  -t l31:bad  .
+<span class="p">$</span> docker build -f Dockerfile.good -t l31:good .
+<span class="p">$</span> docker image inspect --format '{{.RepoTags}} {{.Size}}' l31:bad l31:good</pre></figure>
+<p>The bad image retains the 8 MiB addition in an earlier layer. The good image’s single operation finishes without the temporary file in its final state.</p>
+<figure class="inspect"><div class="tab">Inspect the bad image’s saved layer archives</div><pre><span class="p">$</span> docker save l31:bad -o bad-image.tar
+<span class="p">$</span> rm -rf bad-save &amp;&amp; mkdir bad-save &amp;&amp; tar -xf bad-image.tar -C bad-save
+<span class="p">$</span> for layer in $(find bad-save -name layer.tar); do
+    echo "--- $layer"
+    tar -tf "$layer" | grep -E '(^|/)tmp/(blob\.bin|\.wh\.blob\.bin)$' || true
+  done
+<span class="o">... tmp/blob.bin</span>
+<span class="o">... tmp/.wh.blob.bin</span></pre></figure>
+<p>One earlier layer archive contains the real file. A later layer contains only the whiteout that hides it. This is the exact on-disk proof that a later deletion does not erase earlier bytes.</p>
+
+<div class="step">Inspect it yourself · Part C</div>
+<h2>See a cache mount survive while the <code class="inl">RUN</code> executes again</h2>
+<figure class="inspect"><div class="tab">A counter stored only in a cache mount</div><pre><span class="p">$</span> cat &gt; Dockerfile.mount &lt;&lt;'EOF'
+# syntax=docker/dockerfile:1
+FROM alpine:3.21
+ARG BUST=one
+RUN --mount=type=cache,id=l31-counter,target=/cache \
+    n="$(cat /cache/count 2&gt;/dev/null || echo 0)"; \
+    n="$((n + 1))"; \
+    echo "$n" &gt; /cache/count; \
+    printf 'run=%s bust=%s\n' "$n" "$BUST" &gt; /result.txt
+CMD ["cat", "/result.txt"]
+EOF
+
+<span class="p">$</span> docker build -f Dockerfile.mount --build-arg BUST=one -t l31:mount .
+<span class="p">$</span> docker run --rm l31:mount
+<span class="o">run=1 bust=one</span>
+
+<span class="p">$</span> docker build -f Dockerfile.mount --build-arg BUST=two -t l31:mount .
+<span class="p">$</span> docker run --rm l31:mount
+<span class="o">run=2 bust=two</span></pre></figure>
+<p>Changing <code class="inl">BUST</code> forces a new execution result. The counter still increments because the separate cache mount survives across those executions.</p>
+
+<section class="recap">
+  <h3>Check yourself</h3>
+  <ul>
+    <li>A Dockerfile filesystem instruction receives a <b>starting state</b> and produces a <b>result state</b>.</li>
+    <li>The normal cache remembers a solved mapping: <b>operation + starting state → result state</b>.</li>
+    <li>A later operation misses when its own definition changes or when a state/file dependency it reads changes; <code class="inl">--no-cache</code> can force execution but does not improve the identity of external inputs.</li>
+    <li>Put stable inputs before frequently changing inputs so expensive early states remain reusable.</li>
+    <li>An image layer records the filesystem difference between two image states; it is not the same thing as the build cache.</li>
+    <li>A later deletion adds a whiteout and does not rewrite an earlier layer blob.</li>
+    <li>Remove temporary bytes before the same operation ends if they must never enter its changeset.</li>
+    <li>A cache mount is separate mutable BuildKit storage attached to a <code class="inl">RUN</code>; the <code class="inl">RUN</code> may execute while reusing that directory.</li>
+  </ul>
+</section>
+
+<details class="source-appendix">
+  <summary>Primary-source map · second read</summary>
+  <div class="inside"><ul>
+    <li><code>moby/buildkit v0.31.1 · solver/cachekey.go</code> — cache keys connect an operation digest to dependency cache keys.</li>
+    <li><code>moby/buildkit v0.31.1 · solver/llbsolver/ops/exec.go · ExecOp.CacheMap</code> — execution definition, platform, mounts, selectors, and input dependencies used for execution cache mapping.</li>
+    <li><code>moby/buildkit v0.31.1 · solver/llbsolver/ops/file.go</code> — source selectors and content-hash functions for file operations such as <code>COPY</code>.</li>
+    <li><code>moby/buildkit v0.31.1 · cache/contenthash/filehash.go · NewFileHash / v1TarHeaderSelect</code> — selected file contents and metadata; ordinary mtime is omitted from the selected v1 checksum header.</li>
+    <li><code>opencontainers/image-spec v1.1.1 · layer.md</code> — layers are changesets; <code>.wh.&lt;name&gt;</code> hides a parent path without rewriting the parent layer blob.</li>
+    <li><code>moby/buildkit v0.31.1 · frontend/dockerfile/dockerfile2llb/convert_runmount.go</code> — Dockerfile cache-mount conversion and sharing modes.</li>
+    <li><code>moby/buildkit v0.31.1 · solver/llbsolver/mounts/mount.go</code> — separate mutable cache references and cache-mount concurrency behavior.</li>
+  </ul></div>
+</details>
+
+<div class="concept"><span class="num">→</span> Where we are</div>
+<h2>Summary</h2>
+<p>BuildKit sees a build as dependent state transformations. Its ordinary cache can reuse a previously solved transformation. Image layers are the immutable changesets that reconstruct the resulting image states. Good Dockerfiles exploit both facts: they put stable work early for cache reuse, and they remove temporary bytes before the creating operation commits. Cache mounts solve a different problem by retaining reusable downloads outside the image root filesystem.</p>
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 15 · OverlayFS &amp; copy-up</span>
+  <span class="xref"><b>back ←</b> Lesson 17 · layer changesets &amp; whiteouts</span>
+  <span class="xref"><b>back ←</b> Lesson 25 · BuildKit solver</span>
+  <span class="xref"><b>back ←</b> Lesson 29 · context filtering</span>
+  <span class="xref"><b>forward →</b> Lesson 32 · volumes, binds &amp; tmpfs</span>
+</div>
+
+<footer class="nav">
+  <div class="card"><span class="k">← Previous</span><span class="ti">30 · ARG vs ENV &amp; the history leak</span></div>
+  <div class="card next"><span class="k">Next →</span><span class="ti">32 · Volumes vs bind mounts vs tmpfs</span></div>
+</footer>
+</div>
+</body></html>

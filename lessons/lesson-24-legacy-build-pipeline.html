@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 24 · The Legacy Build Pipeline</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.7; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:36px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); border:1px solid var(--rule); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .oneline{border:1px solid var(--teal-dim); background:linear-gradient(180deg,#0b1615,#0a1210); border-radius:10px; padding:18px 20px; margin:30px 0 8px}
+  .oneline .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); display:block; margin-bottom:8px}
+  .oneline p{margin:0; font-size:20px; line-height:1.5; color:#fff}
+
+  .concept{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:48px 0 4px; display:flex; align-items:center; gap:10px;}
+  .concept .num{width:24px;height:24px;border-radius:50%;border:1px solid var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  h2{font-family:var(--mono); font-weight:600; font-size:21px; margin:8px 0 16px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  .term{color:var(--teal); font-weight:600}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+  .plain{color:var(--dim); font-size:16px; border-left:2px solid var(--rule); padding-left:14px; margin:0 0 18px}
+  .plain b{color:var(--teal); font-weight:600}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--teal); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:20px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  figure.fig{margin:24px 0; border:1px solid var(--rule); border-radius:10px; background:var(--panel); padding:18px; overflow:hidden}
+  figure.fig figcaption{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin:2px 2px 16px}
+  figure.fig svg{display:block; width:100%; height:auto}
+
+  .recap{border:1px solid var(--teal-dim); border-radius:10px; background:#0a1210; padding:20px 22px; margin:30px 0}
+  .recap h3{font-family:var(--mono); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:0 0 14px}
+  .recap ul{margin:0; padding-left:20px} .recap li{margin:0 0 10px; color:var(--bone)} .recap li:last-child{margin:0}
+  .recap li b{color:#fff}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:60px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:38px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-23-run-pipeline-end-to-end.html">← Lesson 23</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-25-buildkit-llb-solver.html">Lesson 25 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part IV — Building &amp; running</div>
+  <div class="lesson-no">24</div>
+  <span class="pill">deep-cut · reference depth</span>
+  <h1>The legacy build: run a container, commit, repeat</h1>
+  <p class="dek">Before BuildKit, <code class="inl">docker build</code> was almost embarrassingly literal: for each Dockerfile line it ran a container and froze the result as an image. Understanding this makes the layer/cache rules obvious — and shows exactly what BuildKit fixed.</p>
+</header>
+
+<div class="oneline">
+  <span class="lbl">The idea in one sentence</span>
+  <p>The classic builder runs the Dockerfile top to bottom and, after every instruction, freezes the result as an intermediate image — so a build is a straight chain of commits.</p>
+</div>
+
+<aside class="note"><b>Note.</b> This is the <em>legacy</em> builder, now removed from current Docker in favor of BuildKit (Lesson 25). It's still worth knowing: it's the simplest possible build model, and every Dockerfile rule you've internalized comes straight from it.</aside>
+
+<div class="concept"><span class="num">1</span> Start here</div>
+<h2>A build is a chain of commits</h2>
+
+<p class="plain"><b>Plain version:</b> think of the builder as a person typing each Dockerfile line, then running <code class="inl">docker commit</code> after each one to save progress.</p>
+
+<p>The classic builder holds a <em>current image</em> and walks the Dockerfile line by line (moby <span class="srcref">builder/dockerfile/dispatchers.go</span>). For each instruction it does the work, then <strong>commits</strong> the result as a new <span class="term">intermediate image</span>, and the next instruction builds <code class="inl">FROM</code> that. So the build is a linear chain: <code class="inl">base → img1 → img2 → … → final</code>, one image per line. That single fact explains why images have one layer per instruction, and why instruction <em>order</em> matters so much.</p>
+
+<div class="concept"><span class="num">2</span> The RUN mechanism</div>
+<h2>RUN = create a container, run it, commit it</h2>
+
+<p class="plain"><b>Plain version:</b> a RUN line literally starts a container, runs your command inside, and saves the changed filesystem as a layer.</p>
+
+<p>The most revealing instruction is <code class="inl">RUN</code>. The builder (<span class="srcref">dispatchRun</span>) takes the current image, <strong>creates a container</strong> from it, runs your command inside that container, waits for it to exit, and then <strong>commits</strong> the container's filesystem changes as a new layer (<span class="srcref">internals.go: b.commit</span>). That's the exact same mechanism as <code class="inl">docker commit</code> on a stopped container. So <code class="inl">RUN apt-get install curl</code> is: spin up a container on the current image, run apt, freeze the diff. Every <code class="inl">RUN</code> is a real container launch.</p>
+
+<div class="concept"><span class="num">3</span> COPY and metadata</div>
+<h2>The other instructions: layers vs. config-only</h2>
+
+<p class="plain"><b>Plain version:</b> COPY adds files as a layer; ENV/CMD/WORKDIR just change settings and add an empty layer.</p>
+
+<p><code class="inl">COPY</code>/<code class="inl">ADD</code> (<span class="srcref">performCopy</span>) don't run a command — they make a fresh writable layer (<code class="inl">NewRWLayer</code>), copy files in, and commit it (<code class="inl">exportImage</code>). The metadata instructions — <code class="inl">ENV</code>, <code class="inl">CMD</code>, <code class="inl">ENTRYPOINT</code>, <code class="inl">WORKDIR</code>, <code class="inl">USER</code>, <code class="inl">EXPOSE</code>, <code class="inl">LABEL</code> — don't touch the filesystem at all. They mutate the in-progress image <em>config</em> (<code class="inl">d.state.runConfig</code>) and commit an <span class="term">empty layer</span>: a new image with the <em>same rootfs</em> but an updated config. That's the source-level reason those instructions add a history entry but no filesystem layer.</p>
+
+<figure class="fig">
+  <figcaption>Diagram · one image per instruction — the commit chain</figcaption>
+  <svg viewBox="0 0 680 366" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,Consolas,monospace">
+    <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#6b7482" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+    <!-- instructions left, images right spine -->
+    <text x="30" y="24" fill="#9aa4b2" font-size="10.5">Dockerfile</text>
+    <text x="560" y="24" fill="#9aa4b2" font-size="10.5" text-anchor="middle">intermediate images</text>
+
+    <rect x="30" y="34" width="230" height="34" rx="6" fill="#0a0d12" stroke="#262d38"/>
+    <text x="44" y="55" fill="#e9e4d7" font-size="11">FROM alpine</text>
+    <rect x="490" y="34" width="150" height="34" rx="6" fill="#0d1117" stroke="#4a7fb5"/>
+    <text x="565" y="55" text-anchor="middle" fill="#8fbdf0" font-size="11">img0 · base</text>
+
+    <rect x="30" y="98" width="230" height="34" rx="6" fill="#12100a" stroke="#7a6636"/>
+    <text x="44" y="119" fill="#e0b155" font-size="11">RUN apk add curl</text>
+    <rect x="490" y="98" width="150" height="34" rx="6" fill="#0d1117" stroke="#4a7fb5"/>
+    <text x="565" y="119" text-anchor="middle" fill="#8fbdf0" font-size="11">img1</text>
+    <text x="365" y="110" text-anchor="middle" fill="#9aa4b2" font-size="9.5">container + commit</text>
+    <text x="365" y="123" text-anchor="middle" fill="#e0b155" font-size="9.5">(+ fs layer)</text>
+
+    <rect x="30" y="162" width="230" height="34" rx="6" fill="#0a1614" stroke="#2f5f59"/>
+    <text x="44" y="183" fill="#5ac4b4" font-size="11">COPY app /app</text>
+    <rect x="490" y="162" width="150" height="34" rx="6" fill="#0d1117" stroke="#4a7fb5"/>
+    <text x="565" y="183" text-anchor="middle" fill="#8fbdf0" font-size="11">img2</text>
+    <text x="365" y="174" text-anchor="middle" fill="#9aa4b2" font-size="9.5">rwlayer + commit</text>
+    <text x="365" y="187" text-anchor="middle" fill="#5ac4b4" font-size="9.5">(+ fs layer)</text>
+
+    <rect x="30" y="226" width="230" height="34" rx="6" fill="#161326" stroke="#7a6bc2"/>
+    <text x="44" y="247" fill="#b3a6ec" font-size="11">ENV PORT=80</text>
+    <rect x="490" y="226" width="150" height="34" rx="6" fill="#0d1117" stroke="#4a7fb5"/>
+    <text x="565" y="247" text-anchor="middle" fill="#8fbdf0" font-size="11">img3</text>
+    <text x="365" y="238" text-anchor="middle" fill="#9aa4b2" font-size="9.5">config + commit</text>
+    <text x="365" y="251" text-anchor="middle" fill="#b3a6ec" font-size="9.5">(empty layer)</text>
+
+    <rect x="30" y="290" width="230" height="34" rx="6" fill="#161326" stroke="#7a6bc2"/>
+    <text x="44" y="311" fill="#b3a6ec" font-size="11">CMD ["/app"]</text>
+    <rect x="490" y="290" width="150" height="34" rx="6" fill="#0a1210" stroke="#5ac4b4"/>
+    <text x="565" y="311" text-anchor="middle" fill="#5ac4b4" font-size="11" font-weight="600">final image</text>
+    <text x="365" y="302" text-anchor="middle" fill="#9aa4b2" font-size="9.5">config + commit</text>
+    <text x="365" y="315" text-anchor="middle" fill="#b3a6ec" font-size="9.5">(empty layer)</text>
+
+    <!-- instruction -> image arrows -->
+    <line x1="260" y1="51" x2="490" y2="51" stroke="#6b7482" stroke-width="1.1" marker-end="url(#arrow)"/>
+    <line x1="260" y1="115" x2="490" y2="115" stroke="#6b7482" stroke-width="1.1" marker-end="url(#arrow)"/>
+    <line x1="260" y1="179" x2="490" y2="179" stroke="#6b7482" stroke-width="1.1" marker-end="url(#arrow)"/>
+    <line x1="260" y1="243" x2="490" y2="243" stroke="#6b7482" stroke-width="1.1" marker-end="url(#arrow)"/>
+    <line x1="260" y1="307" x2="490" y2="307" stroke="#6b7482" stroke-width="1.1" marker-end="url(#arrow)"/>
+
+    <!-- image FROM chain (vertical) -->
+    <line x1="565" y1="68" x2="565" y2="98" stroke="#4a7fb5" stroke-width="1.4" marker-end="url(#arrow)"/>
+    <line x1="565" y1="132" x2="565" y2="162" stroke="#4a7fb5" stroke-width="1.4" marker-end="url(#arrow)"/>
+    <line x1="565" y1="196" x2="565" y2="226" stroke="#4a7fb5" stroke-width="1.4" marker-end="url(#arrow)"/>
+    <line x1="565" y1="260" x2="565" y2="290" stroke="#4a7fb5" stroke-width="1.4" marker-end="url(#arrow)"/>
+
+    <text x="30" y="352" fill="#6b7482" font-size="10">each image is committed FROM the one above · gold/teal add a filesystem layer · purple change only config</text>
+  </svg>
+</figure>
+
+<div class="concept"><span class="num">4</span> The cache</div>
+<h2>Why changing one line rebuilds everything after it</h2>
+
+<p class="plain"><b>Plain version:</b> before each line, the builder asks "have I already built this exact step on this exact parent?" — if yes, it reuses the old image; if no, everything downstream is rebuilt.</p>
+
+<p>Before doing each instruction's work, the builder runs <span class="srcref">probeCache</span>: it looks for an existing image already built from the <em>same parent image</em> plus the <em>same instruction</em> (for <code class="inl">COPY</code>/<code class="inl">ADD</code>, also the same file contents). A match is a <strong>cache hit</strong> — reuse that image, skip the work. But the cache is <em>linear</em>: because each step's parent is the previous step's image, changing an early line changes that image's ID, which misses the cache for it <em>and every step after it</em>. This is the mechanical reason for the golden rule — put rarely-changing instructions (dependency installs) <em>before</em> frequently-changing ones (copying your source).</p>
+
+<div class="keybox">
+  <div class="h">The whole model in one line</div>
+  <p>Legacy build = for each Dockerfile line, <em>probe the cache</em>; on a miss, <em>do the work</em> (run a container for <code class="inl">RUN</code>, add a layer for <code class="inl">COPY</code>, or edit config for metadata) and <em>commit</em> a new intermediate image; then move to the next line on top of it.</p>
+</div>
+
+<div class="concept"><span class="num">5</span> The limits</div>
+<h2>What this model couldn't do</h2>
+
+<p class="plain"><b>Plain version:</b> it was simple but rigid — one line at a time, coarse caching, and no way to use secrets or caches without baking them in.</p>
+
+<p>The chain-of-commits model is easy to understand but has hard limits, and these are exactly what motivated its replacement. It's strictly <strong>sequential</strong> — no independent steps run in parallel. Its cache is <strong>linear and coarse</strong> — one early change invalidates everything downstream, even unrelated steps. Every <code class="inl">RUN</code> is a <strong>full container create + commit</strong>, with the overhead that implies. And there's <strong>no way to mount a secret or a build cache</strong> for a single step without it ending up in a layer. Lesson 25's BuildKit rethinks the build as a <em>graph</em> to fix all four.</p>
+
+<span class="step">Inspect it yourself</span>
+<p>See the commit chain as history, and watch the linear cache hit/miss:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> <span class="o"># each row is one committed intermediate image — the chain:</span>
+<span class="p">$</span> DOCKER_BUILDKIT=0 docker build -t demo .
+<span class="p">$</span> docker history demo
+<span class="o">IMAGE      CREATED BY                        SIZE</span>
+<span class="o">&lt;id&gt;       CMD ["/app"]                      0B      <span class="hl"># empty layer (config)</span></span>
+<span class="o">&lt;missing&gt;  ENV PORT=80                       0B      <span class="hl"># empty layer (config)</span></span>
+<span class="o">&lt;missing&gt;  COPY app /app                     2.1MB   <span class="hl"># fs layer</span></span>
+<span class="o">&lt;missing&gt;  RUN apk add curl                  4.4MB   <span class="hl"># fs layer</span></span>
+
+<span class="p">$</span> <span class="o"># rebuild after editing only the COPY'd source: RUN stays cached, COPY down rebuilds</span>
+<span class="p">$</span> DOCKER_BUILDKIT=0 docker build -t demo .
+<span class="o">Step 2/5 : RUN apk add curl     ---&gt; <span class="hl">Using cache</span></span>
+<span class="o">Step 3/5 : COPY app /app        ---&gt; <span class="hl">a1b2c3</span>   # miss → everything after rebuilds</span></pre>
+</figure>
+
+<div class="recap">
+  <h3>Check yourself</h3>
+  <ul>
+    <li>A legacy build is a <b>linear chain of commits</b> — one intermediate image per Dockerfile instruction.</li>
+    <li><b>RUN</b> = create a container, run the command, commit the diff (same as <code class="inl">docker commit</code>).</li>
+    <li><b>COPY/ADD</b> add a filesystem layer; <b>ENV/CMD/WORKDIR/etc.</b> change only config and commit an <b>empty layer</b>.</li>
+    <li>The <b>cache</b> reuses an image built from the <b>same parent + same instruction</b>; it's <b>linear</b>, so an early change rebuilds everything after.</li>
+    <li>That linearity is why <b>stable instructions go first</b>, volatile ones (COPY source) last.</li>
+    <li>Limits — sequential, coarse cache, heavy RUN, no secret/cache mounts — are what <b>BuildKit</b> (Lesson 25) fixes.</li>
+  </ul>
+</div>
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>"The builder is magic" — it isn't; it's a loop that runs a container and commits, per line. Two things people misremember: metadata instructions like <code class="inl">ENV</code> and <code class="inl">CMD</code> <em>do</em> create images (empty-layer commits), they just add no <em>filesystem</em> layer — which is why they still show in <code class="inl">docker history</code>. And "the cache is smart about what changed" overstates the legacy builder: it's a linear parent-plus-instruction match, so it can't reuse a later step when an earlier one changes, even if that later step is unrelated. BuildKit's graph is what finally makes caching truly dependency-aware.</p>
+</aside>
+
+<div style="font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:44px 0 4px">Where we are</div>
+<h2>Summary</h2>
+<p>The classic <code class="inl">docker build</code> is a straight chain of commits: for each Dockerfile instruction the builder probes the cache and, on a miss, does the work — <strong>RUN</strong> creates a container and commits its diff, <strong>COPY/ADD</strong> adds a filesystem layer, and <strong>metadata</strong> instructions edit the config and commit an <strong>empty layer</strong> — then builds the next line on top. The cache is a <strong>linear</strong> parent-plus-instruction match, which is exactly why instruction order dictates rebuild cost. This model is simple but rigid: sequential, coarsely cached, heavy per-RUN, and unable to mount secrets or caches. Next, Lesson 25 opens <strong>BuildKit</strong> — which recompiles the whole idea of a build into a content-addressed graph (LLB), unlocking parallelism, precise caching, and secret/cache mounts.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 17 · layers</span>
+  <span class="xref"><b>back ←</b> Lesson 18 · image config</span>
+  <span class="xref"><b>forward →</b> Lesson 25 · BuildKit &amp; LLB</span>
+  <span class="xref"><b>forward →</b> Lesson 31 · layer caching &amp; hygiene</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">23 · The run pipeline, end-to-end</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">25 · BuildKit, LLB &amp; the solver</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

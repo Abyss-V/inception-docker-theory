@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 18 · Manifest, Config &amp; Digests</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.7; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:36px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .oneline{border:1px solid var(--teal-dim); background:linear-gradient(180deg,#0b1615,#0a1210); border-radius:10px; padding:18px 20px; margin:30px 0 8px}
+  .oneline .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); display:block; margin-bottom:8px}
+  .oneline p{margin:0; font-size:20px; line-height:1.5; color:#fff}
+
+  .concept{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:48px 0 4px; display:flex; align-items:center; gap:10px;}
+  .concept .num{width:24px;height:24px;border-radius:50%;border:1px solid var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  h2{font-family:var(--mono); font-weight:600; font-size:21px; margin:8px 0 16px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  .term{color:var(--teal); font-weight:600}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+  .plain{color:var(--dim); font-size:16px; border-left:2px solid var(--rule); padding-left:14px; margin:0 0 18px}
+  .plain b{color:var(--teal); font-weight:600}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--teal); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:20px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  figure.fig{margin:24px 0; border:1px solid var(--rule); border-radius:10px; background:var(--panel); padding:18px; overflow:hidden}
+  figure.fig figcaption{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin:2px 2px 16px}
+  figure.fig svg{display:block; width:100%; height:auto}
+
+  .recap{border:1px solid var(--teal-dim); border-radius:10px; background:#0a1210; padding:20px 22px; margin:30px 0}
+  .recap h3{font-family:var(--mono); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:0 0 14px}
+  .recap ul{margin:0; padding-left:20px} .recap li{margin:0 0 10px; color:var(--bone)} .recap li:last-child{margin:0}
+  .recap li b{color:#fff}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:60px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:38px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-17-what-a-layer-is.html">← Lesson 17</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-19-multi-arch-manifest-lists.html">Lesson 19 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part III — Storage &amp; images</div>
+  <div class="lesson-no">18</div>
+  <span class="pill">core</span>
+  <h1>Manifest, config &amp; digests: the whole image</h1>
+  <p class="dek">Lesson 17 was one layer. Now we assemble them into an image — which turns out to be a small tree of JSON documents, each pointing at the next by hash.</p>
+</header>
+
+<div class="oneline">
+  <span class="lbl">The idea in one sentence</span>
+  <p>An image is not a single file — it's a <em>manifest</em> at the top that points to one <em>config</em> (the settings) and several <em>layers</em> (the tars from Lesson 17), each referenced by its hash.</p>
+</div>
+
+<div class="concept"><span class="num">1</span> Start here</div>
+<h2>An image is a tree of documents, not a file</h2>
+
+<p class="plain"><b>Plain version:</b> "pull an image" doesn't fetch one blob. It fetches a little index that lists the parts, then fetches the parts.</p>
+
+<p>When you <code class="inl">docker pull nginx:1.25</code>, there's no single "nginx file." What you get is a small tree: at the top a <span class="term">manifest</span> (an index), which names one <span class="term">config</span> document (the image's settings) and a handful of <span class="term">layer</span> blobs (the tars from Lesson 17). Everything below is just: what those documents contain, and how they point at each other.</p>
+
+<div class="concept"><span class="num">2</span> The glue</div>
+<h2>Everything points by "descriptor" — {mediaType, digest, size}</h2>
+
+<p class="plain"><b>Plain version:</b> every "pointer" in an image is the same 3-field thing: what kind of blob, its hash, and its size.</p>
+
+<p>Before the manifest makes sense, you need the one link primitive OCI uses everywhere: the <span class="term">descriptor</span>. A descriptor is a tiny object with three required fields (from <span class="srcref">descriptor.md</span>): <code class="inl">mediaType</code> (what kind of thing this is), <code class="inl">digest</code> (the sha256 that both names and locates the bytes), and <code class="inl">size</code> (how many bytes). That's it. Every reference in an image — manifest→config, manifest→each layer — is a descriptor. Once you see "descriptor," the whole image is just descriptors pointing at blobs by digest.</p>
+
+<div class="concept"><span class="num">3</span> The top node</div>
+<h2>The manifest: the index of one image</h2>
+
+<p class="plain"><b>Plain version:</b> the manifest is a short JSON that says "this image = this config blob + these layer blobs."</p>
+
+<p>The <span class="term">manifest</span> (from <span class="srcref">manifest.md</span>) has four things that matter: <code class="inl">schemaVersion</code>, <code class="inl">mediaType</code>, a <code class="inl">config</code> (one descriptor, pointing at the settings blob), and <code class="inl">layers</code> (an array of descriptors, pointing at the layer tars, bottom-to-top). That's the entire top node — it lists the parts and nothing else. And here's the important bit: the manifest is itself a blob with its own digest, and <em>that digest is the image's true identity</em> — the thing a tag ultimately points to.</p>
+
+<figure class="fig">
+  <figcaption>Diagram · the image tree — a tag resolves to a manifest, which points at config + layers</figcaption>
+  <svg viewBox="0 0 680 350" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,Consolas,monospace">
+    <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#6b7482" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+    <rect x="30" y="52" width="150" height="48" rx="8" fill="#0a0d12" stroke="#262d38"/>
+    <text x="105" y="72" text-anchor="middle" fill="#e9e4d7" font-size="12.5">nginx:1.25</text>
+    <text x="105" y="90" text-anchor="middle" fill="#9aa4b2" font-size="10.5">a mutable tag</text>
+
+    <line x1="180" y1="76" x2="250" y2="76" stroke="#6b7482" stroke-width="1.4" marker-end="url(#arrow)"/>
+    <text x="215" y="68" text-anchor="middle" fill="#6b7482" font-size="10">resolves to</text>
+
+    <rect x="252" y="48" width="180" height="56" rx="8" fill="#0d1420" stroke="#4a7fb5"/>
+    <text x="342" y="70" text-anchor="middle" fill="#8fbdf0" font-size="13" font-weight="600">manifest</text>
+    <text x="342" y="90" text-anchor="middle" fill="#9aa4b2" font-size="10.5">the image index (has a digest)</text>
+
+    <line x1="320" y1="104" x2="235" y2="168" stroke="#6b7482" stroke-width="1.4" marker-end="url(#arrow)"/>
+    <line x1="375" y1="104" x2="470" y2="150" stroke="#6b7482" stroke-width="1.4" marker-end="url(#arrow)"/>
+
+    <rect x="90" y="170" width="230" height="70" rx="8" fill="#0a1614" stroke="#2f5f59"/>
+    <text x="205" y="192" text-anchor="middle" fill="#5ac4b4" font-size="12.5" font-weight="600">config blob</text>
+    <text x="205" y="211" text-anchor="middle" fill="#bfe6df" font-size="10.5">runtime defaults (Env/Cmd…)</text>
+    <text x="205" y="228" text-anchor="middle" fill="#bfe6df" font-size="10.5">+ diff_ids (uncompressed)</text>
+
+    <rect x="430" y="150" width="220" height="40" rx="7" fill="#12100a" stroke="#7a6636"/>
+    <text x="540" y="174" text-anchor="middle" fill="#e0b155" font-size="11.5">layer 2 blob · by digest</text>
+    <rect x="430" y="196" width="220" height="40" rx="7" fill="#12100a" stroke="#7a6636"/>
+    <text x="540" y="220" text-anchor="middle" fill="#e0b155" font-size="11.5">layer 1 blob · by digest</text>
+    <rect x="430" y="242" width="220" height="40" rx="7" fill="#12100a" stroke="#7a6636"/>
+    <text x="540" y="266" text-anchor="middle" fill="#e0b155" font-size="11.5">layer 0 blob · by digest</text>
+
+    <text x="40" y="312" fill="#6b7482" font-size="10.5">each arrow is a descriptor: { mediaType, digest, size }</text>
+    <text x="40" y="330" fill="#6b7482" font-size="10.5">manifest lists layers by digest (compressed) · config lists diff_ids (uncompressed)</text>
+  </svg>
+</figure>
+
+<div class="concept"><span class="num">4</span> The settings</div>
+<h2>The config: runtime defaults + the layer list</h2>
+
+<p class="plain"><b>Plain version:</b> the config blob holds two things — how to run the image by default, and the ordered list of its layers' content-hashes.</p>
+
+<p>The <span class="term">config</span> blob (from <span class="srcref">config.md</span>) carries two distinct kinds of information. First, the <strong>runtime defaults</strong> baked into the image, under a <code class="inl">config</code> object: <code class="inl">Env</code>, <code class="inl">Cmd</code>, <code class="inl">Entrypoint</code>, <code class="inl">WorkingDir</code>, <code class="inl">User</code>, <code class="inl">ExposedPorts</code>, <code class="inl">Volumes</code> — this is where your Dockerfile's <code class="inl">ENV</code>/<code class="inl">CMD</code>/<code class="inl">ENTRYPOINT</code>/<code class="inl">WORKDIR</code>/<code class="inl">USER</code>/<code class="inl">EXPOSE</code> end up — plus the <code class="inl">architecture</code> and <code class="inl">os</code> from Lesson 1. Second, under <code class="inl">rootfs.diff_ids</code>, the <strong>ordered list of the layers' diffIDs</strong> — the exact input that gets folded into ChainIDs (the supplement). It also has a <code class="inl">history</code> array, one entry per build step.</p>
+
+<aside class="note"><b>This is the bridge to running.</b> Those runtime defaults don't stay in the image — when you start a container, they're copied into the container's <code class="inl">config.json</code> (the runtime spec from Lesson 14): the image config's <code class="inl">Entrypoint</code>+<code class="inl">Cmd</code> become the process's arguments, <code class="inl">Env</code> becomes its environment, <code class="inl">User</code> its uid. The image config is the <em>defaults</em>; the runtime spec is those defaults resolved for one container (Lesson 21).</aside>
+
+<div class="concept"><span class="num">5</span> The payoff</div>
+<h2>Now the two hashes have homes</h2>
+
+<p class="plain"><b>Plain version:</b> the digest/diffID confusion from Lesson 17 dissolves once you see which document each lives in.</p>
+
+<p>Lesson 17 said a layer has two hashes and it felt abstract. Here they are in their places: the <strong>manifest</strong> lists each layer by its <span class="term">digest</span> — the compressed-blob hash, which is what you download. The <strong>config</strong> lists each layer by its <span class="term">diffID</span> — the uncompressed-content hash, which is what gets verified after decompression and folded into the ChainID. Same layers, two documents, two hashes, each where it belongs: digest in the manifest (for transfer), diffID in the config (for identity).</p>
+
+<div class="concept"><span class="num">6</span> Name to bytes</div>
+<h2>How a tag becomes an image</h2>
+
+<p class="plain"><b>Plain version:</b> a tag is just a nickname the registry maps to a manifest's hash; pulling follows the tree down from there.</p>
+
+<p>A tag like <code class="inl">nginx:1.25</code> is a <em>mutable</em> name. The registry maps it to a <strong>manifest digest</strong>, and from there the pull is deterministic: fetch the manifest, read its config descriptor and layer descriptors, download each of those blobs <em>by digest</em>. So resolution is <code class="inl">tag → manifest digest → config + layers</code>. Because the tag can be re-pointed but a digest can't, pulling <code class="inl">nginx@sha256:…</code> (by digest) always gets the exact same image, whereas <code class="inl">nginx:1.25</code> might change under you. That difference — reproducible digests vs. movable tags — is why production deployments pin digests.</p>
+
+<span class="step">Inspect it yourself</span>
+<p>See the manifest's descriptors, then the config's defaults and diff_ids:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> <span class="o"># the manifest: a config descriptor + layer descriptors (by digest):</span>
+<span class="p">$</span> docker manifest inspect nginx:1.25
+<span class="o">"config": { "mediaType": "...config.v1+json", "digest": "sha256:<span class="hl">ff…</span>", "size": 7682 }</span>
+<span class="o">"layers": [ { "digest": "sha256:<span class="hl">aa0…</span>", "size": 3, … }, … ]</span>
+
+<span class="p">$</span> <span class="o"># the config blob: runtime defaults + diff_ids (uncompressed hashes):</span>
+<span class="p">$</span> docker inspect nginx:1.25 -f '{{json .Config}}'
+<span class="o">{ "Env": ["PATH=…"], "Cmd": ["nginx","-g","daemon off;"], "ExposedPorts": {"80/tcp":{}} }</span>
+<span class="p">$</span> docker inspect nginx:1.25 -f '{{json .RootFS.Layers}}'
+<span class="o">["sha256:<span class="hl">00…</span>", …]</span>          <span class="o"># these are diffIDs, not the manifest's digests</span>
+
+<span class="p">$</span> <span class="o"># pin by digest → always the exact same image:</span>
+<span class="p">$</span> docker pull nginx@sha256:<span class="hl">manifest-digest…</span>
+</pre>
+</figure>
+
+<div class="recap">
+  <h3>Check yourself</h3>
+  <ul>
+    <li>An image is a <b>tree</b>: a manifest at the top → one config blob + several layer blobs. Not one file.</li>
+    <li>Every pointer is a <b>descriptor</b> = <code class="inl">{mediaType, digest, size}</code>.</li>
+    <li>The <b>manifest</b> is the index (config descriptor + layer descriptors); its own digest is the image's identity.</li>
+    <li>The <b>config</b> holds runtime defaults (<code class="inl">Env/Cmd/Entrypoint/User/…</code>, <code class="inl">architecture/os</code>) and <code class="inl">rootfs.diff_ids</code> (the ChainID input).</li>
+    <li>Two hashes, two homes: <b>digest</b> in the manifest (compressed, for download), <b>diffID</b> in the config (uncompressed, for identity).</li>
+    <li>A <b>tag</b> is a mutable name → a manifest digest; pulling by <code class="inl">@sha256:…</code> pins the exact image.</li>
+  </ul>
+</div>
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>"An image is a stack of layers" is only half of it — an image is a manifest <em>plus</em> a config <em>plus</em> the layers, and the config (the runtime defaults + diffID list) is easy to forget even though it's what makes <code class="inl">docker run nginx</code> know to launch nginx. Also: a tag is not the image — it's a mutable label pointing at a manifest digest, which is why "it worked yesterday" can break when a tag is re-pushed, and why digests are the reproducible identity.</p>
+</aside>
+
+<div class="eyebrow" style="font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:44px 0 4px">Where we are</div>
+<h2>Summary</h2>
+<p>An image is a small content-addressed tree: a <strong>manifest</strong> (index) referencing — via <strong>descriptors</strong> (<code class="inl">{mediaType, digest, size}</code>) — one <strong>config</strong> blob and several <strong>layer</strong> blobs. The config carries the runtime defaults (<code class="inl">Env</code>, <code class="inl">Cmd</code>, <code class="inl">Entrypoint</code>, <code class="inl">User</code>, <code class="inl">architecture</code>/<code class="inl">os</code>) that later seed the container's runtime spec, plus <code class="inl">rootfs.diff_ids</code> that feed ChainID. The manifest lists layers by <strong>digest</strong> (compressed, for transfer); the config lists them by <strong>diffID</strong> (uncompressed, for identity) — the two hashes finally in their homes. A <strong>tag</strong> is a mutable name resolving to a manifest digest, so pinning <code class="inl">@sha256:…</code> is the reproducible way to name an image. Next, Lesson 19: how one tag can serve many CPU architectures at once — the manifest <em>list</em> (image index) that sits one level above everything here.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 17 · layers &amp; the two hashes</span>
+  <span class="xref"><b>back ←</b> Supplement · diff_ids → ChainID</span>
+  <span class="xref"><b>forward →</b> Lesson 19 · Multi-arch / manifest lists</span>
+  <span class="xref"><b>forward →</b> Lesson 21 · config → runtime spec</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">17 · What a layer physically is</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">19 · Multi-arch / manifest lists</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

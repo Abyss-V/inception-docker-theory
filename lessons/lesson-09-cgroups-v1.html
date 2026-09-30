@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 09 · cgroups v1</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.68; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:44px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--teal); margin:52px 0 4px; display:flex; align-items:center; gap:10px;}
+  .eyebrow::before{content:""; width:16px; height:1px; background:var(--teal); opacity:.6}
+  h2{font-family:var(--mono); font-weight:600; font-size:22px; margin:6px 0 18px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--gold); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+  .step.verify{background:var(--teal)}
+
+  figure.src{margin:14px 0 8px; border:1px solid var(--gold-dim); border-radius:8px; overflow:hidden; background:var(--well)}
+  figure.src .tab{font-family:var(--mono); font-size:12px; color:var(--gold); background:linear-gradient(180deg,#1c1a12,#141109); border-bottom:1px solid var(--gold-dim); padding:8px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  figure.src .tab .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none}
+  figure.src .tab .path{overflow-wrap:anywhere}
+  figure.src .tab .repo{color:var(--faint); margin-left:auto; font-size:11px}
+  figure.src pre{margin:0; padding:16px 16px; overflow-x:auto}
+  figure.src.spec .tab{color:#cdb87a}
+  pre,code{font-family:var(--mono)}
+  pre{font-size:13px; line-height:1.6; color:#d7d2c4}
+  pre .kw{color:var(--rose)} pre .fn{color:var(--teal)} pre .cmt{color:var(--faint); font-style:italic}
+  pre .str{color:var(--gold)} pre .field{color:var(--gold)}
+  .keyline{background:rgba(224,177,81,.10); border-left:2px solid var(--gold); display:block; padding-left:8px; margin-left:-10px}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{padding:14px 16px; color:#bfe6df; font-size:13px}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:16px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0 0 10px}.keybox p:last-child{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  table.enf{width:100%; border-collapse:collapse; margin:20px 0; font-size:15px}
+  table.enf th,table.enf td{text-align:left; padding:11px 12px; border-bottom:1px solid var(--rule); vertical-align:top}
+  table.enf th{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint)}
+  table.enf td.c{font-family:var(--mono); font-size:12.5px; color:var(--teal); white-space:nowrap}
+  table.enf td.f{font-family:var(--mono); font-size:12px; color:var(--gold)}
+  table.enf td.k b{color:#fff}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:70px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  .lead{font-size:20px; line-height:1.6; color:var(--bone)}
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:40px 0}
+
+  .tree{font-family:var(--mono); font-size:12.5px; line-height:1.7; color:var(--dim); background:var(--panel); border:1px solid var(--rule); border-radius:8px; padding:18px 20px; margin:22px 0; overflow-x:auto}
+  .tree .h{color:var(--gold)} .tree .c{color:var(--faint)}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-08-docker-exec-setns.html">← Lesson 08</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-10-cgroups-v2.html">Lesson 10 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part II — Kernel primitives</div>
+  <div class="lesson-no">09</div>
+  <h1>cgroups v1: putting a ceiling on what a container can use</h1>
+  <p class="dek">Namespaces decide what a process can <em>see</em>. cgroups decide how much it can <em>use</em> — and enforce it in three surprisingly different ways: memory by killing, CPU by throttling, PIDs by refusing. The whole thing is driven through a filesystem.</p>
+</header>
+
+<p class="lead">Isolation isn't enough. A container with its own private filesystem and network can still call <code class="inl">malloc</code> until your machine swaps to death, or spin every CPU core, or fork-bomb the process table — starving every other container on the box. Namespaces don't stop any of that, because hiding the neighbors doesn't stop you from eating their food. The kernel feature that imposes limits is <strong>cgroups</strong> ("control groups"), and this lesson is the v1 design: what a cgroup is, why v1 splits into many separate trees, and — the part worth savoring — how three different controllers enforce their limits in three completely different ways.</p>
+
+<aside class="note"><b>A note on which version you have.</b> There are two cgroup designs, v1 and v2. Most current Linux distributions have switched to v2 (Lesson 10), but v1 is still widely deployed and is the baseline v2 was built to reform — so we learn it first, honestly, then see what v2 changes and why.</aside>
+
+<div class="eyebrow">The intuition</div>
+<h2>A cgroup is a labeled bucket of processes the kernel meters</h2>
+
+<p>Picture the kernel keeping a set of buckets. You drop some processes into a bucket and attach rules to it: "this bucket may use at most 512&nbsp;MB of RAM," "at most half a CPU," "at most 100 processes." The kernel then <em>accounts</em> every process in the bucket against those rules and <em>enforces</em> them. That bucket is a cgroup.</p>
+
+<p>Each kind of limit is handled by a <strong>controller</strong> (older docs say "subsystem") — a piece of kernel code that knows how to meter one resource. There's a <code class="inl">memory</code> controller, a <code class="inl">cpu</code> controller, a <code class="inl">pids</code> controller, a <code class="inl">blkio</code> controller for disk I/O, a <code class="inl">cpuset</code> controller for pinning to specific cores, and a handful more. A container is simply a cgroup with a few controllers configured, holding the container's processes.</p>
+
+<p>What makes v1 <em>v1</em> is a structural decision: <strong>every controller is its own independent tree.</strong> The memory controller has one hierarchy of buckets; the cpu controller has a totally separate hierarchy; and a process is placed into each tree separately. That flexibility (a process could be in bucket A for memory but bucket B for cpu) is exactly what later became a headache — and what v2 unifies. Let's see the mechanism, which is charmingly simple: it's all files.</p>
+
+<div class="eyebrow">Mechanism 1</div>
+<h2>Everything is a file: mkdir a bucket, echo a limit, write a PID</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>cgroups have no dedicated syscalls for the common operations. They're exposed as a virtual filesystem, normally mounted under <code class="inl">/sys/fs/cgroup/</code>. In v1 there's a subdirectory per controller — <code class="inl">/sys/fs/cgroup/memory/</code>, <code class="inl">/sys/fs/cgroup/cpu/</code>, and so on — and <em>each</em> is the root of that controller's tree. To operate them: <strong>create a cgroup</strong> by making a directory; <strong>set a limit</strong> by writing a number into one of the control files that appear inside it; <strong>add a process</strong> by writing its PID into the special file <code class="inl">cgroup.procs</code>. That last write is what actually binds a process to the bucket.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">utils.go — WriteCgroupProc()</span><span class="repo">opencontainers/cgroups &nbsp;(extracted from runc)</span></div>
+<pre>CgroupProcesses = <span class="str">"cgroup.procs"</span>
+
+<span class="cmt">// WriteCgroupProc writes the specified pid into the cgroup's cgroup.procs file</span>
+func WriteCgroupProc(dir string, pid int) error {
+<span class="keyline">    ... cgroups.WriteFile(dir, CgroupProcesses, strconv.Itoa(pid)) ...   // pid joins the bucket</span>
+}</pre>
+</figure>
+<p>And here's the v1 fingerprint — <em>each controller</em> places the pid into <em>its own</em> tree, separately:</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">fs/cpu.go &nbsp;·&nbsp; fs/cpuset.go (each controller does its own apply)</span><span class="repo">opencontainers/cgroups</span></div>
+<pre><span class="cmt">// in the cpu controller:</span>
+<span class="keyline">return cgroups.WriteCgroupProc(path, pid)    // into /sys/fs/cgroup/cpu/.../cgroup.procs</span>
+<span class="cmt">// in the cpuset controller, independently:</span>
+<span class="keyline">return cgroups.WriteCgroupProc(dir, pid)     // into /sys/fs/cgroup/cpuset/.../cgroup.procs</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>Writing a PID to <code class="inl">cgroup.procs</code> is the single act that puts a process under a controller's limits. The reason there are two nearly identical calls above is the v1 structure: because <code class="inl">cpu</code> and <code class="inl">cpuset</code> are <em>separate hierarchies</em>, the process must be written into each one's <code class="inl">cgroup.procs</code> on its own. Multiply that by every enabled controller and you see why v1 bookkeeping got complicated — there's no single place that says "this process's limits," just N parallel trees.</p>
+</div>
+
+<div class="tree">
+/sys/fs/cgroup/          <span class="c"># v1: one directory per controller = N separate trees</span>
+├── <span class="h">memory/</span>  docker/&lt;id&gt;/   <span class="c"># memory.limit_in_bytes, cgroup.procs</span>
+├── <span class="h">cpu/</span>     docker/&lt;id&gt;/   <span class="c"># cpu.cfs_quota_us, cpu.cfs_period_us, cgroup.procs</span>
+├── <span class="h">pids/</span>    docker/&lt;id&gt;/   <span class="c"># pids.max, cgroup.procs</span>
+└── <span class="h">blkio/ cpuset/ devices/ ...</span>          <span class="c"># each its own tree, same pid written into each</span>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 2 · enforcement style #1</div>
+<h2>memory → exceed the limit, get OOM-killed</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>The memory controller enforces with a hard wall and a kill. You write a byte count into <code class="inl">memory.limit_in_bytes</code>. The kernel tracks the cgroup's total memory use; when a process in the group tries to use more than the limit allows and the kernel can't reclaim enough (by dropping caches, swapping), it invokes the <strong>OOM killer</strong> — but scoped to <em>that cgroup</em>. It picks a victim process inside the bucket and kills it with <code class="inl">SIGKILL</code>. The blast radius is contained: your container dies, the host and its neighbors don't.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">fs/memory.go — setMemory()</span><span class="repo">opencontainers/cgroups</span></div>
+<pre>cgroupMemoryLimit = <span class="str">"memory.limit_in_bytes"</span>
+...
+<span class="keyline">err := cgroups.WriteFile(path, cgroupMemoryLimit, strconv.FormatInt(val, 10))</span>
+if errors.Is(err, unix.EBUSY) {
+    <span class="cmt">// kernel refuses a limit lower than current usage; report usage/peak</span>
+    return fmt.Errorf(<span class="str">"unable to set memory limit ... (current usage: %d, peak usage: %d)"</span>, ...)
+}</pre>
+</figure>
+<figure class="src spec">
+  <div class="tab"><span class="dot"></span><span class="path">config-linux.md — resources.memory</span><span class="repo">opencontainers/runtime-spec</span></div>
+<pre><span class="keyline">**limit** (int64, OPTIONAL) — sets limit of memory usage</span>
+**reservation** (int64) — soft limit   ·   **swap** (int64) — limit of memory+swap</pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>The limit is a number in <code class="inl">memory.limit_in_bytes</code>; the enforcement is the cgroup-scoped OOM killer. The <code class="inl">EBUSY</code> branch is a nice tell about the wall's hardness: you can't even <em>set</em> a limit below what the group is already using — the kernel rejects it outright. Docker's <code class="inl">-m 512m</code> / <code class="inl">--memory</code> flag is exactly this field, and an OOM-killed container shows exit code <strong>137</strong> (128 + signal 9).</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 3 · enforcement style #2</div>
+<h2>cpu → exceed your slice, get throttled (not killed)</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>CPU is enforced completely differently — nobody dies, the process just <em>waits</em>. The mechanism is CFS bandwidth control, set by <em>two</em> files. <code class="inl">cpu.cfs_period_us</code> defines a repeating window of time in microseconds (default 100000 = 100&nbsp;ms). <code class="inl">cpu.cfs_quota_us</code> is how many microseconds of CPU time all the tasks in the cgroup are collectively allowed to run <em>within each window</em>. Use up your quota before the window ends and the kernel <strong>throttles</strong> the group — deschedules its tasks until the next period begins, then lets them run again. Quota ÷ period is your effective number of cores: <code class="inl">50000 / 100000 = 0.5</code> CPU.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">fs/cpu.go — the throttle pair</span><span class="repo">opencontainers/cgroups</span></div>
+<pre><span class="keyline">cgroups.WriteFile(path, <span class="str">"cpu.cfs_period_us"</span>, period)   // the window, e.g. 100000 µs</span>
+<span class="keyline">cgroups.WriteFile(path, <span class="str">"cpu.cfs_quota_us"</span>,  quota)    // allowed run-time per window, e.g. 50000 µs</span></pre>
+</figure>
+<figure class="src spec">
+  <div class="tab"><span class="dot"></span><span class="path">config-linux.md — resources.cpu</span><span class="repo">opencontainers/runtime-spec</span></div>
+<pre><span class="keyline">**quota** — total time (µs) all tasks in a cgroup may run during one period</span>
+<span class="keyline">**period** — how regularly a cgroup's access to CPU is reallocated (CFS only)</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>Two numbers make a hard CPU cap: run for <code class="inl">quota</code> microseconds out of every <code class="inl">period</code>, then sleep until the window resets. Docker's <code class="inl">--cpus=0.5</code> is pure sugar for "set quota to half of period." Note this is a <em>ceiling</em>. There's a separate file, <code class="inl">cpu.shares</code>, which sets a <em>weight</em> — how the CPU is divided <em>proportionally</em> when there's contention — and does nothing when the CPU is idle. Ceiling vs weight is a distinction that trips people up: <code class="inl">--cpus</code> caps, <code class="inl">--cpu-shares</code> prioritizes.</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 4 · enforcement style #3</div>
+<h2>pids → hit the cap, fork() is refused</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>The pids controller is the simplest and shows a third enforcement style: outright refusal. Write a number to <code class="inl">pids.max</code>. Once the cgroup holds that many processes, any further <code class="inl">fork()</code> or <code class="inl">clone()</code> from inside the group fails immediately with <code class="inl">EAGAIN</code> ("resource temporarily unavailable"). Nothing is killed and nothing waits — the kernel just declines to create the new process. This is the direct antidote to a fork bomb, which works by creating processes faster than you can kill them; with a pids cap it simply can't.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">fs/pids.go</span><span class="repo">opencontainers/cgroups</span></div>
+<pre>val := <span class="str">"max"</span>                          <span class="cmt">// default: no limit</span>
+if limit := *r.PidsLimit; limit &gt; 0 {
+    val = strconv.FormatInt(limit, 10)
+}
+<span class="keyline">cgroups.WriteFile(path, <span class="str">"pids.max"</span>, val)   // the whole enforcement lives in this file</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>One file, <code class="inl">pids.max</code>, and the kernel converts "too many processes" into a failed syscall. Docker exposes it as <code class="inl">--pids-limit</code>. The runtime-spec field is <code class="inl">pids.limit</code>, with <code class="inl">-1</code> meaning unlimited (written as <code class="inl">"max"</code>).</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">The payoff</div>
+<h2>Three limits, three enforcement styles</h2>
+<p>This is the thing to carry out of the lesson. A "resource limit" is not one mechanism — each controller reacts to a breach in its own way, and knowing which is which explains every symptom you'll see in production:</p>
+<table class="enf">
+  <tr><th>Controller</th><th>Limit file(s)</th><th>What happens when you hit the limit</th></tr>
+  <tr><td class="c">memory</td><td class="f">memory.limit_in_bytes</td><td class="k"><b>Killed.</b> cgroup-scoped OOM killer <code class="inl">SIGKILL</code>s a process in the group → exit 137.</td></tr>
+  <tr><td class="c">cpu</td><td class="f">cpu.cfs_quota_us<br>cpu.cfs_period_us</td><td class="k"><b>Throttled.</b> Descheduled until the next period, then resumes. Slows down; never dies.</td></tr>
+  <tr><td class="c">pids</td><td class="f">pids.max</td><td class="k"><b>Refused.</b> <code class="inl">fork()</code>/<code class="inl">clone()</code> returns <code class="inl">EAGAIN</code>; no new processes.</td></tr>
+</table>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<p>See the separate-tree layout, then watch each enforcement style fire. (On a v2-only host the paths differ — that's next lesson; these commands assume a v1 host or hybrid.)</p>
+<figure class="inspect">
+  <div class="tab">host shell &nbsp;(v1 host)</div>
+<pre><span class="p">$</span> ls /sys/fs/cgroup/
+<span class="o">blkio  cpu  cpuacct  cpuset  devices  freezer  memory  pids ...</span>   <span class="o"># separate trees</span>
+
+<span class="p">$</span> <span class="o"># MEMORY → OOM kill (exit 137):</span>
+<span class="p">$</span> docker run --rm -m 32m alpine sh -c 'tail /dev/zero'   <span class="o"># tries to eat unbounded RAM</span>
+<span class="o">Killed</span>
+<span class="p">$</span> echo $?
+<span class="o"><span class="hl">137</span></span>                                   <span class="o"># 128 + SIGKILL(9) = OOM-killed</span>
+
+<span class="p">$</span> <span class="o"># CPU → the quota/period the flag set:</span>
+<span class="p">$</span> docker run -d --cpus 0.5 --name cpu alpine sleep 999
+<span class="p">$</span> cat /sys/fs/cgroup/cpu/docker/$(docker inspect -f '{{.Id}}' cpu)/cpu.cfs_quota_us
+<span class="o"><span class="hl">50000</span></span>                                 <span class="o"># 50000 / 100000 period = 0.5 CPU</span>
+
+<span class="p">$</span> <span class="o"># PIDS → fork refused:</span>
+<span class="p">$</span> docker run --rm --pids-limit 5 alpine sh -c ':(){ :|:& };:'
+<span class="o">sh: can't fork: Resource temporarily unavailable</span>   <span class="o"># EAGAIN — the cap held</span></pre>
+</figure>
+
+<hr class="soft">
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>Two clarifications. First, "cgroups isolate containers" is a category error — cgroups don't isolate anything (that's namespaces); they <em>limit and account</em>. A container out of memory and a container that can't see its neighbors are two different kernel features working together. Second, people conflate <code class="inl">--cpus</code> and <code class="inl">--cpu-shares</code>: the first is a hard ceiling (quota/period), the second is only a proportional weight under contention. And the v1 detail worth remembering: because each controller is its own tree, there is no single "the container's cgroup" in v1 — there are as many as there are enabled controllers, which is precisely the fragmentation v2 sets out to fix.</p>
+</aside>
+
+<div class="eyebrow">Where we are</div>
+<h2>Summary</h2>
+<p>A cgroup is a bucket of processes the kernel meters, and in v1 the whole interface is a filesystem: <code class="inl">mkdir</code> a directory to create one, write a number into a control file to set a limit, write a PID into <code class="inl">cgroup.procs</code> to add a process. v1's defining shape is <strong>one independent tree per controller</strong>, so a process is enrolled into each controller separately. The controllers enforce in three distinct ways — <code class="inl">memory.limit_in_bytes</code> <strong>kills</strong> via a scoped OOM, <code class="inl">cpu.cfs_quota_us</code>/<code class="inl">cfs_period_us</code> <strong>throttle</strong> by descheduling until the next window, and <code class="inl">pids.max</code> <strong>refuses</strong> new forks with <code class="inl">EAGAIN</code> — and these map straight onto Docker's <code class="inl">--memory</code>, <code class="inl">--cpus</code>, and <code class="inl">--pids-limit</code>. Next lesson takes the same controllers into cgroups v2, where the many trees collapse into one unified hierarchy — and we'll see exactly which problems that solves.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 06 · Namespaces (isolation vs limits)</span>
+  <span class="xref"><b>forward →</b> Lesson 10 · cgroups v2 (unified)</span>
+  <span class="xref"><b>forward →</b> Lesson 37 · Resource limits in production</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">08 · docker exec &amp; setns()</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">10 · cgroups v2 (unified hierarchy)</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

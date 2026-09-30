@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 22 · Content Store, GC &amp; Leases</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.7; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:36px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); border:1px solid var(--rule); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .oneline{border:1px solid var(--teal-dim); background:linear-gradient(180deg,#0b1615,#0a1210); border-radius:10px; padding:18px 20px; margin:30px 0 8px}
+  .oneline .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); display:block; margin-bottom:8px}
+  .oneline p{margin:0; font-size:20px; line-height:1.5; color:#fff}
+
+  .concept{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:48px 0 4px; display:flex; align-items:center; gap:10px;}
+  .concept .num{width:24px;height:24px;border-radius:50%;border:1px solid var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  h2{font-family:var(--mono); font-weight:600; font-size:21px; margin:8px 0 16px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  .term{color:var(--teal); font-weight:600}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+  .plain{color:var(--dim); font-size:16px; border-left:2px solid var(--rule); padding-left:14px; margin:0 0 18px}
+  .plain b{color:var(--teal); font-weight:600}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--teal); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:20px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  figure.fig{margin:24px 0; border:1px solid var(--rule); border-radius:10px; background:var(--panel); padding:18px; overflow:hidden}
+  figure.fig figcaption{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin:2px 2px 16px}
+  figure.fig svg{display:block; width:100%; height:auto}
+
+  .recap{border:1px solid var(--teal-dim); border-radius:10px; background:#0a1210; padding:20px 22px; margin:30px 0}
+  .recap h3{font-family:var(--mono); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:0 0 14px}
+  .recap ul{margin:0; padding-left:20px} .recap li{margin:0 0 10px; color:var(--bone)} .recap li:last-child{margin:0}
+  .recap li b{color:#fff}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:60px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:38px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-21-runtime-spec-config.html">← Lesson 21</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-23-run-pipeline-end-to-end.html">Lesson 23 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part III — Storage &amp; images</div>
+  <div class="lesson-no">22</div>
+  <span class="pill">deep-cut · reference depth</span>
+  <h1>Garbage collection &amp; leases: what's safe to delete</h1>
+  <p class="dek">Blobs and snapshots accumulate forever unless something reclaims them. How containerd decides which bytes are still needed — and how it avoids deleting content out from under an in-progress pull.</p>
+</header>
+
+<div class="oneline">
+  <span class="lbl">The idea in one sentence</span>
+  <p>containerd keeps content by <em>reachability</em>: it marks everything reachable from a "root" (an image, a container, or a lease) and sweeps the rest — and a <em>lease</em> is a temporary root that protects content mid-operation.</p>
+</div>
+
+<div class="concept"><span class="num">1</span> Start here</div>
+<h2>When is a blob safe to delete?</h2>
+
+<p class="plain"><b>Plain version:</b> you can't just delete anything nobody points at right now — something might be halfway through pulling it. You need a careful rule.</p>
+
+<p>The content store (Lesson 20) and the snapshotter (Lesson 16) accumulate blobs and snapshots as you pull, build, and run. Something has to reclaim the ones no longer needed, or the disk fills forever. But "delete anything unreferenced" is dangerous: during a pull, blobs exist on disk before the image record that will reference them — delete them in that window and you've corrupted an in-progress operation. So containerd needs a disciplined rule for "still needed," and it borrows the classic one: <span class="term">garbage collection</span> by reachability.</p>
+
+<div class="concept"><span class="num">2</span> The graph</div>
+<h2>References are labels on records</h2>
+
+<p class="plain"><b>Plain version:</b> every stored object can carry little "I point to that" tags; together they form a graph of what-needs-what.</p>
+
+<p>containerd's metadata database stores every object — images, containers, content blobs, snapshots — and records the references between them as <strong>labels</strong> (from <span class="srcref">metadata/gc.go</span>). An object marked <span class="srcref">containerd.io/gc.root</span> is a root; a label <span class="srcref">containerd.io/gc.ref.content</span> points to a blob by digest; <span class="srcref">containerd.io/gc.ref.snapshot.&lt;snapshotter&gt;</span> points to a snapshot. So an image references its manifest, config, and layer blobs; a container references its snapshot; a snapshot references its parent. These labels are the edges of a graph.</p>
+
+<div class="concept"><span class="num">3</span> The algorithm</div>
+<h2>Mark from the roots, sweep the rest</h2>
+
+<p class="plain"><b>Plain version:</b> start at the things definitely in use, follow every "points to" edge, keep what you reach, delete what you don't.</p>
+
+<p>Garbage collection is mark-and-sweep. containerd's <span class="srcref">scanRoots</span> gathers the roots — <strong>images</strong>, <strong>containers</strong>, and <strong>leases</strong> — then follows the <code class="inl">gc.ref.*</code> labels to mark everything reachable. Anything not marked is unreachable by any root, so it's garbage and gets swept (deleted). A base layer shared by two images has two roots reaching it, so removing one image leaves it marked by the other — which is exactly why deleting one image never breaks another that shares layers.</p>
+
+<figure class="fig">
+  <figcaption>Diagram · mark-and-sweep: reachable from a root = kept; unreachable = swept</figcaption>
+  <svg viewBox="0 0 680 340" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,Consolas,monospace">
+    <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#6b7482" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+    <text x="90" y="30" text-anchor="middle" fill="#9aa4b2" font-size="11">roots</text>
+    <rect x="30" y="44" width="130" height="40" rx="8" fill="#0d1420" stroke="#4a7fb5"/>
+    <text x="95" y="68" text-anchor="middle" fill="#8fbdf0" font-size="11.5">image ·gc.root</text>
+    <rect x="30" y="96" width="130" height="40" rx="8" fill="#0d1420" stroke="#4a7fb5"/>
+    <text x="95" y="120" text-anchor="middle" fill="#8fbdf0" font-size="11.5">container ·gc.root</text>
+    <rect x="30" y="148" width="130" height="40" rx="8" fill="#161326" stroke="#7a6bc2" stroke-dasharray="4 3"/>
+    <text x="95" y="167" text-anchor="middle" fill="#b3a6ec" font-size="11">lease</text>
+    <text x="95" y="181" text-anchor="middle" fill="#9aa4b2" font-size="9.5">temporary root</text>
+
+    <rect x="230" y="34" width="300" height="176" rx="12" fill="#0a1210" stroke="#2f5f59"/>
+    <text x="246" y="54" fill="#5ac4b4" font-size="11.5" font-weight="600">reachable from a root → KEPT</text>
+
+    <rect x="248" y="66" width="120" height="34" rx="6" fill="#0d1117" stroke="#2f5f59"/>
+    <text x="308" y="87" text-anchor="middle" fill="#bfe6df" font-size="10.5">manifest</text>
+    <rect x="390" y="66" width="120" height="34" rx="6" fill="#0d1117" stroke="#2f5f59"/>
+    <text x="450" y="87" text-anchor="middle" fill="#bfe6df" font-size="10.5">config + layers</text>
+    <rect x="248" y="112" width="120" height="34" rx="6" fill="#0d1117" stroke="#2f5f59"/>
+    <text x="308" y="133" text-anchor="middle" fill="#bfe6df" font-size="10.5">snapshot</text>
+    <rect x="390" y="112" width="120" height="34" rx="6" fill="#0d1117" stroke="#2f5f59"/>
+    <text x="450" y="133" text-anchor="middle" fill="#bfe6df" font-size="10.5">parent snapshot</text>
+    <rect x="300" y="160" width="180" height="36" rx="6" fill="#12100a" stroke="#7a6636"/>
+    <text x="390" y="182" text-anchor="middle" fill="#e0b155" font-size="10">blob being pulled (lease-pinned)</text>
+
+    <line x1="160" y1="60" x2="246" y2="80" stroke="#6b7482" stroke-width="1.3" marker-end="url(#arrow)"/>
+    <text x="200" y="62" text-anchor="middle" fill="#6b7482" font-size="8.5">gc.ref</text>
+    <line x1="368" y1="83" x2="390" y2="83" stroke="#6b7482" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <line x1="160" y1="116" x2="246" y2="128" stroke="#6b7482" stroke-width="1.3" marker-end="url(#arrow)"/>
+    <line x1="368" y1="129" x2="390" y2="129" stroke="#6b7482" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <line x1="150" y1="176" x2="300" y2="178" stroke="#7a6bc2" stroke-width="1.3" marker-end="url(#arrow)"/>
+
+    <rect x="230" y="248" width="300" height="56" rx="10" fill="#1a1013" stroke="#6e3540"/>
+    <text x="380" y="270" text-anchor="middle" fill="#d76d7f" font-size="11.5" font-weight="600">no root reaches it → SWEPT</text>
+    <text x="380" y="288" text-anchor="middle" fill="#9aa4b2" font-size="10">orphan blob / dangling snapshot — deleted</text>
+
+    <text x="30" y="326" fill="#6b7482" font-size="10">the lease keeps the in-progress blob alive during the pull, so GC can't mistake it for an orphan</text>
+  </svg>
+</figure>
+
+<div class="concept"><span class="num">4</span> The subtle part</div>
+<h2>Leases: temporary roots that protect an operation</h2>
+
+<p class="plain"><b>Plain version:</b> during a pull or build, there's no image record yet to keep the new blobs alive — a lease stands in as a stand-in root until the operation finishes.</p>
+
+<p>This is the piece people miss. When you start a pull, the layer blobs land in the content store <em>before</em> any image record references them. If GC ran in that gap, those blobs would look like orphans and be swept mid-download. A <span class="term">lease</span> prevents that: containerd creates a lease at the start of the operation, and that lease is a <em>root</em> (from <span class="srcref">core/leases</span>: a lease "retains resources to prevent cleanup"). While the lease exists, everything it references is reachable and safe. When the operation completes and a permanent root exists (the image record), the lease is released. And a lease can carry an expiry (<span class="srcref">gc.expire</span>), so if the process crashes, the pin clears itself rather than leaking forever.</p>
+
+<div class="keybox">
+  <div class="h">Why this design</div>
+  <p>Reference counting alone can't tell "unreferenced because done" from "unreferenced because not-yet-referenced." Roots-plus-leases solves both: permanent roots (images, containers) express steady-state needs, and leases express in-flight needs with a built-in expiry for crashes. One mechanism, both cases.</p>
+</div>
+
+<div class="concept"><span class="num">5</span> In practice</div>
+<h2>What <code style="font-size:.85em">docker prune</code> actually does</h2>
+
+<p class="plain"><b>Plain version:</b> prune removes the roots; GC then sweeps whatever those roots were keeping alive.</p>
+
+<p>Now <code class="inl">docker image prune</code> and <code class="inl">docker system prune</code> make sense: they delete image <em>records</em> — that is, they remove roots. Removing a root doesn't directly free bytes; it makes the blobs and snapshots that <em>only</em> that root reached become unreachable, and the next GC pass sweeps them. This is why space isn't always reclaimed the instant you <code class="inl">docker rmi</code>, why a shared layer survives until the <em>last</em> image referencing it is gone, and why <code class="inl">prune</code> is the real reclaim command — it's removing roots so the collector can do its job.</p>
+
+<span class="step">Inspect it yourself</span>
+<p>See the GC labels that form the graph, and watch a lease pin content:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> <span class="o"># the reference labels on a content blob (its edges in the GC graph):</span>
+<span class="p">$</span> sudo ctr -n moby content ls
+<span class="p">$</span> sudo ctr -n moby content label &lt;digest&gt;
+<span class="o">containerd.io/gc.ref.content.0=sha256:…   <span class="hl"># this blob points to another</span></span>
+
+<span class="p">$</span> <span class="o"># active leases (temporary roots pinning in-progress content):</span>
+<span class="p">$</span> sudo ctr -n moby leases ls
+<span class="o">ID                        LABELS   CREATED</span>
+<span class="o">&lt;lease-id&gt;                         <span class="hl">…</span></span>
+
+<span class="p">$</span> <span class="o"># prune removes roots; the collector sweeps what's now unreachable:</span>
+<span class="p">$</span> docker image prune -a
+<span class="o">Total reclaimed space: 1.2GB</span></pre>
+</figure>
+
+<div class="recap">
+  <h3>Check yourself</h3>
+  <ul>
+    <li>Content can't be deleted just for being unreferenced <b>now</b> — it might be mid-operation. GC by reachability solves this.</li>
+    <li>References are <b>labels</b> in the metadata db: <code class="inl">gc.root</code> (a root), <code class="inl">gc.ref.content</code> / <code class="inl">gc.ref.snapshot</code> (edges).</li>
+    <li>GC is <b>mark-and-sweep</b> from roots = <b>images, containers, leases</b>; unreachable objects are swept.</li>
+    <li>A <b>lease</b> is a temporary root that pins in-progress content during a pull/build, with an <b>expiry</b> so crashes don't leak pins.</li>
+    <li>A shared layer stays until the <b>last</b> root referencing it is gone.</li>
+    <li><code class="inl">docker prune</code> removes <b>roots</b>; the next GC pass reclaims the now-unreachable bytes.</li>
+  </ul>
+</div>
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>"<code class="inl">docker rmi</code> frees the disk" isn't quite it — removing an image removes a <em>root</em>, and space comes back only when GC sweeps what that root was solely keeping alive (and only if no other image shares it). And the reason a fresh pull never gets corrupted by a simultaneous prune isn't luck — it's leases, deliberately pinning in-flight blobs as roots until the operation commits. Reachability, not reference-count-hits-zero, is the actual rule.</p>
+</aside>
+
+<div style="font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:44px 0 4px">Where we are</div>
+<h2>Summary</h2>
+<p>containerd reclaims storage by <strong>reachability</strong>, not by naive reference counts. Objects in the metadata database carry GC <strong>labels</strong> — <code class="inl">gc.root</code> for roots, <code class="inl">gc.ref.content</code>/<code class="inl">gc.ref.snapshot</code> for edges — forming a graph. The collector <strong>marks</strong> everything reachable from the roots (images, containers, and leases) and <strong>sweeps</strong> the rest. A <strong>lease</strong> is a temporary root that protects blobs and snapshots during an in-flight pull or build, with an expiry so a crash can't leak the pin. <code class="inl">docker prune</code> works by deleting roots and letting GC reclaim what becomes unreachable, and shared layers persist until their last referencing root is gone. That completes Part III — images at rest, on disk, and reclaimed. Next, Part IV opens with Lesson 23: the full run pipeline end-to-end, tying storage, the runtime spec, the shim, and runc into one <code class="inl">docker run</code>.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 16 · snapshots</span>
+  <span class="xref"><b>back ←</b> Lesson 20 · content store</span>
+  <span class="xref"><b>forward →</b> Lesson 23 · run pipeline end-to-end</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">21 · The runtime-spec config.json</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">23 · The run pipeline, end-to-end</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 17 · What an Image Layer Physically Is</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.7; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:36px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .oneline{border:1px solid var(--teal-dim); background:linear-gradient(180deg,#0b1615,#0a1210); border-radius:10px; padding:18px 20px; margin:30px 0 8px}
+  .oneline .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); display:block; margin-bottom:8px}
+  .oneline p{margin:0; font-size:20px; line-height:1.5; color:#fff}
+
+  .concept{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:50px 0 4px; display:flex; align-items:center; gap:10px;}
+  .concept .num{width:24px;height:24px;border-radius:50%;border:1px solid var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  h2{font-family:var(--mono); font-weight:600; font-size:21px; margin:8px 0 16px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  .term{color:var(--teal); font-weight:600}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+  .plain{color:var(--dim); font-size:16px; border-left:2px solid var(--rule); padding-left:14px; margin:0 0 18px}
+  .plain b{color:var(--teal); font-weight:600}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--teal); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:20px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  figure.fig{margin:24px 0; border:1px solid var(--rule); border-radius:10px; background:var(--panel); padding:18px; overflow:hidden}
+  figure.fig figcaption{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin:2px 2px 16px}
+  figure.fig svg{display:block; width:100%; height:auto}
+
+  .tarbox{font-family:var(--mono); font-size:13px; background:var(--well); border:1px solid var(--rule); border-radius:8px; padding:14px 18px; margin:16px 0; line-height:1.75}
+  .tarbox .add{color:var(--teal)} .tarbox .wh{color:var(--rose)} .tarbox .c{color:var(--faint)}
+
+  .recap{border:1px solid var(--teal-dim); border-radius:10px; background:#0a1210; padding:20px 22px; margin:30px 0}
+  .recap h3{font-family:var(--mono); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:0 0 14px}
+  .recap ul{margin:0; padding-left:20px} .recap li{margin:0 0 10px; color:var(--bone)} .recap li:last-child{margin:0}
+  .recap li b{color:#fff}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:60px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:38px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-16-snapshotters-storage-drivers.html">← Lesson 16</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-18-manifest-config-digests.html">Lesson 18 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part III — Storage &amp; images</div>
+  <div class="lesson-no">17</div>
+  <span class="pill">core</span>
+  <h1>What an image layer physically is</h1>
+  <p class="dek">We'll build this one idea at a time. By the end you'll be able to open a real layer, read its bytes, and explain every strange behavior that follows from what's inside.</p>
+</header>
+
+<div class="oneline">
+  <span class="lbl">The idea in one sentence</span>
+  <p>An image layer is just a tar archive holding the files that <em>changed</em> since the layer beneath it — a list of changes, not a full copy of the filesystem.</p>
+</div>
+
+<p>Everything below is that one sentence, unpacked slowly. Read it top to bottom; each part uses only what came before it.</p>
+
+<div class="concept"><span class="num">1</span> Start here</div>
+<h2>A layer is a <em>diff</em>, not a copy</h2>
+
+<p class="plain"><b>Plain version:</b> a layer records only what changed, like a single "commit" in git or "track changes" in a document — not the whole document each time.</p>
+
+<p>Imagine you start from the <code class="inl">alpine</code> base image and add your app on top. The new layer you create does <strong>not</strong> re-store all of Alpine. It stores only the files <em>you</em> added or changed — your app binary, maybe an edited config. Everything from Alpine is left untouched in the layer below. This is the single most important idea in this lesson, and the word the spec uses for it is <span class="term">changeset</span>: a layer is a set of changes relative to what's underneath.</p>
+
+<p>Why is it done this way? Because of Lesson 15. Layers get <em>stacked</em> by OverlayFS at runtime, and reads fall through to lower layers. So a layer never needs to repeat a file that a lower layer already has — the stack fills it in. A layer only carries the differences.</p>
+
+<div class="concept"><span class="num">2</span> The format</div>
+<h2>That diff is literally a tar file</h2>
+
+<p class="plain"><b>Plain version:</b> a layer is an ordinary <code class="inl">.tar</code> (usually gzip-compressed) — the same kind of archive you'd make with the <code class="inl">tar</code> command. Nothing container-specific.</p>
+
+<p>There's no exotic format here. A layer is a plain tar archive containing the changed files at their normal paths. It's normally compressed with gzip, which is why the OCI media type (its official label) is <span class="srcref">application/vnd.oci.image.layer.v1.tar+gzip</span> — a tar payload, gzipped. (A newer <code class="inl">+zstd</code> variant exists too.) Adding or modifying a file needs no special marker: the file simply appears in the tar. Here's what an additive layer's tar contents look like:</p>
+
+<div class="tarbox">
+<span class="c"># a layer that adds a binary + a config, and edits one file:</span><br>
+<span class="add">app/server</span> &nbsp;&nbsp;<span class="c">← new file, just present</span><br>
+<span class="add">app/config.yaml</span> &nbsp;&nbsp;<span class="c">← new file</span><br>
+<span class="add">etc/hosts</span> &nbsp;&nbsp;<span class="c">← modified: the whole new version is included</span>
+</div>
+
+<p>That is the entire content of an add-only layer. Later in the lesson you'll run <code class="inl">tar tvf</code> on a real one and see exactly this.</p>
+
+<div class="concept"><span class="num">3</span> The tricky operation</div>
+<h2>How do you <em>delete</em> a file in a tar? Whiteouts</h2>
+
+<p class="plain"><b>Plain version:</b> a tar can only hold files, not "delete this" instructions — so a deletion is faked by adding a tiny marker file with a special name.</p>
+
+<p>Adds and edits were easy. Deletion is the interesting case, and it's where a clever trick lives. Suppose your layer needs to remove <code class="inl">/etc/motd</code>, which came from a lower layer. You can't put a "remove <code class="inl">/etc/motd</code>" command into a tar — a tar only holds files. So the spec (<span class="srcref">image-spec/layer.md</span>) uses a convention: to delete a file named <code class="inl">motd</code>, the layer includes an empty file named <span class="term">.wh.motd</span> — the prefix <code class="inl">.wh.</code> (short for "whiteout") plus the name of the thing to delete. When the layer is applied, the tooling sees <code class="inl">.wh.motd</code>, deletes <code class="inl">motd</code> from the built-up filesystem, and then hides the marker itself.</p>
+
+<div class="tarbox">
+<span class="c"># lower layers have: file1, a/file2, b/, c/file3</span><br>
+<span class="c"># this layer deletes file1, a/file2, and the whole b/ dir — and adds file4:</span><br>
+<span class="wh">.wh.file1</span> &nbsp;&nbsp;<span class="c">← "delete file1"</span><br>
+<span class="wh">a/.wh.file2</span> &nbsp;&nbsp;<span class="c">← "delete a/file2"</span><br>
+<span class="wh">.wh.b</span> &nbsp;&nbsp;<span class="c">← "delete the b directory"</span><br>
+<span class="add">file4</span> &nbsp;&nbsp;<span class="c">← a normal addition</span>
+</div>
+
+<p>One extra case: to wipe out <em>everything</em> a directory inherited from below (rather than naming each file), a layer puts a special marker <code class="inl">.wh..wh..opq</code> inside that directory — an <span class="term">opaque directory</span> marker meaning "ignore everything from lower layers here."</p>
+
+<div class="concept"><span class="num">4</span> A callback</div>
+<h2>The same delete-marker exists in two forms</h2>
+
+<p class="plain"><b>Plain version:</b> the "delete" marker looks different when an image is sitting on disk versus when a container is running — Docker converts between the two.</p>
+
+<p>Back in Lesson 15, a deletion in a <em>running</em> container's OverlayFS was a strange <em>character device numbered 0/0</em>. Here, in an <em>image layer on disk</em>, a deletion is a <code class="inl">.wh.</code> file. These are the same idea wearing two costumes: the <code class="inl">.wh.</code> form is the portable one that travels inside images; the char-device form is the live one OverlayFS uses. containerd <strong>translates</strong> between them. When it unpacks a layer onto an overlay directory, its archive code (<span class="srcref">pkg/archive/tar_opts_linux.go</span>) turns each <code class="inl">.wh.</code> entry into the real thing with <code class="inl">Mknod(path, S_IFCHR, 0)</code> — literally creating that 0/0 character device. Same concept, converted at unpack time.</p>
+
+<div class="concept"><span class="num">5</span> Why it matters</div>
+<h2>The payoff: "rm" grows images, and deleted secrets survive</h2>
+
+<p class="plain"><b>Plain version:</b> because a delete is really an <em>added</em> marker, a later layer can hide things but never shrink or truly erase what an earlier layer wrote.</p>
+
+<p>Hold concept 3 in mind — deletion is an <em>addition</em> (a whiteout file). Two of Docker's most infamous surprises fall straight out of it:</p>
+
+<p><strong>Deleting files doesn't shrink the image.</strong> If a Dockerfile runs <code class="inl">rm -rf /big/thing</code> where <code class="inl">/big/thing</code> was added in an <em>earlier</em> layer, nothing is reclaimed. A <em>new</em> layer is created containing a <code class="inl">.wh.</code> marker, while the original bytes still sit in the earlier layer's tar — which is still stored and still downloaded. The image gets slightly <em>bigger</em>, not smaller.</p>
+
+<p><strong>A "deleted" secret is still there.</strong> If you copy a secret into one layer and delete it in a later one, the secret is fully intact in the layer that added it. The later whiteout only hides it from the running container's view. Anyone who pulls the image can extract that earlier layer's tar and read the secret in plaintext. (We use and defend against this in Lessons 30 and 31.)</p>
+
+<div class="keybox">
+  <div class="h">The rule to remember</div>
+  <p>A layer only ever <em>adds</em> to the tar — even a deletion is an added marker. So nothing in a layer can be shrunk or truly erased by a <em>later</em> layer; it can only be hidden. Image bloat and leaked secrets are the same fact seen twice.</p>
+</div>
+
+<div class="concept"><span class="num">6</span> Naming</div>
+<h2>A layer is named by a fingerprint of its bytes</h2>
+
+<p class="plain"><b>Plain version:</b> each layer's "name" is a sha256 hash of its contents — a fingerprint. Identical layers get the same fingerprint, so they're stored once.</p>
+
+<p>A layer isn't referred to by a filename; it's referred to by a <span class="term">hash</span> — a sha256 checksum of its bytes, which acts like a fingerprint. This is called <em>content addressing</em>: the content <em>is</em> the address. The immediate benefit is free deduplication. Two images built <code class="inl">FROM alpine</code> share Alpine's layers because those layers hash to the same fingerprint — one copy is stored, downloaded once. Pull an image whose layers you already have, and Docker skips them. No bookkeeping feature makes this happen; it's just what falls out of naming things by their hash.</p>
+
+<div class="concept"><span class="num">7</span> The classic confusion</div>
+<h2>One layer, <em>two</em> fingerprints: diffID and digest</h2>
+
+<p class="plain"><b>Plain version:</b> a layer exists as two byte-streams — the raw tar and the gzipped tar — so it has two hashes. Don't panic when you see two different sha256s for "the same" layer.</p>
+
+<p>This trips up almost everyone, so go slow. A layer can be hashed in two states: <em>before</em> compression (the raw tar) and <em>after</em> compression (the gzipped blob that actually gets shipped). Hash each and you get two different fingerprints for one layer:</p>
+
+<p>The <span class="term">diffID</span> is the sha256 of the <strong>uncompressed</strong> tar. It identifies the layer's <em>content</em>. (Spec wording, <span class="srcref">config.md</span>: "the digest over the layer's uncompressed tar archive.") You'll find it in the image <em>config</em>, in a list called <code class="inl">rootfs.diff_ids</code>.</p>
+
+<p>The <span class="term">digest</span> is the sha256 of the <strong>compressed</strong> blob — the actual file stored in the registry. It identifies the <em>stored bytes</em>. You'll find it in the image <em>manifest</em>.</p>
+
+<figure class="fig">
+  <figcaption>Diagram · same layer → two hashes, depending on which bytes you hash</figcaption>
+  <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,Consolas,monospace">
+    <rect x="30" y="76" width="150" height="50" rx="7" fill="#0d1117" stroke="#5ac4b4"/>
+    <text x="105" y="97" text-anchor="middle" fill="#5ac4b4" font-size="12">the raw tar</text>
+    <text x="105" y="114" text-anchor="middle" fill="#bfe6df" font-size="10.5">(uncompressed)</text>
+
+    <line x1="180" y1="90" x2="250" y2="58" stroke="#6b7482" stroke-width="1.3"/>
+    <text x="214" y="56" text-anchor="middle" fill="#6b7482" font-size="9">sha256</text>
+    <rect x="250" y="32" width="240" height="46" rx="7" fill="#0a1614" stroke="#2f5f59"/>
+    <text x="370" y="52" text-anchor="middle" fill="#5ac4b4" font-size="12" font-weight="600">diffID</text>
+    <text x="370" y="69" text-anchor="middle" fill="#9aa4b2" font-size="10">content identity · in the config</text>
+
+    <line x1="180" y1="112" x2="250" y2="126" stroke="#6b7482" stroke-width="1.3"/>
+    <text x="212" y="136" text-anchor="middle" fill="#6b7482" font-size="9">gzip</text>
+    <rect x="250" y="108" width="110" height="42" rx="7" fill="#12100a" stroke="#7a6636"/>
+    <text x="305" y="133" text-anchor="middle" fill="#e0b155" font-size="10.5">gzipped blob</text>
+    <line x1="360" y1="129" x2="418" y2="129" stroke="#6b7482" stroke-width="1.3"/>
+    <text x="389" y="122" text-anchor="middle" fill="#6b7482" font-size="9">sha256</text>
+    <rect x="418" y="108" width="272" height="46" rx="7" fill="#12100a" stroke="#7a6636"/>
+    <text x="554" y="128" text-anchor="middle" fill="#e0b155" font-size="12" font-weight="600">digest</text>
+    <text x="554" y="145" text-anchor="middle" fill="#9aa4b2" font-size="10">stored-blob identity · in the manifest</text>
+
+    <text x="30" y="182" fill="#6b7482" font-size="10.5">one layer · two sha256 values · that's why the config and manifest list different hashes</text>
+  </svg>
+</figure>
+
+<div class="concept"><span class="num">8</span> Naming a whole stack</div>
+<h2>ChainID — the name for Lesson 16's parent chain</h2>
+
+<p class="plain"><b>Plain version:</b> a diffID names one layer; a <span style="color:var(--teal)">ChainID</span> names a whole ordered stack of layers. It's the proper name for the parent→child chain you already met in Lesson 16.</p>
+
+<p>In Lesson 16 you saw committed snapshots linked parent→child into a chain, and I said the snapshotter keys them on that chain — but I didn't name the key. Here it is: the <span class="term">ChainID</span>. A diffID identifies <em>one</em> changeset; a ChainID identifies the <em>result of stacking layers 0…N in order</em>. It's built by folding the diffIDs together, one at a time (the spec's recursion: the first layer's ChainID is just its diffID; each next one hashes the running ChainID together with the new layer's diffID). The reason it exists: two images that share the same first three layers produce the same ChainID for those three, so that stacked result is stored once and reused — the dedup from concept 6, extended from single layers to whole stacks.</p>
+
+<span class="step">Inspect it yourself</span>
+<p>Prove a layer is just a tar, find a whiteout inside one, and watch the two fingerprints differ:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> <span class="o"># 1) a layer is an ordinary tar — list its files:</span>
+<span class="p">$</span> docker save alpine -o alpine.tar &amp;&amp; mkdir img &amp;&amp; tar xf alpine.tar -C img
+<span class="p">$</span> tar tvf img/blobs/sha256/&lt;layer&gt; | head
+<span class="o">drwxr-xr-x  bin/</span>
+<span class="o">-rwxr-xr-x  bin/busybox</span>            <span class="o"># just files</span>
+
+<span class="p">$</span> <span class="o"># 2) build an image that deletes a file, then find the whiteout marker:</span>
+<span class="p">$</span> printf 'FROM alpine\nRUN rm /etc/hostname\n' | docker build -t wh -f - .
+<span class="p">$</span> docker save wh -o wh.tar &amp;&amp; tar xf wh.tar -C wh/
+<span class="p">$</span> tar tf wh/blobs/sha256/&lt;top-layer&gt; | grep wh
+<span class="o">etc/<span class="hl">.wh.hostname</span></span>                  <span class="o"># the "delete" is an added file</span>
+
+<span class="p">$</span> <span class="o"># 3) the same layer's two fingerprints are different:</span>
+<span class="p">$</span> docker inspect alpine -f '{{json .RootFS.Layers}}'      <span class="o"># diffIDs (uncompressed)</span>
+<span class="o">["sha256:<span class="hl">a9561…</span>"]</span>
+<span class="p">$</span> docker manifest inspect alpine | jq '.layers[].digest'  <span class="o"># digests (compressed)</span>
+<span class="o">"sha256:<span class="hl">c6a83…</span>"</span>                     <span class="o"># same layer, different hash</span></pre>
+</figure>
+
+<div class="recap">
+  <h3>Check yourself</h3>
+  <ul>
+    <li>A layer is a <b>tar of changes</b> (a changeset) relative to the layer below — not a full filesystem. Unchanged files are absent because the stack supplies them.</li>
+    <li>Adds and edits just <b>appear as files</b> in the tar. Deletes are faked with a <b>whiteout file</b> named <code class="inl">.wh.&lt;name&gt;</code> (and <code class="inl">.wh..wh..opq</code> to empty a directory).</li>
+    <li>Because a delete is an <b>added marker</b>, a later layer can only hide — never shrink or erase. That's why <code class="inl">rm</code> grows images and deleted secrets stay recoverable.</li>
+    <li>The <code class="inl">.wh.</code> marker (in the image) and the char-device 0/0 (in a running overlay) are the <b>same idea in two forms</b>; containerd converts between them at unpack.</li>
+    <li>A layer is named by a <b>sha256 fingerprint of its bytes</b> → identical layers are stored once (dedup).</li>
+    <li>One layer has <b>two hashes</b>: <b>diffID</b> = uncompressed tar (in the config), <b>digest</b> = compressed blob (in the manifest).</li>
+    <li>A <b>ChainID</b> names an ordered <b>stack</b> of layers — the proper name for Lesson 16's parent→child chain.</li>
+  </ul>
+</div>
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>"A layer is a filesystem snapshot" — no, it's a <em>diff</em>; the full filesystem only exists once layers are stacked. "Deleting in a later step cleans it up" — no, it adds a whiteout; the bytes persist below. "A layer has a hash" — it has <em>two</em> (diffID and digest), which is exactly why the config and manifest you'll meet next show different sha256s for the same layer.</p>
+</aside>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 15 · OverlayFS whiteouts</span>
+  <span class="xref"><b>back ←</b> Lesson 16 · the parent chain (ChainID)</span>
+  <span class="xref"><b>forward →</b> Lesson 18 · Manifest, config &amp; digests</span>
+  <span class="xref"><b>forward →</b> Lesson 30 · the secret-in-a-layer leak</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">16 · Snapshotters &amp; storage drivers</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">18 · Manifest, config &amp; digests</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 13 · AppArmor &amp; SELinux</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.68; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:44px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); border:1px solid var(--rule); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--teal); margin:52px 0 4px; display:flex; align-items:center; gap:10px;}
+  .eyebrow::before{content:""; width:16px; height:1px; background:var(--teal); opacity:.6}
+  h2{font-family:var(--mono); font-weight:600; font-size:22px; margin:6px 0 18px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--gold); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+  .step.verify{background:var(--teal)}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:16px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  figure.fig{margin:26px 0; border:1px solid var(--rule); border-radius:10px; background:var(--panel); padding:18px; overflow:hidden}
+  figure.fig figcaption{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin:2px 2px 16px}
+  figure.fig svg{display:block; width:100%; height:auto}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:70px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  .lead{font-size:20px; line-height:1.6; color:var(--bone)}
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:40px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-12-seccomp.html">← Lesson 12</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-14-oci-lifecycle-hooks.html">Lesson 14 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part II — Kernel primitives</div>
+  <div class="lesson-no">13</div>
+  <span class="pill">deep-cut · reference depth</span>
+  <h1>AppArmor &amp; SELinux: guarding <em>which files</em>, not which calls</h1>
+  <p class="dek">Capabilities gate privileged operations; seccomp gates syscalls. Both are about the <em>action</em>. Linux Security Modules add a third gate about the <em>object</em>: even for an allowed syscall, which specific files and resources may a container touch?</p>
+</header>
+
+<p class="lead">Here's the gap the first two security walls leave open. <code class="inl">open()</code> is on the seccomp allowlist, and reading or writing a file needs no capability. So what stops a container from opening <code class="inl">/proc/sysrq-trigger</code> — a magic file where writing a single letter can reboot the host — or <code class="inl">/sys/kernel/security</code>, where it could tamper with the security policy itself? Nothing we've covered yet. Those are ordinary <code class="inl">write()</code>s to files that merely <em>look</em> normal but are actually kernel control knobs. Plugging that hole is the job of <strong>Linux Security Modules (LSMs)</strong>, and Docker ships with one active by default.</p>
+
+<div class="eyebrow">The intuition</div>
+<h2>A mandatory gate on every object access</h2>
+
+<p>The Linux kernel has a built-in framework — the LSM framework — that places a hook at every security-relevant decision: open this file, ptrace that process, mount here, send that signal. A loaded security module gets consulted at each hook and answers allow or deny, according to a policy the administrator sets. The two mainstream modules are <strong>AppArmor</strong> and <strong>SELinux</strong>, and a system normally runs one of them.</p>
+
+<p>The important word is <em>mandatory</em>. Ordinary file permissions are <em>discretionary</em> — the owner can <code class="inl">chmod</code> them, and root ignores them entirely. LSM policy sits on top and can't be relaxed by the process it constrains, not even by root inside the container. So an LSM is the one wall that still holds when a container is running as root and has somehow kept a dangerous capability: the policy simply refuses the specific file access, regardless of who's asking.</p>
+
+<p>AppArmor and SELinux reach the same goal by opposite routes, and that difference is the whole lesson.</p>
+
+<figure class="fig">
+  <figcaption>Diagram · two ways to answer "may this process touch this file?"</figcaption>
+  <svg viewBox="0 0 720 340" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,Consolas,monospace">
+    <!-- divider -->
+    <line x1="360" y1="20" x2="360" y2="320" stroke="#262d38" stroke-dasharray="4 4"/>
+    <text x="180" y="26" text-anchor="middle" fill="#e0b155" font-size="13" font-weight="600">AppArmor — by PATH</text>
+    <text x="540" y="26" text-anchor="middle" fill="#5ac4b4" font-size="13" font-weight="600">SELinux — by LABEL</text>
+
+    <!-- AppArmor side -->
+    <rect x="30" y="52" width="120" height="52" rx="8" fill="#0a0d12" stroke="#262d38"/>
+    <text x="90" y="83" text-anchor="middle" fill="#e9e4d7" font-size="12">process</text>
+    <line x1="150" y1="78" x2="210" y2="78" stroke="#6b7482"/>
+    <rect x="210" y="52" width="130" height="52" rx="8" fill="#0a0d12" stroke="#262d38"/>
+    <text x="275" y="76" text-anchor="middle" fill="#9aa4b2" font-size="11">wants to write</text>
+    <text x="275" y="93" text-anchor="middle" fill="#e9e4d7" font-size="11">/proc/sysrq-trigger</text>
+
+    <rect x="60" y="150" width="240" height="66" rx="8" fill="#12100a" stroke="#e0b155"/>
+    <text x="180" y="176" text-anchor="middle" fill="#e0b155" font-size="12">rule matches the PATH:</text>
+    <text x="180" y="196" text-anchor="middle" fill="#d76d7f" font-size="11.5">deny /proc/sysrq-trigger w</text>
+    <line x1="180" y1="104" x2="180" y2="150" stroke="#6b7482"/>
+
+    <rect x="90" y="252" width="180" height="46" rx="8" fill="#160f11" stroke="#6e3540"/>
+    <text x="180" y="280" text-anchor="middle" fill="#d76d7f" font-size="12">✗ denied</text>
+    <line x1="180" y1="216" x2="180" y2="252" stroke="#6b7482"/>
+    <text x="180" y="322" text-anchor="middle" fill="#6b7482" font-size="10.5">policy is a list of path rules</text>
+
+    <!-- SELinux side -->
+    <rect x="400" y="52" width="130" height="52" rx="8" fill="#0a0d12" stroke="#262d38"/>
+    <text x="465" y="76" text-anchor="middle" fill="#e9e4d7" font-size="12">process</text>
+    <text x="465" y="94" text-anchor="middle" fill="#5ac4b4" font-size="10.5">label: container_t</text>
+    <rect x="560" y="52" width="130" height="52" rx="8" fill="#0a0d12" stroke="#262d38"/>
+    <text x="625" y="76" text-anchor="middle" fill="#e9e4d7" font-size="12">a file</text>
+    <text x="625" y="94" text-anchor="middle" fill="#5ac4b4" font-size="10.5">label: container_file_t</text>
+
+    <rect x="430" y="150" width="230" height="66" rx="8" fill="#0a1614" stroke="#2f5f59"/>
+    <text x="545" y="176" text-anchor="middle" fill="#5ac4b4" font-size="12">policy on the LABELS:</text>
+    <text x="545" y="196" text-anchor="middle" fill="#bfe6df" font-size="11">container_t → container_file_t?</text>
+    <line x1="465" y1="104" x2="510" y2="150" stroke="#6b7482"/>
+    <line x1="625" y1="104" x2="580" y2="150" stroke="#6b7482"/>
+
+    <rect x="455" y="252" width="180" height="46" rx="8" fill="#0a1614" stroke="#2f5f59"/>
+    <text x="545" y="280" text-anchor="middle" fill="#5ac4b4" font-size="12">✓ allowed by policy</text>
+    <line x1="545" y1="216" x2="545" y2="252" stroke="#6b7482"/>
+    <text x="545" y="322" text-anchor="middle" fill="#6b7482" font-size="10.5">policy is rules between labels</text>
+  </svg>
+</figure>
+
+<div class="eyebrow">Mechanism 1</div>
+<h2>AppArmor: deny-list of dangerous paths</h2>
+
+<p>AppArmor identifies files by their <strong>path</strong>. A profile is a list of rules like "this program may read here, may write there, may not touch that." When Docker starts, it loads a profile named <span class="srcref">docker-default</span> — the name is set in moby's <span class="srcref">daemon/apparmor_default.go</span>, and the rules themselves live in a template in the <span class="srcref">moby/profiles/apparmor</span> module. The profile is deliberately permissive about ordinary work (a container needs to read and write lots of files) and surgical about the dangerous exceptions.</p>
+
+<p>Reading the template, the rules that matter are all denials aimed at the two pseudo-filesystems that are the classic escape surface — <code class="inl">/proc</code> and <code class="inl">/sys</code>, whose "files" are really kernel controls. It denies writes to <code class="inl">@{PROC}/sysrq-trigger</code> (a write here can crash or reboot the host), to <code class="inl">@{PROC}/kcore</code> (a window into live kernel memory), and to almost all of <code class="inl">/proc/sys</code> (kernel tunables). It denies writes under <code class="inl">/sys</code> — including <code class="inl">/sys/firmware</code>, the cgroup filesystem, and, tellingly, <code class="inl">/sys/kernel/security</code>, which is where the LSM's own policy lives, so a container can't disable the very wall confining it. It <code class="inl">deny mount</code>s. And it restricts <code class="inl">ptrace</code> to peers running under the <em>same</em> profile — so a container process can inspect its own children but never a host process.</p>
+
+<div class="keybox">
+  <div class="h">Why AppArmor catches what caps and seccomp don't</h2>
+  <p>Writing <code class="inl">/proc/sysrq-trigger</code> is an ordinary <code class="inl">write()</code> — allowed by seccomp, guarded by no capability. Only a rule that names the <em>path</em> can stop it. That's AppArmor's niche: object-level protection of specific dangerous files, layered after the syscall and capability checks.</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 2</div>
+<h2>SELinux: label everything, and give each container its own secret</h2>
+
+<p>SELinux takes the opposite approach: it ignores paths and instead stamps every process and every file with a <strong>label</strong>. A label looks like <code class="inl">user:role:type:level</code>, and the part that does the real work is the <em>type</em>. Container processes run as type <code class="inl">container_t</code>; their files are typed <code class="inl">container_file_t</code>. The system policy says <code class="inl">container_t</code> may access <code class="inl">container_file_t</code> and very little else — so a container process simply has no rule permitting it to read, say, a host file typed <code class="inl">shadow_t</code> (the password file). The access is denied not because of a path rule but because no policy rule connects those two labels.</p>
+
+<p>But that raises a problem: <em>every</em> container runs as <code class="inl">container_t</code> with files typed <code class="inl">container_file_t</code>. If type were the whole story, one container could read another's files — they share the type. SELinux closes this with <strong>MCS (Multi-Category Security)</strong>. When Docker creates a container it calls into the SELinux library (moby's <span class="srcref">label.InitLabels</span> in <span class="srcref">daemon/daemon_unix.go</span>) which assigns that container a <em>unique random category pair</em>, appended to the label as something like <code class="inl">s0:c124,c675</code>. The container's process label and its file labels all carry that same pair. The MCS rule is: a process may access a file only if the file's categories are a subset of the process's. Give each container a different pair and they become mutually blind — even though both are <code class="inl">container_t</code>/<code class="inl">container_file_t</code>.</p>
+
+<figure class="fig">
+  <figcaption>Diagram · MCS — same type, unique categories, so containers can't cross</figcaption>
+  <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,Consolas,monospace">
+    <!-- container A -->
+    <rect x="20" y="30" width="300" height="120" rx="10" fill="#0a1614" stroke="#2f5f59"/>
+    <text x="36" y="54" fill="#5ac4b4" font-size="13" font-weight="600">Container A</text>
+    <rect x="36" y="66" width="120" height="40" rx="6" fill="#07110f" stroke="#2f5f59"/>
+    <text x="96" y="83" text-anchor="middle" fill="#bfe6df" font-size="10.5">process</text>
+    <text x="96" y="98" text-anchor="middle" fill="#5ac4b4" font-size="10.5">s0:c1,c2</text>
+    <rect x="184" y="66" width="120" height="40" rx="6" fill="#07110f" stroke="#2f5f59"/>
+    <text x="244" y="83" text-anchor="middle" fill="#bfe6df" font-size="10.5">its files</text>
+    <text x="244" y="98" text-anchor="middle" fill="#5ac4b4" font-size="10.5">s0:c1,c2</text>
+    <text x="170" y="132" text-anchor="middle" fill="#5ac4b4" font-size="11">✓ categories match → allowed</text>
+
+    <!-- container B -->
+    <rect x="400" y="30" width="300" height="120" rx="10" fill="#160f11" stroke="#6e3540"/>
+    <text x="416" y="54" fill="#d76d7f" font-size="13" font-weight="600">Container B</text>
+    <rect x="416" y="66" width="120" height="40" rx="6" fill="#120c0e" stroke="#6e3540"/>
+    <text x="476" y="83" text-anchor="middle" fill="#e9e4d7" font-size="10.5">process</text>
+    <text x="476" y="98" text-anchor="middle" fill="#d76d7f" font-size="10.5">s0:c3,c4</text>
+    <rect x="564" y="66" width="120" height="40" rx="6" fill="#120c0e" stroke="#6e3540"/>
+    <text x="624" y="83" text-anchor="middle" fill="#e9e4d7" font-size="10.5">its files</text>
+    <text x="624" y="98" text-anchor="middle" fill="#d76d7f" font-size="10.5">s0:c3,c4</text>
+    <text x="550" y="132" text-anchor="middle" fill="#d76d7f" font-size="11">✓ categories match → allowed</text>
+
+    <!-- cross -->
+    <path d="M96 150 C 96 210, 476 210, 476 150" fill="none" stroke="#d76d7f" stroke-width="1.4" stroke-dasharray="5 4"/>
+    <text x="286" y="238" text-anchor="middle" fill="#d76d7f" font-size="12">A (c1,c2) tries to read B's files (c3,c4)</text>
+    <text x="286" y="258" text-anchor="middle" fill="#e9e4d7" font-size="12">✗ categories don't match → DENIED</text>
+    <text x="286" y="284" text-anchor="middle" fill="#6b7482" font-size="10.5">same type container_file_t — but the secret category pair differs</text>
+  </svg>
+</figure>
+
+<aside class="note"><b>Why bind mounts need <code style="color:var(--teal)">:z</code> / <code style="color:var(--teal)">:Z</code> on SELinux hosts.</b> A host file you bind-mount in keeps its host label (e.g. <code class="inl">etc_t</code>), which <code class="inl">container_t</code> has no rule to access — so the container gets "permission denied" even though the file permissions look fine. The <code class="inl">:z</code> (shared) and <code class="inl">:Z</code> (private, with this container's category pair) mount options tell Docker to <em>relabel</em> the file to <code class="inl">container_file_t</code> so the container can reach it. If you've ever hit an inexplicable permission error on a bind mount on RHEL/Fedora, this is almost always why.</aside>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 3</div>
+<h2>How the choice reaches runc — and which one you have</h2>
+
+<p>Both LSMs are carried to the runtime through the OCI spec. The runtime-spec defines <span class="srcref">process.apparmorProfile</span> (a profile name like <code class="inl">docker-default</code>), <span class="srcref">process.selinuxLabel</span> (the container's process label with its MCS categories), and <span class="srcref">linux.mountLabel</span> (the label applied to the container's files). Docker fills in whichever set matches the LSM active on the host and leaves the other empty — runc then applies the profile or sets the labels just before executing your process.</p>
+
+<p>Which LSM is active is a property of the distribution, and you almost never run both: <strong>AppArmor</strong> is the default on Debian and Ubuntu, <strong>SELinux</strong> on RHEL, Fedora, and CentOS Stream. Docker detects what's present and applies the corresponding default. This is why the same container can be confined by a path-based profile on an Ubuntu host and a label-based policy on a Fedora host, with no change to the image.</p>
+
+<span class="step verify">Inspect it yourself</span>
+<p>See which LSM confines your container, read its profile/label, and watch a denial:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> docker info --format '{{.SecurityOptions}}'
+<span class="o">[name=apparmor name=seccomp,profile=builtin ...]</span>   <span class="o"># this host uses AppArmor</span>
+
+<span class="p">$</span> <span class="o"># AppArmor: read the profile confining the container</span>
+<span class="p">$</span> docker run --rm alpine cat /proc/self/attr/current
+<span class="o"><span class="hl">docker-default (enforce)</span></span>
+
+<span class="p">$</span> <span class="o"># the path rule in action — writing the reboot trigger is refused:</span>
+<span class="p">$</span> docker run --rm alpine sh -c 'echo b > /proc/sysrq-trigger'
+<span class="o">sh: can't create /proc/sysrq-trigger: <span class="hl">Permission denied</span></span>   <span class="o"># AppArmor deny rule</span>
+<span class="p">$</span> <span class="o"># turn the profile off and it's a plain write again (dangerous!):</span>
+<span class="p">$</span> docker run --rm --security-opt apparmor=unconfined alpine sh -c 'echo b > /proc/sysrq-trigger'
+
+<span class="p">$</span> <span class="o"># On a SELinux host (RHEL/Fedora) instead:</span>
+<span class="p">$</span> docker run --rm fedora cat /proc/self/attr/current
+<span class="o"><span class="hl">system_u:system_r:container_t:s0:c123,c456</span></span>   <span class="o"># note the unique MCS pair</span></pre>
+</figure>
+
+<hr class="soft">
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>"AppArmor and SELinux both sandbox containers" is true but hides that they're not interchangeable in style: AppArmor reasons about <em>paths</em>, SELinux about <em>labels</em>, and that shapes everything — SELinux can isolate two containers from each other via MCS categories in a way path rules can't easily express, while AppArmor profiles are far easier to read and write. Also: this is the wall people most often disable by accident. <code class="inl">--security-opt apparmor=unconfined</code>, <code class="inl">--security-opt label=disable</code>, and (again) <code class="inl">--privileged</code> all switch the LSM off for that container. And the bind-mount permission trap on SELinux hosts (<code class="inl">:z</code>/<code class="inl">:Z</code>) trips up almost everyone once, because the failure looks like a file-permission problem when it's really a label mismatch.</p>
+</aside>
+
+<div class="eyebrow">Where we are</div>
+<h2>Summary</h2>
+<p>Linux Security Modules add a third, <em>mandatory</em> gate that the other primitives miss: control over <em>which objects</em> an allowed action may touch, unremovable even by root inside the container. <strong>AppArmor</strong> is path-based; Docker's <code class="inl">docker-default</code> profile denies writes to the dangerous <code class="inl">/proc</code> and <code class="inl">/sys</code> control files (<code class="inl">sysrq-trigger</code>, <code class="inl">kcore</code>, <code class="inl">/proc/sys</code>, <code class="inl">/sys/kernel/security</code>), blocks <code class="inl">mount</code>, and confines <code class="inl">ptrace</code> to same-profile peers. <strong>SELinux</strong> is label-based; containers run as type <code class="inl">container_t</code> over <code class="inl">container_file_t</code>, and MCS gives each container a unique category pair so they can't read each other's files despite sharing a type. Both reach runc through the runtime-spec's <code class="inl">apparmorProfile</code>, <code class="inl">selinuxLabel</code>, and <code class="inl">mountLabel</code>, with AppArmor default on Debian/Ubuntu and SELinux on RHEL/Fedora. That completes the three security primitives (capabilities, seccomp, LSMs) that harden the shared-kernel wall. Next, the last piece of Part II: the OCI lifecycle and hooks — the defined states a container moves through and the points where you can run code.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 11 · Capabilities</span>
+  <span class="xref"><b>back ←</b> Lesson 12 · seccomp</span>
+  <span class="xref"><b>forward →</b> Lesson 14 · OCI lifecycle &amp; hooks</span>
+  <span class="xref"><b>forward →</b> Lesson 46 · Security capstone</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">12 · seccomp</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">14 · OCI lifecycle &amp; hooks</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Lesson 32 · Volumes, bind mounts &amp; tmpfs</title>
+<style>
+:root{
+  --ink:#0e1116;--panel:#161b22;--well:#0a0d12;--bone:#e9e4d7;
+  --dim:#9aa4b2;--faint:#6b7482;--rule:#262d38;
+  --gold:#e0b155;--gold-dim:#7a6636;--teal:#5ac4b4;--teal-dim:#2f5f59;
+  --rose:#d76d7f;--rose-dim:#6e3540;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  --serif:"Iowan Old Style",Charter,Georgia,Cambria,serif;
+}
+*{box-sizing:border-box} html{scroll-behavior:smooth}
+body{margin:0;background:var(--ink);color:var(--bone);font-family:var(--serif);font-size:18px;line-height:1.72;-webkit-font-smoothing:antialiased}
+.wrap{max-width:780px;margin:0 auto;padding:0 24px 120px}
+header.top{border-bottom:1px solid var(--rule);margin-bottom:36px;padding:34px 0 27px}
+.course-tag{font-family:var(--mono);font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--faint)}
+.lesson-no{font-family:var(--mono);font-size:64px;line-height:1;font-weight:600;color:var(--gold);margin:14px 0 6px}
+.pill{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);border:1px solid var(--teal-dim);border-radius:20px;padding:3px 10px;margin-bottom:14px}
+h1{font-family:var(--mono);font-size:27px;line-height:1.2;margin:0 0 14px;color:var(--bone)}
+.dek{color:var(--dim);font-size:18px;margin:0;max-width:64ch}
+p{margin:0 0 18px} strong{color:#fff;font-weight:600}
+code.inl{font-family:var(--mono);font-size:.86em;background:var(--well);border:1px solid var(--rule);border-radius:4px;padding:1px 6px;color:var(--gold)}
+.srcref{font-family:var(--mono);font-size:.79em;color:var(--gold);background:rgba(224,177,81,.08);border:1px solid var(--gold-dim);border-radius:4px;padding:1px 6px}
+.oneline{border:1px solid var(--teal-dim);background:linear-gradient(180deg,#0b1615,#0a1210);border-radius:10px;padding:18px 20px;margin:30px 0 18px}
+.oneline .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);display:block;margin-bottom:8px}
+.oneline p{margin:0;font-size:20px;line-height:1.5;color:#fff}
+.plain{color:var(--dim);font-size:16.5px;border-left:2px solid var(--rule);padding-left:14px;margin:0 0 20px}.plain b{color:var(--teal)}
+.concept{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:50px 0 4px;display:flex;align-items:center;gap:10px}
+.concept .num{width:25px;height:25px;border-radius:50%;border:1px solid var(--teal-dim);display:flex;align-items:center;justify-content:center;flex:none}
+h2{font-family:var(--mono);font-weight:600;font-size:21px;margin:8px 0 16px;color:var(--bone)}
+h3{font-family:var(--mono);font-size:15px;color:#fff;margin:25px 0 10px}
+.terminal{margin:16px 0 22px;border:1px solid var(--teal-dim);border-radius:8px;overflow:hidden;background:#07110f}
+.terminal .tab{font-family:var(--mono);font-size:12px;color:var(--teal);background:#0a1614;border-bottom:1px solid var(--teal-dim);padding:8px 14px}
+.terminal pre{margin:0;padding:15px 17px;color:#c5e8e1;font-family:var(--mono);font-size:13px;line-height:1.62;overflow-x:auto;white-space:pre}
+.terminal .c{color:var(--faint)}.terminal .o{color:var(--dim)}.terminal .hi{color:#fff}.terminal .bad{color:var(--rose)}
+.keybox{border-left:2px solid var(--gold);padding:2px 0 2px 16px;margin:21px 0}.keybox .h{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}.keybox p{margin:0}
+aside.note{border-left:3px solid var(--teal);background:var(--panel);border-radius:0 8px 8px 0;padding:14px 18px;margin:22px 0;color:var(--dim);font-size:16.5px}aside.note b{color:var(--teal)}
+aside.correction{border:1px solid var(--rose-dim);background:linear-gradient(180deg,#1a1013,#140c0f);border-radius:8px;padding:18px 20px;margin:26px 0}aside.correction .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:var(--rose);display:block;margin-bottom:8px}aside.correction p:last-child{margin-bottom:0}
+.pathmap{display:grid;gap:10px;margin:23px 0}.pathrow{display:grid;grid-template-columns:130px 44px 1fr;gap:10px;align-items:center;border:1px solid var(--rule);background:var(--panel);border-radius:9px;padding:13px 15px}.pathrow .kind{font-family:var(--mono);font-size:12px;color:var(--gold)}.pathrow .arrow{font-family:var(--mono);font-size:22px;color:var(--teal);text-align:center}.pathrow .target{font-family:var(--mono);font-size:13px;color:#fff}.pathrow .desc{display:block;font-family:var(--serif);font-size:14.5px;color:var(--dim);margin-top:3px}
+.mountpair{display:grid;grid-template-columns:1fr 70px 1fr;gap:12px;align-items:center;margin:22px 0}.mountpair .box{border:1px solid var(--rule);background:var(--panel);border-radius:9px;padding:16px}.mountpair .box strong{display:block;font-family:var(--mono);font-size:13px;color:#fff;margin-bottom:5px}.mountpair .box span{display:block;color:var(--dim);font-size:15px}.mountpair .middle{text-align:center;font-family:var(--mono);color:var(--teal);font-size:12px}.mountpair .middle b{display:block;font-size:23px;color:var(--teal)}
+.flow{display:grid;gap:9px;margin:22px 0}.flow .row{display:grid;grid-template-columns:34px 1fr;gap:12px;border:1px solid var(--rule);background:var(--panel);border-radius:8px;padding:13px 15px}.flow .n{font-family:var(--mono);width:26px;height:26px;border:1px solid var(--teal-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--teal);font-size:11px}.flow .t{font-family:var(--mono);font-size:13px;color:#fff;margin-bottom:3px}.flow .d{color:var(--dim);font-size:15px;line-height:1.52}
+table{width:100%;border-collapse:collapse;margin:19px 0 27px;font-size:15.5px}th{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);text-align:left;border-bottom:1px solid var(--rule);padding:9px 10px}td{vertical-align:top;border-bottom:1px solid var(--rule);padding:11px 10px;color:var(--dim)}td:first-child{font-family:var(--mono);color:var(--gold)}td strong{font-family:var(--serif)}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin:21px 0}.card{border:1px solid var(--rule);background:var(--panel);border-radius:9px;padding:15px}.card h3{font-size:13px;color:var(--gold);margin:0 0 9px}.card p{font-size:15px;color:var(--dim);margin:0}.card .where{font-family:var(--mono);font-size:12px;color:#fff;margin-bottom:7px}
+.checkpoint{border:1px solid var(--teal-dim);border-radius:9px;background:#091412;padding:18px 20px;margin:32px 0}.checkpoint .h{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--teal);margin-bottom:8px}.checkpoint p{margin:0;color:#fff}
+.recap{border:1px solid var(--teal-dim);border-radius:10px;background:#0a1210;padding:20px 22px;margin:31px 0}.recap h3{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 13px}.recap ul{margin:0;padding-left:20px}.recap li{margin:0 0 10px}.recap li:last-child{margin:0}
+details.sources{border:1px solid var(--gold-dim);border-radius:9px;background:#15130d;margin:28px 0}details.sources summary{cursor:pointer;padding:15px 18px;font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}details.sources .inside{padding:0 20px 18px;color:var(--dim);font-size:15px}details.sources ul{margin:0;padding-left:20px}details.sources li{margin:0 0 9px}
+.xrefs{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}.xref{font-family:var(--mono);font-size:12px;color:var(--teal);border:1px solid var(--teal-dim);border-radius:20px;padding:4px 12px;background:#0a1614}.xref b{color:var(--faint);font-weight:400;margin-right:6px}
+footer.nav{border-top:1px solid var(--rule);margin-top:60px;padding-top:26px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}.navcard{font-family:var(--mono);font-size:13px}.navcard .k{display:block;color:var(--faint);font-size:11px;letter-spacing:.15em;text-transform:uppercase;margin-bottom:5px}.navcard.next{text-align:right;margin-left:auto}.navcard .ti{color:var(--bone)}
+@media(max-width:700px){.cards{grid-template-columns:1fr}.pathrow{grid-template-columns:1fr}.pathrow .arrow{text-align:left;transform:rotate(90deg);width:24px}.mountpair{grid-template-columns:1fr}.mountpair .middle b{transform:rotate(90deg)}td:first-child{word-break:break-word}}
+@media(prefers-reduced-motion:no-preference){.wrap>*{animation:rise .45s ease both}@keyframes rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}}
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-31-layer-caching-hygiene.html">← Lesson 31</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-33-networking-netns-veth-bridge-dnat.html">Lesson 33 →</a></span></nav>
+<div class="wrap">
+<header class="top">
+  <div class="course-tag">Part V · Runtime concerns</div>
+  <div class="lesson-no">32</div>
+  <span class="pill">CORE</span>
+  <h1>Volumes, bind mounts &amp; tmpfs</h1>
+  <p class="dek">One container path can point to four different storage places. Once that relationship is clear, the three Docker mount types stop looking like unrelated features.</p>
+</header>
+
+<section class="oneline">
+  <span class="lbl">The governing idea</span>
+  <p><strong>Mounting at <code class="inl">/data</code> changes what storage the path <code class="inl">/data</code> refers to.</strong></p>
+</section>
+
+<p class="plain"><b>How to read this lesson:</b> do not begin by memorizing “volume, bind, tmpfs.” First follow one path—<code class="inl">/data</code>. We will ask the same question every time: <strong>what does this path point to now?</strong></p>
+
+<div class="concept"><span class="num">1</span> Before any mount</div>
+<h2><code class="inl">/data</code> is initially part of the container root filesystem</h2>
+<p>Suppose the image contains a file at <code class="inl">/data/default.txt</code>. When the container starts with no extra mount, the path is resolved through the image layers plus the container’s writable OverlayFS layer from Lesson 15.</p>
+
+<div class="pathmap">
+  <div class="pathrow"><div class="kind">no extra mount</div><div class="arrow">→</div><div class="target">container root filesystem<span class="desc">Image layers underneath; the container’s writable layer on top.</span></div></div>
+</div>
+
+<p>If the process writes <code class="inl">/data/new.txt</code>, that file belongs to the container’s writable layer. It is tied to that container, and it uses copy-on-write storage.</p>
+
+<aside class="note"><b>Connection to Lesson 15.</b> This is the normal root filesystem path. A large, frequently modified database file here may trigger OverlayFS copy-up and grows the container’s writable layer. Mounts give the path a different backing store.</aside>
+
+<div class="concept"><span class="num">2</span> What a mount changes</div>
+<h2>A mount covers the old view and places another filesystem view at the same path</h2>
+<p>A Linux mount has two sides:</p>
+
+<div class="mountpair">
+  <div class="box"><strong>source</strong><span>The storage or filesystem view being attached.</span></div>
+  <div class="middle"><b>→</b>mounted at</div>
+  <div class="box"><strong>destination</strong><span>The path inside the container, such as <code class="inl">/data</code>.</span></div>
+</div>
+
+<p>After the mount is installed, a lookup of <code class="inl">/data/file.txt</code> crosses the mount point and continues inside the mounted source. It no longer continues into the image directory that used to be visible at <code class="inl">/data</code>.</p>
+
+<div class="pathmap">
+  <div class="pathrow"><div class="kind">no mount</div><div class="arrow">→</div><div class="target">image + container writable layer</div></div>
+  <div class="pathrow"><div class="kind">bind mount</div><div class="arrow">→</div><div class="target">a path already present on the daemon host</div></div>
+  <div class="pathrow"><div class="kind">volume</div><div class="arrow">→</div><div class="target">storage located through a Docker volume driver</div></div>
+  <div class="pathrow"><div class="kind">tmpfs</div><div class="arrow">→</div><div class="target">a new temporary filesystem created by the kernel</div></div>
+</div>
+
+<div class="keybox"><div class="h">Nothing underneath was deleted</div><p>If a mount hides <code class="inl">/data/default.txt</code>, the image still contains the file. Recreate the container without that mount and the image file becomes visible again.</p></div>
+
+<p>The OCI Runtime Specification expresses this with mount entries containing a <code class="inl">destination</code>, a <code class="inl">source</code> when needed, a filesystem <code class="inl">type</code>, and <code class="inl">options</code>. <span class="srcref">runtime-spec v1.3.0 · config.md · POSIX-platform mounts</span></p>
+
+<div class="concept"><span class="num">3</span> Bind mount</div>
+<h2><code class="inl">/data</code> points directly to a host path that you selected</h2>
+
+<div class="terminal"><div class="tab">bind a host directory</div><pre>docker run --rm \
+  --mount type=bind,src=/srv/mydata,dst=/data \
+  alpine</pre></div>
+
+<p>The relationship is direct:</p>
+
+<div class="mountpair">
+  <div class="box"><strong>daemon host</strong><span><code class="inl">/srv/mydata</code></span></div>
+  <div class="middle"><b>→</b>bind-mounted at</div>
+  <div class="box"><strong>container</strong><span><code class="inl">/data</code></span></div>
+</div>
+
+<p>If the container creates <code class="inl">/data/report.txt</code>, the daemon host sees <code class="inl">/srv/mydata/report.txt</code>. Both paths are views of the same underlying files.</p>
+
+<h3>Who owns and chooses the location?</h3>
+<p>You do. Docker does not create a separate storage object with its own identity. It records the source path and makes that host path available at the destination.</p>
+
+<h3>Which host?</h3>
+<p>The source path belongs to the machine running the Docker daemon—not necessarily the machine running the CLI. With a remote Docker context, <code class="inl">src=/srv/mydata</code> refers to <code class="inl">/srv/mydata</code> on the remote daemon host. This follows directly from Lesson 3’s client/daemon split.</p>
+
+<h3>Why bind mounts need care</h3>
+<p>They are writable by default. A container can modify or delete host files through the mount. Use <code class="inl">readonly</code> when the process only needs to read:</p>
+
+<div class="terminal"><div class="tab">read-only bind</div><pre>docker run --rm \
+  --mount type=bind,src=/srv/config,dst=/app/config,readonly \
+  IMAGE</pre></div>
+
+<aside class="correction"><span class="lbl">A practical syntax difference</span><p>With legacy <code class="inl">-v /missing:/data</code>, Docker historically creates a missing host path as a directory. With explicit <code class="inl">--mount type=bind</code>, the source normally must already exist unless <code class="inl">bind-create-src</code> is requested. The source preserves this compatibility split in <span class="srcref">Moby 29.6.2 · daemon/volumes.go</span> and <span class="srcref">daemon/volume/mounts/mounts.go · MountPoint.Setup</span>.</p></aside>
+
+<div class="concept"><span class="num">4</span> Docker volume</div>
+<h2><code class="inl">/data</code> points to storage that Docker resolves through a volume driver</h2>
+
+<div class="terminal"><div class="tab">create and use a named volume</div><pre>docker volume create mydata
+
+docker run --rm \
+  --mount type=volume,src=mydata,dst=/data \
+  alpine</pre></div>
+
+<p>This time you did not provide a host pathname. You provided a volume name: <code class="inl">mydata</code>.</p>
+
+<div class="flow">
+  <div class="row"><div class="n">1</div><div><div class="t">dockerd looks up or creates <code class="inl">mydata</code></div><div class="d">The volume service records the object and the driver responsible for it.</div></div></div>
+  <div class="row"><div class="n">2</div><div><div class="t">dockerd asks the volume driver for a usable path</div><div class="d">For the default local driver, the data directory is a Docker-managed <code class="inl">_data</code> path under the daemon’s volume root. Other drivers may mount NFS, block storage, or plugin-provided storage there.</div></div></div>
+  <div class="row"><div class="n">3</div><div><div class="t">dockerd places that resolved path into the OCI mount list</div><div class="d">The high-level object called “volume” has now been translated into a concrete source path.</div></div></div>
+  <div class="row"><div class="n">4</div><div><div class="t">runc installs the mount at <code class="inl">/data</code></div><div class="d">The process sees the driver’s storage through an ordinary mounted path.</div></div></div>
+</div>
+
+<aside class="correction"><span class="lbl">Source-over-folklore correction</span><p>A Docker volume is a real Docker-managed storage object, but it is <strong>not a special OCI mount type understood by runc</strong>. Moby resolves the volume to a source path. In <span class="srcref">daemon/oci_linux.go · withMounts</span>, tmpfs stays <code class="inl">type: "tmpfs"</code>, while ordinary user mounts—including resolved volume paths—are emitted as OCI bind mounts.</p></aside>
+
+<h3>Where does the default local volume live?</h3>
+<p>The local driver constructs a directory whose data component is named <code class="inl">_data</code>. On a conventional rootful Linux Engine using the default data root, it commonly appears as:</p>
+
+<div class="terminal"><div class="tab">typical local-driver path</div><pre>/var/lib/docker/volumes/mydata/_data</pre></div>
+
+<p>Do not hard-code that path into applications. Docker’s data root can move, rootless mode uses a different location, and a non-local driver may not map to a permanent local directory at all. Use <code class="inl">docker volume inspect mydata</code> when inspecting it.</p>
+
+<h3>Named versus anonymous</h3>
+<table>
+  <thead><tr><th>Form</th><th>How identity is chosen</th><th>Example</th></tr></thead>
+  <tbody>
+    <tr><td>named</td><td>You choose a stable name.</td><td><code class="inl">src=mydata</code></td></tr>
+    <tr><td>anonymous</td><td>Docker generates the volume identifier.</td><td><code class="inl">--mount type=volume,dst=/data</code></td></tr>
+  </tbody>
+</table>
+<p>Both use the same volume-service and volume-driver mechanism. The main difference is how easily you can identify and manage the object later.</p>
+
+<div class="concept"><span class="num">5</span> tmpfs</div>
+<h2><code class="inl">/data</code> points to a fresh temporary filesystem</h2>
+
+<div class="terminal"><div class="tab">mount a bounded tmpfs</div><pre>docker run --rm \
+  --mount type=tmpfs,dst=/data,tmpfs-size=64m \
+  alpine</pre></div>
+
+<p>A tmpfs has no pre-existing source directory and no Docker volume object. The OCI entry names the filesystem type <code class="inl">tmpfs</code>; runc asks the Linux kernel to mount a new tmpfs at the destination. <span class="srcref">runc v1.3.6 · libcontainer/rootfs_linux.go · mountToRootfs</span></p>
+
+<div class="mountpair">
+  <div class="box"><strong>kernel</strong><span>creates a new tmpfs instance</span></div>
+  <div class="middle"><b>→</b>mounted at</div>
+  <div class="box"><strong>container</strong><span><code class="inl">/data</code></span></div>
+</div>
+
+<p>Its contents live in the kernel’s virtual-memory-backed filesystem and may consume RAM and swap. When the mount is destroyed, the files disappear. A new container gets a new, empty tmpfs.</p>
+
+<aside class="note"><b>Use case.</b> tmpfs is useful for temporary state that must not enter the image writable layer or persist on disk as ordinary container storage—for example transient caches, scratch files, or sensitive short-lived data. It is not durable storage.</aside>
+
+<div class="checkpoint"><div class="h">First-read checkpoint</div><p>At this point, keep only this map: <strong>bind = your host path; volume = Docker/driver-resolved storage; tmpfs = a new temporary kernel filesystem.</strong> All three change what the destination path points to.</p></div>
+
+<div class="concept"><span class="num">6</span> Why existing image files can disappear—or be copied</div>
+<h2>Mounting normally hides the old directory; Docker volumes add one special population step</h2>
+
+<p>Return to the image that contains:</p>
+
+<div class="terminal"><div class="tab">inside the image before any mount</div><pre>/data/default.txt</pre></div>
+
+<h3>Empty bind mount</h3>
+<p>If an empty host directory is bind-mounted at <code class="inl">/data</code>, the container sees the empty host directory. The image’s <code class="inl">default.txt</code> is covered and hidden. Docker does not copy it into the host directory.</p>
+
+<h3>Fresh tmpfs</h3>
+<p>A fresh tmpfs also begins empty. It covers the image directory; it does not inherit the image’s files.</p>
+
+<h3>New Docker volume</h3>
+<p>Volumes have a Docker-specific convenience behavior. During container creation, if volume copying is enabled, dockerd copies the existing directory content from the container root filesystem into the volume before the process starts.</p>
+
+<div class="flow">
+  <div class="row"><div class="n">1</div><div><div class="t">Image root has <code class="inl">/data/default.txt</code></div><div class="d">The file exists in the unpacked image view.</div></div></div>
+  <div class="row"><div class="n">2</div><div><div class="t">dockerd prepares the new volume</div><div class="d">It obtains the volume’s writable source path from the driver.</div></div></div>
+  <div class="row"><div class="n">3</div><div><div class="t">dockerd populates the volume</div><div class="d">It copies the image directory contents into the volume.</div></div></div>
+  <div class="row"><div class="n">4</div><div><div class="t">the volume is mounted at <code class="inl">/data</code></div><div class="d">The file you see now is the copy stored in the volume—not the hidden image file underneath.</div></div></div>
+</div>
+
+<p>The implementation is explicit in <span class="srcref">Moby 29.6.2 · daemon/create_unix.go · populateVolumes / populateVolume</span>: it applies to mount points of type volume with <code class="inl">CopyData</code> enabled and is called when the container is created.</p>
+
+<p>Disable this behavior with:</p>
+
+<div class="terminal"><div class="tab">do not populate the volume</div><pre>docker run --rm \
+  --mount type=volume,src=mydata,dst=/data,volume-nocopy \
+  IMAGE</pre></div>
+
+<aside class="correction"><span class="lbl">Do not confuse two different “copy” mechanisms</span><p>OverlayFS <strong>copy-up</strong> copies a lower-layer file into the container’s writable upper layer when it is modified. Volume <strong>population</strong> is a dockerd operation that copies an image directory into a Docker volume during container creation. They solve different problems and happen in different components.</p></aside>
+
+<div class="concept"><span class="num">7</span> Lifetime and persistence</div>
+<h2>Unmounting a storage source and deleting that source are separate actions</h2>
+
+<table>
+  <thead><tr><th>Mount type</th><th>When container stops/removes</th><th>What remains?</th></tr></thead>
+  <tbody>
+    <tr><td>bind</td><td>The bind mount is removed from the container.</td><td>The host files remain because they were ordinary host files.</td></tr>
+    <tr><td>named volume</td><td>The mount is released.</td><td>The separate volume object normally remains until explicitly removed.</td></tr>
+    <tr><td>anonymous volume</td><td>The mount is released.</td><td>Removal depends on container-removal options such as <code class="inl">--rm</code> or <code class="inl">docker rm -v</code>.</td></tr>
+    <tr><td>tmpfs</td><td>The tmpfs is unmounted.</td><td>Its contents are gone.</td></tr>
+  </tbody>
+</table>
+
+<p>The Moby volume service rejects removal while a volume is still referenced, and the local driver tracks active mounts separately from the volume’s underlying data directory. <span class="srcref">daemon/volume/service/service.go · Remove</span> · <span class="srcref">daemon/volume/local/local.go · Mount / Unmount / Remove</span></p>
+
+<div class="keybox"><div class="h">Precise persistence rule</div><p>A volume is not durable because “the container filesystem survives.” It is durable because the volume is a separate storage object whose lifetime is managed separately from the container.</p></div>
+
+<div class="concept"><span class="num">8</span> Real execution order</div>
+<h2>Who performs each step?</h2>
+
+<div class="flow">
+  <div class="row"><div class="n">1</div><div><div class="t">Docker CLI sends a mount request</div><div class="d"><code class="inl">type</code>, source/name, destination, read-only flag, and type-specific options go to dockerd over the Engine API.</div></div></div>
+  <div class="row"><div class="n">2</div><div><div class="t">dockerd resolves the high-level source</div><div class="d">For a bind, it validates the daemon-host path. For a volume, it creates/gets the object and asks the driver to mount it. For tmpfs, there is no source path to resolve.</div></div></div>
+  <div class="row"><div class="n">3</div><div><div class="t">dockerd constructs OCI mount entries</div><div class="d">The mount destination and concrete source/type/options enter the runtime specification.</div></div></div>
+  <div class="row"><div class="n">4</div><div><div class="t">containerd and the shim carry the spec to runc</div><div class="d">They do not invent the Docker volume abstraction; the source has already been resolved by dockerd.</div></div></div>
+  <div class="row"><div class="n">5</div><div><div class="t">runc asks the kernel to install the mounts</div><div class="d">runc safely resolves the destination inside the container root, then performs bind/tmpfs mounting before the user process starts.</div></div></div>
+</div>
+
+<p>This is the component boundary to remember:</p>
+
+<div class="pathmap">
+  <div class="pathrow"><div class="kind">dockerd</div><div class="arrow">→</div><div class="target">understands Docker volume names, drivers, population, and lifecycle</div></div>
+  <div class="pathrow"><div class="kind">runc</div><div class="arrow">→</div><div class="target">understands concrete OCI mount entries and performs kernel mount operations</div></div>
+  <div class="pathrow"><div class="kind">kernel</div><div class="arrow">→</div><div class="target">provides bind mounting, tmpfs, path lookup, permissions, and mount namespaces</div></div>
+</div>
+
+<div class="concept"><span class="num">9</span> Choosing the right source</div>
+<h2>Choose by ownership, portability, and lifetime</h2>
+
+<div class="cards">
+  <div class="card"><h3>Bind mount</h3><div class="where">You own the path</div><p>Best when the container must directly use a known host directory: source code, local configuration, or host-generated files. Host-coupled and potentially dangerous when writable.</p></div>
+  <div class="card"><h3>Volume</h3><div class="where">Docker/driver owns placement</div><p>Best for persistent application data whose lifecycle should be managed independently of one container: databases, queues, or shared service state.</p></div>
+  <div class="card"><h3>tmpfs</h3><div class="where">Kernel owns temporary instance</div><p>Best for disposable runtime data that should vanish when the mount disappears and should not enter the container writable layer.</p></div>
+</div>
+
+<table>
+  <thead><tr><th>Question</th><th>Bind</th><th>Volume</th><th>tmpfs</th></tr></thead>
+  <tbody>
+    <tr><td>Who selects storage?</td><td>You name a host path.</td><td>Docker asks a driver.</td><td>Kernel creates it.</td></tr>
+    <tr><td>Durable?</td><td>Host files persist.</td><td>Yes, until volume removal.</td><td>No.</td></tr>
+    <tr><td>Portable across hosts?</td><td>Low; exact path must exist.</td><td>Higher abstraction; driver-dependent.</td><td>No data to move.</td></tr>
+    <tr><td>Typical use</td><td>Development source/config.</td><td>Application data.</td><td>Scratch and sensitive transient files.</td></tr>
+  </tbody>
+</table>
+
+<div class="concept"><span class="num">10</span> Inspect it yourself</div>
+<h2>Observe the same image through four different <code class="inl">/data</code> backings</h2>
+
+<p>Create a small image whose <code class="inl">/data</code> directory already contains a file:</p>
+
+<div class="terminal"><div class="tab">build the demonstration image</div><pre>mkdir -p lesson32-demo
+cd lesson32-demo
+
+cat &gt; Dockerfile &lt;&lt;'EOF'
+FROM alpine:3.21
+RUN mkdir -p /data \
+ &amp;&amp; echo "from the image" &gt; /data/default.txt
+CMD ["sh", "-c", "ls -la /data; echo '---'; cat /data/default.txt 2&gt;/dev/null || true"]
+EOF
+
+docker build -t lesson32-mounts .</pre></div>
+
+<h3>A. No mount: see the image directory</h3>
+<div class="terminal"><div class="tab">normal container rootfs</div><pre>docker run --rm lesson32-mounts
+
+<span class="o"># default.txt is visible from the image.</span></pre></div>
+
+<h3>B. Empty bind: the image directory is hidden</h3>
+<div class="terminal"><div class="tab">bind mount</div><pre>mkdir -p host-data
+
+docker run --rm \
+  --mount type=bind,src="$PWD/host-data",dst=/data \
+  lesson32-mounts
+
+<span class="o"># /data is the empty host-data directory.</span>
+<span class="o"># default.txt still exists in the image, but the mount covers it.</span></pre></div>
+
+<h3>C. New volume: Docker populates it</h3>
+<div class="terminal"><div class="tab">volume population</div><pre>docker volume rm lesson32-data 2&gt;/dev/null || true
+
+docker run --rm \
+  --mount type=volume,src=lesson32-data,dst=/data \
+  lesson32-mounts
+
+<span class="o"># default.txt appears because dockerd copied it into the new volume.</span>
+
+docker run --rm \
+  --mount type=volume,src=lesson32-data,dst=/data \
+  alpine sh -c 'echo "written in volume" &gt; /data/persistent.txt'
+
+docker run --rm \
+  --mount type=volume,src=lesson32-data,dst=/data \
+  alpine cat /data/persistent.txt</pre></div>
+
+<h3>D. tmpfs: fresh and temporary</h3>
+<div class="terminal"><div class="tab">tmpfs lifetime</div><pre>docker run --rm \
+  --mount type=tmpfs,dst=/data,tmpfs-size=16m \
+  alpine sh -c 'echo temporary &gt; /data/value; cat /data/value'
+
+docker run --rm \
+  --mount type=tmpfs,dst=/data,tmpfs-size=16m \
+  alpine sh -c 'test ! -e /data/value &amp;&amp; echo "new tmpfs is empty"'</pre></div>
+
+<h3>E. Inspect what dockerd recorded</h3>
+<div class="terminal"><div class="tab">mount metadata</div><pre>docker create --name lesson32-check \
+  --mount type=volume,src=lesson32-data,dst=/data \
+  alpine sleep 60
+
+docker inspect lesson32-check \
+  --format '{{json .Mounts}}'
+docker volume inspect lesson32-data
+
+docker rm lesson32-check
+docker volume rm lesson32-data
+rm -rf host-data</pre></div>
+
+<p>For a running container on Linux, you can also inspect the kernel’s view:</p>
+
+<div class="terminal"><div class="tab">kernel mount table from inside</div><pre>docker run --rm \
+  --mount type=tmpfs,dst=/data,tmpfs-size=16m \
+  alpine sh -c 'grep " /data " /proc/self/mountinfo'</pre></div>
+
+<div class="recap">
+  <h3>Check yourself</h3>
+  <ul>
+    <li>Without an extra mount, <code class="inl">/data</code> belongs to the image plus the container writable layer.</li>
+    <li>A mount does not delete the old directory; it covers that view with another source.</li>
+    <li>A bind mount uses a path chosen on the <strong>daemon host</strong>.</li>
+    <li>A volume is a Docker-managed object resolved through a driver, then normally passed to runc as a concrete bind-mount source.</li>
+    <li>A tmpfs is a fresh kernel filesystem whose contents vanish when it is unmounted.</li>
+    <li>Docker’s volume population is a daemon feature; it is not ordinary mount behavior and is not OverlayFS copy-up.</li>
+    <li>Storage lifetime is separate from mount lifetime: unmounting a named volume does not itself delete the volume.</li>
+  </ul>
+</div>
+
+<aside class="correction"><span class="lbl">Final correction</span><p>“Use a volume because it lives outside the container” is too vague. All three sources are mounted into the container’s mount namespace. The useful distinction is <strong>what object backs the destination path, who selects and manages that object, and how long that object’s data survives.</strong></p></aside>
+
+<details class="sources">
+  <summary>Primary-source anchors used for this lesson</summary>
+  <div class="inside">
+    <ul>
+      <li><code>opencontainers/runtime-spec v1.3.0 · config.md · POSIX-platform Mounts</code> — destination, source, type, options, bind and tmpfs examples.</li>
+      <li><code>moby/moby docker-v29.6.2 · daemon/volumes.go · registerMountPoints</code> — bind/volume parsing, volume creation, resolved mountpoint paths, tmpfs pass-through, and bind source creation policy.</li>
+      <li><code>moby/moby docker-v29.6.2 · daemon/volume/mounts/mounts.go · MountPoint.Setup/Cleanup</code> — volume-driver mounting, bind source setup, reference counting, and cleanup.</li>
+      <li><code>moby/moby docker-v29.6.2 · daemon/oci_linux.go · withMounts</code> — translation to OCI tmpfs and bind mount entries.</li>
+      <li><code>moby/moby docker-v29.6.2 · daemon/create_unix.go · populateVolumes/populateVolume</code> — volume population from the container image at create time.</li>
+      <li><code>moby/moby docker-v29.6.2 · daemon/volume/local/local.go</code> — <code>_data</code> storage path, Mount/Unmount, and active mount tracking.</li>
+      <li><code>moby/moby docker-v29.6.2 · daemon/volume/service/service.go · Remove</code> — rejection of removal while a volume is referenced.</li>
+      <li><code>opencontainers/runc v1.3.6 · libcontainer/rootfs_linux.go · mountToRootfs</code> — runtime handling of tmpfs and bind mounts.</li>
+    </ul>
+  </div>
+</details>
+
+<div class="xrefs">
+  <span class="xref"><b>back →</b> Lesson 15 · OverlayFS &amp; copy-on-write</span>
+  <span class="xref"><b>back →</b> Lesson 21 · runtime-spec config.json</span>
+  <span class="xref"><b>forward →</b> Lesson 33 · Networking I</span>
+</div>
+
+<footer class="nav">
+  <div class="navcard"><span class="k">Previous</span><span class="ti">31 · Layer caching &amp; hygiene</span></div>
+  <div class="navcard next"><span class="k">Next</span><span class="ti">33 · Networking I: netns, veth, bridge &amp; DNAT</span></div>
+</footer>
+</div>
+</body>
+</html>

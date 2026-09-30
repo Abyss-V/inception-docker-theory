@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 37 — Healthchecks, restart policies, resource limits, non-root</title>
+<style>
+:root{--ink:#0e1116;--panel:#161b22;--well:#0a0d12;--bone:#e9e4d7;--dim:#9aa4b2;--faint:#6b7482;--rule:#262d38;--gold:#e0b155;--gold-dim:#7a6636;--teal:#5ac4b4;--teal-dim:#2f5f59;--rose:#d76d7f;--rose-dim:#6e3540;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--serif:"Iowan Old Style",Charter,Georgia,Cambria,serif}
+*{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;background:var(--ink);color:var(--bone);font:18px/1.72 var(--serif)} .wrap{max-width:760px;margin:auto;padding:24px}
+header{padding:32px 0 20px;border-bottom:1px solid var(--rule)} .eyebrow{font:12px var(--mono);color:var(--gold);letter-spacing:.12em;text-transform:uppercase}
+h1{font-size:44px;line-height:1.05;margin:.35rem 0 1rem} .deck{color:#cfc8b8;max-width:52rem} .pill{display:inline-block;border:1px solid var(--teal-dim);color:var(--teal);font:12px var(--mono);padding:4px 8px;border-radius:999px}
+section{padding:28px 0;border-bottom:1px solid rgba(255,255,255,.04)} h2{font-size:30px;line-height:1.2;margin:0 0 14px} h3{font-size:22px;line-height:1.3;margin:24px 0 10px} p,li{color:var(--bone)} .dim{color:var(--dim)} strong{color:#f4f0e6}
+code,pre{font-family:var(--mono)} code{background:#11161d;border:1px solid #2b3440;border-radius:6px;padding:1px 5px;color:#f2d493} pre{background:var(--well);border:1px solid var(--rule);border-radius:12px;padding:14px;overflow:auto;color:#d8e0e7;line-height:1.55}
+.note,.warn,.idea,.inspect{padding:16px 18px;border-radius:14px;border:1px solid var(--rule);margin:16px 0}.idea{border-left:4px solid var(--teal);background:#101a1a}.note{border-left:4px solid var(--gold);background:#17140e}.warn{border-left:4px solid var(--rose);background:#1a1013}.inspect{border-left:4px solid var(--teal);background:#0f1717}
+.label{font:12px var(--mono);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}.idea .label,.inspect .label{color:var(--teal)}.note .label{color:var(--gold)}.warn .label{color:var(--rose)}
+.table{width:100%;border-collapse:collapse;margin:14px 0}.table th,.table td{border-bottom:1px solid var(--rule);padding:10px;vertical-align:top}.table th{font:12px var(--mono);color:var(--gold);text-align:left}.table td:first-child{white-space:nowrap}
+.figure{background:var(--panel);border:1px solid var(--rule);border-radius:16px;padding:18px;margin:18px 0}.caption{color:var(--dim);font-size:15px;margin-top:10px}.small{font-size:15px;color:var(--dim)}.src{color:var(--gold);font:13px/1.55 var(--mono)}
+details{background:#12171e;border:1px solid var(--rule);border-radius:12px;padding:12px 14px;margin-top:10px} summary{cursor:pointer;color:var(--gold);font-family:var(--mono)} a{color:var(--teal);text-decoration-color:var(--teal-dim)}
+.kicker{font:13px var(--mono);color:var(--teal);letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px}.hop{display:grid;grid-template-columns:38px 1fr;gap:12px;margin:18px 0}.hopn{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--teal-dim);color:var(--teal);font:13px var(--mono)}.hop h3{margin:1px 0 6px}.crumbs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0}.crumb{font:12px var(--mono);padding:5px 8px;border:1px solid var(--rule);border-radius:999px;color:var(--dim)}
+.nav{display:flex;justify-content:space-between;gap:12px;padding-top:22px}.nav a{display:block;border:1px solid var(--teal-dim);border-radius:12px;padding:10px 12px;text-decoration:none;font:13px var(--mono)}
+@media(max-width:650px){h1{font-size:36px}.wrap{padding:18px}.table{font-size:15px}.table td:first-child{white-space:normal}.figure{padding:12px}}
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-36-config-secrets.html">← Lesson 36</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-38-checkpoint-restore-criu.html">Lesson 38 →</a></span></nav>
+<div class="wrap">
+<header>
+  <div class="eyebrow">Part 5 · Runtime concerns · Lesson 37 of 46</div>
+  <h1>Healthchecks, restart policies, resource limits, non-root</h1>
+  <div class="pill">CORE</div>
+  <p class="deck">Four runtime controls, one execution pipeline. We will follow <strong>health results</strong>, <strong>exit events</strong>, <strong>resource numbers</strong>, and <strong>UID/GID values</strong> from the Docker CLI through the responsible components until each reaches the place where it actually matters.</p>
+</header>
+
+<section>
+  <div class="idea">
+    <div class="label">governing idea</div>
+    <p>These features do four different jobs. A healthcheck <strong>observes</strong> a running container. A restart policy <strong>reacts to the main task exiting</strong>. Resource limits become <strong>kernel cgroup policy</strong>. A non-root setting becomes <strong>process credentials</strong>. Understanding them means following the correct object to its final owner.</p>
+  </div>
+  <div class="note">
+    <div class="label">pinned source baseline</div>
+    <p>Docker Engine / Docker CLI <strong>29.6.2</strong> · containerd <strong>2.2.6</strong> · runc <strong>1.3.6</strong> · OCI runtime-spec <strong>1.3.0</strong> · OCI image-spec <strong>1.1.1</strong> · Linux <strong>6.18</strong>. runc 1.3.6 pins <code>opencontainers/cgroups v0.0.4</code>, so that dependency is the authoritative cgroup-v2 writer used below.</p>
+  </div>
+
+  <div class="figure">
+    <svg viewBox="0 0 1000 665" width="100%" role="img" aria-label="Lesson 37 pipeline overview with healthcheck, restart, resource and non-root paths">
+      <defs>
+        <style>.box{fill:#0f141a;stroke:#33404d;stroke-width:2}.t{fill:#e9e4d7;font:14px ui-monospace,monospace}.s{fill:#9aa4b2;font:12px ui-monospace,monospace}.g{fill:#e0b155;font:12px ui-monospace,monospace}.a{stroke:#5ac4b4;stroke-width:3;fill:none;marker-end:url(#m)}.r{stroke:#d76d7f;stroke-width:3;fill:none;marker-end:url(#mr)}</style>
+        <marker id="m" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5ac4b4"/></marker>
+        <marker id="mr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#d76d7f"/></marker>
+      </defs>
+      <text class="g" x="18" y="24">START: docker run / container start</text>
+      <rect class="box" x="20" y="44" width="135" height="58" rx="12"/><text class="t" x="87" y="68" text-anchor="middle">Docker CLI</text><text class="s" x="87" y="85" text-anchor="middle">flags / API fields</text>
+      <line class="a" x1="155" y1="73" x2="205" y2="73"/>
+      <rect class="box" x="205" y="44" width="135" height="58" rx="12"/><text class="t" x="272" y="68" text-anchor="middle">dockerd</text><text class="s" x="272" y="85" text-anchor="middle">container config</text>
+      <line class="a" x1="340" y1="73" x2="390" y2="73"/>
+      <rect class="box" x="390" y="44" width="145" height="58" rx="12"/><text class="t" x="462" y="68" text-anchor="middle">containerd</text><text class="s" x="462" y="85" text-anchor="middle">container + task</text>
+      <line class="a" x1="535" y1="73" x2="585" y2="73"/>
+      <rect class="box" x="585" y="44" width="115" height="58" rx="12"/><text class="t" x="642" y="68" text-anchor="middle">shim</text><text class="s" x="642" y="85" text-anchor="middle">task lifetime</text>
+      <line class="a" x1="700" y1="73" x2="750" y2="73"/>
+      <rect class="box" x="750" y="44" width="100" height="58" rx="12"/><text class="t" x="800" y="68" text-anchor="middle">runc</text><text class="s" x="800" y="85" text-anchor="middle">create/start</text>
+      <line class="a" x1="850" y1="73" x2="900" y2="73"/>
+      <rect class="box" x="900" y="44" width="80" height="58" rx="12"/><text class="t" x="940" y="68" text-anchor="middle">kernel</text><text class="s" x="940" y="85" text-anchor="middle">live state</text>
+
+      <text class="t" x="20" y="150">A. health result moves back to dockerd</text>
+      <rect class="box" x="205" y="166" width="135" height="54" rx="12"/><text class="t" x="272" y="188" text-anchor="middle">dockerd timer</text><text class="s" x="272" y="205" text-anchor="middle">launch probe exec</text>
+      <line class="a" x1="340" y1="193" x2="585" y2="193"/><rect class="box" x="585" y="166" width="115" height="54" rx="12"/><text class="t" x="642" y="188" text-anchor="middle">shim</text><text class="s" x="642" y="205" text-anchor="middle">exec process</text>
+      <line class="a" x1="700" y1="193" x2="900" y2="193"/><rect class="box" x="900" y="166" width="80" height="54" rx="12"/><text class="t" x="940" y="188" text-anchor="middle">probe</text><text class="s" x="940" y="205" text-anchor="middle">exit code</text>
+      <path class="a" d="M940 220 C940 255 300 255 272 220"/><text class="s" x="580" y="246" text-anchor="middle">exit code + bounded output → health state</text>
+
+      <text class="t" x="20" y="302">B. main task exit moves back; restart decision stays in dockerd</text>
+      <rect class="box" x="900" y="318" width="80" height="54" rx="12"/><text class="t" x="940" y="340" text-anchor="middle">PID 1</text><text class="s" x="940" y="357" text-anchor="middle">exits</text>
+      <path class="r" d="M900 345 C820 345 750 345 700 345"/><rect class="box" x="585" y="318" width="115" height="54" rx="12"/><text class="t" x="642" y="340" text-anchor="middle">shim</text><text class="s" x="642" y="357" text-anchor="middle">exit status</text>
+      <path class="r" d="M585 345 C500 345 390 345 340 345"/><rect class="box" x="205" y="318" width="135" height="54" rx="12"/><text class="t" x="272" y="340" text-anchor="middle">dockerd</text><text class="s" x="272" y="357" text-anchor="middle">ShouldRestart</text>
+      <path class="a" d="M272 372 C272 410 760 410 800 372"/><text class="s" x="535" y="402" text-anchor="middle">if yes: wait backoff → create/start a new task</text>
+
+      <text class="t" x="20" y="460">C. resource numbers move down until they become cgroup-v2 files</text>
+      <rect class="box" x="205" y="476" width="135" height="54" rx="12"/><text class="t" x="272" y="498" text-anchor="middle">dockerd</text><text class="s" x="272" y="515" text-anchor="middle">OCI linux.resources</text>
+      <line class="a" x1="340" y1="503" x2="750" y2="503"/><rect class="box" x="750" y="476" width="100" height="54" rx="12"/><text class="t" x="800" y="498" text-anchor="middle">runc</text><text class="s" x="800" y="515" text-anchor="middle">cgroup config</text>
+      <line class="a" x1="850" y1="503" x2="900" y2="503"/><rect class="box" x="900" y="468" width="80" height="70" rx="12"/><text class="t" x="940" y="490" text-anchor="middle">kernel</text><text class="s" x="940" y="507" text-anchor="middle">memory.max</text><text class="s" x="940" y="523" text-anchor="middle">cpu.max …</text>
+
+      <text class="t" x="20" y="575">D. user name/UID moves down until it becomes numeric process credentials</text>
+      <rect class="box" x="205" y="590" width="135" height="54" rx="12"/><text class="t" x="272" y="612" text-anchor="middle">dockerd</text><text class="s" x="272" y="629" text-anchor="middle">resolve UID/GID</text>
+      <line class="a" x1="340" y1="617" x2="750" y2="617"/><rect class="box" x="750" y="590" width="100" height="54" rx="12"/><text class="t" x="800" y="612" text-anchor="middle">runc</text><text class="s" x="800" y="629" text-anchor="middle">setgid/setuid</text>
+      <line class="a" x1="850" y1="617" x2="900" y2="617"/><rect class="box" x="900" y="590" width="80" height="54" rx="12"/><text class="t" x="940" y="612" text-anchor="middle">kernel</text><text class="s" x="940" y="629" text-anchor="middle">cred struct</text>
+    </svg>
+    <div class="caption">The four controls share the start pipeline, then terminate in different owners: health state in <code>dockerd</code>, restart decisions in <code>dockerd</code>, resource enforcement in the Linux kernel, and process credentials in the Linux kernel.</div>
+  </div>
+</section>
+
+<section>
+  <div class="kicker">first define the four nouns</div>
+  <h2>1. What each control actually controls</h2>
+  <p><strong>Healthcheck.</strong> A command periodically executed <em>inside an already running container</em> to produce an exit code and diagnostic output. Docker turns repeated results into a health status: <code>starting</code>, <code>healthy</code>, or <code>unhealthy</code>.</p>
+  <p><strong>Restart policy.</strong> Rules stored by <code>dockerd</code> telling it whether to create and start another task for the same container after the container's <strong>main task</strong> exits.</p>
+  <p><strong>Resource limit.</strong> A request such as “at most 256 MiB memory” or “average at most 1.5 CPUs.” The request begins as Docker configuration, but the live enforcement mechanism is a Linux cgroup controller.</p>
+  <p><strong>Non-root.</strong> Running the container process with a numeric user ID and group ID other than 0. This changes the process's Linux credentials. It is <em>not</em>, by itself, a user namespace.</p>
+  <div class="warn"><div class="label">do not merge these ideas</div><p>An unhealthy container can keep running forever. A healthy container can exit and be restarted. A non-root process can still be resource-limited. A restart recreates the task but preserves the container's configured resource and user settings.</p></div>
+</section>
+
+<section>
+  <div class="kicker">whole start path</div>
+  <h2>2. Before any feature can act, its configuration has to reach the right layer</h2>
+  <p>Consider a deliberately busy command:</p>
+  <pre><code>docker run -d --name app \
+  --health-cmd='test -f /tmp/ready' \
+  --health-interval=5s --health-retries=2 \
+  --restart=on-failure:3 \
+  --memory=256m --memory-reservation=128m \
+  --cpus=1.5 --cpu-shares=1024 --pids-limit=64 \
+  --user=10001:10001 \
+  alpine sh -c 'sleep infinity'</code></pre>
+  <p>The flags look like one command, but they split into different data structures inside <code>dockerd</code>:</p>
+  <table class="table">
+    <tr><th>input</th><th>where <code>dockerd</code> keeps it</th><th>where it must finally matter</th></tr>
+    <tr><td>health flags</td><td>container <code>Config.Healthcheck</code></td><td><code>dockerd</code> health monitor + probe execs</td></tr>
+    <tr><td><code>--restart</code></td><td><code>HostConfig.RestartPolicy</code></td><td><code>dockerd</code> restart manager after task exit</td></tr>
+    <tr><td>CPU / memory / PIDs</td><td><code>HostConfig.Resources</code></td><td>OCI resource fields → runc → cgroup-v2 files → kernel controllers</td></tr>
+    <tr><td><code>--user</code></td><td>container <code>Config.User</code></td><td>numeric OCI <code>process.user</code> → runc → Linux credentials</td></tr>
+  </table>
+
+  <div class="hop"><div class="hopn">1</div><div><h3>Docker CLI sends configuration</h3><p>The Docker CLI parses the flags and sends container-create configuration to <code>dockerd</code>. The CLI is not the long-term monitor and does not enforce the limits.</p></div></div>
+  <div class="hop"><div class="hopn">2</div><div><h3><code>dockerd</code> stores Docker-level policy</h3><p>The health configuration, restart policy, resource request, and user string become persistent container configuration. This matters because a restart creates a <em>new task</em> from the same container configuration.</p></div></div>
+  <div class="hop"><div class="hopn">3</div><div><h3><code>dockerd</code> builds the OCI runtime spec</h3><p>At start, <code>daemon.createSpec</code> applies <code>WithResources</code> and <code>WithUser</code>. Resource numbers move into OCI <code>linux.resources</code>; the user string is resolved against the container root filesystem's user/group databases and becomes numeric OCI <code>process.user</code>.</p></div></div>
+  <div class="hop"><div class="hopn">4</div><div><h3>containerd and the shim carry the task request</h3><p><code>dockerd</code> replaces/creates the containerd container record, creates a task, then starts it. containerd's runtime-v2 path forwards task creation and start to the shim. This is the same task pipeline established in Lesson 23; here we care about the additional resource and credential fields riding through it.</p></div></div>
+  <div class="hop"><div class="hopn">5</div><div><h3>runc converts configuration into Linux state</h3><p>runc converts the OCI resource structure into its cgroup configuration, configures the cgroup, and sets the process credentials. Once the process is alive, the kernel—not <code>dockerd</code>—is scheduling CPU, charging memory, enforcing the PID ceiling, and checking process credentials on syscalls.</p></div></div>
+  <div class="hop"><div class="hopn">6</div><div><h3><code>dockerd</code> starts health monitoring only after the task starts</h3><p>After <code>tsk.Start</code> succeeds and the container state becomes running, <code>dockerd</code> calls <code>initHealthMonitor</code>. The health state begins at <code>starting</code>.</p></div></div>
+  <p class="src">Source anchors: Docker Engine 29.6.2 · <code>daemon/start.go::containerStart</code> · <code>daemon/oci_linux.go::createSpec</code>, <code>WithResources</code>, <code>WithUser</code>; containerd 2.2.6 · <code>client/task.go</code> and <code>core/runtime/v2/shim.go</code>; runc 1.3.6 · <code>libcontainer/specconv/spec_linux.go</code>.</p>
+</section>
+
+<section>
+  <div class="kicker">health path</div>
+  <h2>3. A healthcheck is an exec process, not a ping from outside</h2>
+  <p>Suppose the health command is:</p>
+  <pre><code>test -f /tmp/ready</code></pre>
+  <p>The object that moves is first an <strong>exec request</strong>, then an <strong>exit code plus bounded output</strong>.</p>
+
+  <div class="hop"><div class="hopn">1</div><div><h3><code>dockerd</code>'s timer expires</h3><p>The health monitor is a per-container goroutine owned by <code>dockerd</code>. It runs only while the container is running and not paused. There is never more than one health monitor for a container.</p></div></div>
+  <div class="hop"><div class="hopn">2</div><div><h3><code>dockerd</code> builds an exec configuration</h3><p>For <code>CMD</code>, the command is executed directly. For <code>CMD-SHELL</code>, <code>dockerd</code> prepends the configured shell; on Linux the fallback is <code>/bin/sh -c</code>. The probe is non-privileged, has no stdin, captures stdout/stderr, uses the container working directory, and—critically—uses <code>cntr.Config.User</code>.</p></div></div>
+  <div class="hop"><div class="hopn">3</div><div><h3>The exec travels through the existing task</h3><p><code>dockerd</code> starts the exec through containerd. containerd sends an exec-process request to the shim for the already-running task. The probe therefore runs inside the container's existing runtime context rather than starting a second container.</p></div></div>
+  <div class="hop"><div class="hopn">4</div><div><h3>The probe exits</h3><p>Exit code <code>0</code> means success. In this pinned implementation, every other result is treated as a failure. <code>dockerd</code> keeps at most 4096 bytes of combined probe output and at most five recent health log entries.</p></div></div>
+  <div class="hop"><div class="hopn">5</div><div><h3><code>dockerd</code> updates health state</h3><p>A success resets the failing streak to zero and sets <code>healthy</code>. A counted failure increments the streak. When the streak reaches <code>Retries</code>, the status becomes <code>unhealthy</code>. State transitions emit health-status events.</p></div></div>
+
+  <div class="note"><div class="label">primary-source checkpoint · Docker Engine 29.6.2 · daemon/health.go</div><p>The probe path explicitly sets <code>execConfig.User = cntr.Config.User</code>. The same file defines the health result buffer limit, log-entry limit, default timings, failure streak, and state transitions.</p></div>
+
+  <h3>The defaults are implementation behavior</h3>
+  <table class="table">
+    <tr><th>health field</th><th>default in the pinned Engine source</th><th>meaning</th></tr>
+    <tr><td>interval</td><td>30 s</td><td>normal delay between probe runs, and initial delay when no start period applies</td></tr>
+    <tr><td>timeout</td><td>30 s</td><td>maximum configured probe runtime after the exec has started</td></tr>
+    <tr><td>retries</td><td>3</td><td>consecutive counted failures before <code>unhealthy</code></td></tr>
+    <tr><td>start period</td><td>0</td><td>window in which failures are not counted while status is still <code>starting</code></td></tr>
+    <tr><td>start interval</td><td>5 s</td><td>probe cadence during the start period while still <code>starting</code></td></tr>
+  </table>
+
+  <div class="warn"><div class="label">source-over-folklore correction</div><p><code>start-period</code> is <strong>not a period with no healthchecks</strong>. Probes can run during it. While health state is still <code>starting</code>, failures inside that period do not increment the failing streak. A success immediately makes the container healthy.</p></div>
+
+  <h3>The health timeout has a subtle boundary</h3>
+  <p><code>dockerd</code> gives the exec-start operation its own hard 30-second startup timeout. The configured health <code>Timeout</code> starts only after the probe exec reports that it has actually started. That prevents slow <code>dockerd</code>/containerd exec setup time from being charged as probe runtime.</p>
+  <p class="src">Source anchor: Docker Engine 29.6.2 · <code>daemon/health.go::cmdProbe.run</code>, <code>handleProbeResult</code>, <code>monitor</code>, <code>initHealthMonitor</code>.</p>
+</section>
+
+<section>
+  <div class="kicker">separate state machines</div>
+  <h2>4. <code>unhealthy</code> does not mean <code>restart</code></h2>
+  <p>This relationship is load-bearing. A health failure is the exit of an <strong>exec process</strong>. Restart policy is evaluated for the exit of the container's <strong>main task</strong>.</p>
+  <div class="figure"><pre><code>health probe exits 1
+        ↓
+dockerd health monitor
+        ↓
+failing streak increases
+        ↓
+State.Health = unhealthy
+        ↓
+container main task is still running
+        ↓
+NO restart-policy decision yet
+
+main task later exits
+        ↓
+container exit path
+        ↓
+restart policy is evaluated</code></pre></div>
+  <p>This is why an application can remain <code>unhealthy</code> indefinitely under <code>--restart=always</code> if its main process never exits. The policy name says what to do after <strong>exit</strong>, not what to do after <strong>health failure</strong>.</p>
+  <div class="warn"><div class="label">source-over-folklore correction</div><p>Docker Engine does not contain a “restart when health becomes unhealthy” transition in the health path. The health code records state and events. The restart decision lives in the container-exit path.</p></div>
+</section>
+
+<section>
+  <div class="kicker">restart path</div>
+  <h2>5. What actually moves when a container restarts</h2>
+  <p>The moving object is an <strong>exit event/status</strong> on the way up, then a <strong>new task start request</strong> on the way back down.</p>
+
+  <div class="hop"><div class="hopn">1</div><div><h3>The main process exits in the kernel</h3><p>PID 1 for the container terminates with an exit status. The shim/containerd task machinery observes that task exit and makes the exit information available upstream.</p></div></div>
+  <div class="hop"><div class="hopn">2</div><div><h3><code>dockerd</code> enters <code>handleContainerExit</code></h3><p><code>dockerd</code> stops healthchecks for the old task, deletes the stopped task from containerd, records the exit code/time, and asks the container's restart manager whether another task should be started.</p></div></div>
+  <div class="hop"><div class="hopn">3</div><div><h3>The restart manager evaluates four inputs</h3><p>The decision uses the stored restart policy, exit code, whether the container was manually stopped, and how long the just-finished execution ran. The runtime duration affects <em>backoff</em>; it is not a separate “policy activation” test.</p></div></div>
+  <div class="hop"><div class="hopn">4</div><div><h3>If restart is selected, <code>dockerd</code> waits</h3><p>The restart manager starts with a 100 ms delay, doubles repeated-failure delays, and caps the delay at one minute. A run lasting at least 10 seconds resets that backoff so the next restart begins again at the default delay.</p></div></div>
+  <div class="hop"><div class="hopn">5</div><div><h3><code>dockerd</code> starts a new task for the same container</h3><p>The container object and container ID remain. <code>dockerd</code> calls the start pipeline again without resetting the restart manager. containerd creates a new task, the shim/runc path starts a new main process, and the health state is reinitialized to <code>starting</code>.</p></div></div>
+
+  <div class="warn"><div class="label">the 10-second rule, corrected</div><p>A process that crashes after one second <strong>can still be restarted immediately by policy</strong>. The 10-second check in the pinned source resets the exponential backoff after a sufficiently long run. It is not a requirement that a container first survive ten seconds before restart policies “turn on.”</p></div>
+  <div class="note"><div class="label">primary-source checkpoint · Docker Engine 29.6.2 · restartmanager.go</div><p>The source resets the delay when <code>executionDuration.Seconds() &gt;= 10</code>; it then separately evaluates <code>always</code>, <code>unless-stopped</code>, and <code>on-failure</code>.</p></div>
+</section>
+
+<section>
+  <h2>6. The four restart policies, precisely</h2>
+  <table class="table">
+    <tr><th>policy</th><th>after main task exits</th><th>manual-stop / daemon-restart consequence</th></tr>
+    <tr><td><code>no</code></td><td>never automatically restart</td><td>stays stopped</td></tr>
+    <tr><td><code>on-failure[:N]</code></td><td>restart only when exit code is nonzero; optional <code>N</code> limits retry count; zero count means no maximum</td><td>decision still depends on recorded exit state/retry budget when <code>dockerd</code> restores container state</td></tr>
+    <tr><td><code>always</code></td><td>restart after exit regardless of exit code</td><td>an explicit stop cancels the current restart loop, but on a later daemon restore <code>always</code> does not consult the manual-stop flag</td></tr>
+    <tr><td><code>unless-stopped</code></td><td>restart after exit unless the container has been marked manually stopped</td><td>manual-stop state suppresses automatic start across daemon restore</td></tr>
+  </table>
+
+  <h3>Why <code>docker stop</code> can stop an <code>always</code> container</h3>
+  <p>Before sending the stop signal, <code>dockerd</code> calls <code>ExitOnNext()</code>. That cancels the current restart manager. It also persists <code>HasBeenManuallyStopped = true</code> when the daemon itself is not shutting down. So <code>always</code> does not immediately fight your explicit stop.</p>
+  <p>On an explicit later <code>docker start</code>, <code>dockerd</code> resets the restart manager and clears the manual-stop flag. On daemon restoration, the stored policy is evaluated again. This is where <code>always</code> and <code>unless-stopped</code> differ: <code>unless-stopped</code> checks the manual-stop flag; <code>always</code> does not.</p>
+  <p class="src">Source anchors: Docker Engine 29.6.2 · <code>api/types/container/hostconfig.go::RestartPolicy</code> · <code>daemon/internal/restartmanager/restartmanager.go::ShouldRestart</code> · <code>daemon/container/container.go::ExitOnNext</code>, <code>ShouldRestart</code> · <code>daemon/kill.go::killWithSignal</code> · <code>daemon/start.go::containerStart</code> · <code>daemon/daemon.go::restore</code>.</p>
+</section>
+
+<section>
+  <div class="kicker">resource path</div>
+  <h2>7. Resource limits become kernel cgroup files</h2>
+  <p>Resource limits are easier when you stop thinking of the Docker flags as the final mechanism. The flags are merely the first representation of the numbers.</p>
+  <div class="figure"><pre><code>Docker CLI flag
+    ↓
+HostConfig.Resources       (dockerd metadata)
+    ↓
+OCI linux.resources        (runtime handoff representation)
+    ↓
+runc cgroup.Resources      (runtime's internal representation)
+    ↓
+cgroup-v2 interface files  (/sys/fs/cgroup/...)
+    ↓
+Linux scheduler / memory / pids controllers enforce policy</code></pre></div>
+
+  <p>At container start, <code>dockerd</code>'s <code>WithResources</code> takes <code>HostConfig.Resources</code> and fills OCI <code>Linux.Resources.Memory</code>, <code>CPU</code>, and <code>Pids</code>. runc's <code>CreateCgroupConfig</code> copies those values into the cgroup library's structure. Because runc 1.3.6 pins <code>opencontainers/cgroups v0.0.4</code>, that library is where the cgroup-v2 file writes in this lesson actually happen.</p>
+  <div class="warn"><div class="label">source-boundary correction</div><p>Older explanations may point to old in-tree runc cgroup-v2 files. In runc 1.3.6, cgroup handling is delegated to the separately versioned <code>opencontainers/cgroups v0.0.4</code> dependency pinned in runc's <code>go.mod</code>. The lesson follows that current pinned boundary.</p></div>
+</section>
+
+<section>
+  <h2>8. Memory: hard ceiling, reclaim protection, and swap conversion are three different things</h2>
+  <h3><code>--memory=256m</code> → <code>memory.max</code></h3>
+  <p><code>dockerd</code> places the byte count in OCI <code>memory.limit</code>. runc carries it into the cgroup resource structure. The cgroup-v2 writer writes the number to <code>memory.max</code>.</p>
+  <p><code>memory.max</code> is the kernel's hard memory-usage limit. If the group reaches it and memory cannot be reclaimed sufficiently, the kernel invokes cgroup OOM handling. That enforcement occurs on memory charge/reclaim paths in the kernel; <code>dockerd</code> is not watching RSS and killing the process itself.</p>
+
+  <h3><code>--memory-reservation=128m</code> → <code>memory.low</code></h3>
+  <p>The Docker API and OCI field use the historical word <em>reservation</em> or “soft limit.” On the pinned cgroup-v2 implementation, however, runc's cgroup dependency writes that value to <code>memory.low</code>.</p>
+  <p>The Linux 6.18 kernel documentation defines <code>memory.low</code> as <strong>best-effort reclaim protection</strong>. Below the effective low boundary, a cgroup is protected from reclaim while unprotected reclaimable memory exists elsewhere. Above it, reclaim pressure increases with overage.</p>
+  <div class="warn"><div class="label">source-over-folklore correction</div><p>On this pinned cgroup-v2 path, <code>--memory-reservation</code> is <strong>not a soft maximum</strong> and does not map to the kernel's throttling boundary <code>memory.high</code>. The implementation writes <code>memory.low</code>. <code>memory.max</code> is the hard ceiling.</p></div>
+
+  <h3><code>--memory-swap</code> crosses a semantic translation</h3>
+  <p>OCI runtime-spec 1.3.0 defines its memory <code>swap</code> field in the older combined sense: <strong>memory + swap</strong>. cgroup v2's <code>memory.swap.max</code> limits <strong>swap alone</strong>. The cgroup library therefore converts between the two.</p>
+  <p>For example, with:</p>
+  <pre><code>--memory=256m --memory-swap=384m</code></pre>
+  <p>the combined limit is 384 MiB while memory itself is limited to 256 MiB, so the cgroup-v2 swap-only allowance is 128 MiB. If combined memory+swap is configured equal to the memory limit, the cgroup-v2 writer uses <code>memory.swap.max = 0</code>, disabling swap for that cgroup.</p>
+
+  <div class="note"><div class="label">primary-source checkpoint · opencontainers/cgroups v0.0.4</div><p><code>fs2/memory.go</code> writes <code>memory.max</code>, <code>memory.low</code>, and <code>memory.swap.max</code>. <code>utils.go::ConvertMemorySwapToCgroupV2Value</code> subtracts memory from combined memory+swap where required.</p></div>
+</section>
+
+<section>
+  <h2>9. CPU: a quota and a weight solve different problems</h2>
+  <h3><code>--cpus=1.5</code> is a bandwidth ceiling</h3>
+  <p>The Docker CLI/API representation uses <code>NanoCPUs</code>. For 1.5 CPUs the value is 1.5 billion nano-CPUs. In the pinned <code>dockerd</code> source, <code>getCPUResources</code> uses a 100,000 μs period and computes:</p>
+  <pre><code>quota = NanoCPUs × period / 1,000,000,000
+      = 1,500,000,000 × 100,000 / 1,000,000,000
+      = 150,000 μs</code></pre>
+  <p>runc's cgroup-v2 path therefore writes:</p>
+  <pre><code>cpu.max = 150000 100000</code></pre>
+  <p>This means the cgroup may consume up to 150,000 μs of CPU time per 100,000 μs period. On a multi-CPU host that is an average bandwidth of 1.5 CPUs; threads can execute concurrently and then be throttled when the cgroup exhausts its quota for the period.</p>
+
+  <h3><code>--cpu-shares=1024</code> is competition weight</h3>
+  <p>CPU shares are not a CPU ceiling. <code>dockerd</code> puts the shares value into OCI <code>cpu.shares</code>. runc converts that cgroup-v1-shaped number to a cgroup-v2 <code>CpuWeight</code>. The cgroup writer writes <code>cpu.weight</code>.</p>
+  <p>Linux defines <code>cpu.weight</code> as proportional distribution among active competing children. The default cgroup-v2 weight is 100; the conversion function is deliberately shaped so Docker's historical default share value 1024 maps to that default weight.</p>
+  <div class="warn"><div class="label">source-over-folklore correction</div><p><code>--cpu-shares</code> does not guarantee or cap a percentage of a CPU. If peers are idle, a cgroup can use available CPU. The weight matters when eligible cgroups compete for CPU time. Use quota (<code>--cpus</code> / <code>cpu.max</code>) when you mean a maximum bandwidth.</p></div>
+
+  <h3><code>--pids-limit=64</code> → <code>pids.max</code></h3>
+  <p>The Docker PID limit becomes OCI <code>pids.limit</code>, then runc's cgroup <code>PidsLimit</code>, then <code>pids.max</code>. Linux documents this as a hard task-count ceiling. The kernel's PID controller counts kernel tasks/TIDs, not merely the number of process leaders you might casually call “processes.” If <code>fork()</code> or <code>clone()</code> would violate the policy, the kernel returns <code>-EAGAIN</code>.</p>
+  <p class="src">Source anchors: Docker Engine 29.6.2 · <code>daemon/daemon_unix.go::getCPUResources</code>, <code>getPidsLimit</code>; runc 1.3.6 · <code>libcontainer/specconv/spec_linux.go::CreateCgroupConfig</code>; opencontainers/cgroups v0.0.4 · <code>fs2/cpu.go</code>, <code>fs2/pids.go</code>, <code>utils.go::ConvertCPUSharesToCgroupV2Value</code>; Linux 6.18 · <code>Documentation/admin-guide/cgroup-v2.rst</code>.</p>
+</section>
+
+<section>
+  <h2>10. A running container's resource limits can move again</h2>
+  <p>Creation is not the only path. <code>docker update</code> can change supported resource limits on a running container.</p>
+  <div class="figure"><pre><code>docker update
+    ↓
+dockerd updates + checkpoints HostConfig
+    ↓
+containerd task Update(resources)
+    ↓
+shim task Update
+    ↓
+runtime cgroup update
+    ↓
+existing process remains alive under changed kernel policy</code></pre></div>
+  <p>The important distinction is that this is an <strong>update path</strong>, not a restart. <code>dockerd</code> persists the new configuration and, if the task is running, sends updated resource data to the existing task. If the container is stopped, changing <code>HostConfig</code> is enough; the resources are applied next time it starts.</p>
+  <p>A restart later reconstructs the new task from the now-updated stored configuration, so the changed limits persist across that restart.</p>
+  <p class="src">Source anchors: Docker Engine 29.6.2 · <code>daemon/update.go::ContainerUpdate</code>/<code>update</code>; containerd 2.2.6 · <code>client/task.go::Update</code>, <code>core/runtime/v2/shim.go::Update</code>.</p>
+</section>
+
+<section>
+  <div class="kicker">credential path</div>
+  <h2>11. Non-root: follow a user name until it becomes numbers in a kernel credential</h2>
+  <p>Imagine an image contains:</p>
+  <pre><code>USER app</code></pre>
+  <p>or you override it:</p>
+  <pre><code>docker run --user 10001:10001 image</code></pre>
+  <p>The string <code>app</code> or <code>10001:10001</code> is not what runc finally receives. OCI runtime-spec requires numeric UID/GID fields for POSIX process users and explicitly leaves symbolic name resolution to an upper layer.</p>
+
+  <div class="hop"><div class="hopn">1</div><div><h3>The image or CLI provides a user expression</h3><p>Image <code>USER</code> is a default. Runtime <code>--user</code> can override it. <code>dockerd</code> keeps the selected value in <code>Config.User</code>.</p></div></div>
+  <div class="hop"><div class="hopn">2</div><div><h3><code>dockerd</code> resolves names inside the container root filesystem</h3><p><code>getUser</code> locates the container's passwd/group files and resolves the requested user. It produces numeric UID, primary GID, and supplementary groups. That result becomes OCI <code>process.user</code>.</p></div></div>
+  <div class="hop"><div class="hopn">3</div><div><h3>runc applies the numeric credentials</h3><p>During container initialization, runc sets supplementary groups where allowed, then calls <code>setgid</code> and <code>setuid</code> for the configured GID/UID. The process that finally executes the application therefore enters user space with those credentials.</p></div></div>
+  <div class="hop"><div class="hopn">4</div><div><h3>The Linux kernel enforces those credentials on every relevant operation</h3><p>File access, signaling, binding privileged ports, and other permission checks use the process credentials together with capabilities, namespace mappings, filesystem ownership/mode, and other security mechanisms. “Non-root” is one input to that authorization picture, not a replacement for all of it.</p></div></div>
+
+  <div class="note"><div class="label">primary-source checkpoint · runc 1.3.6 · libcontainer/init_linux.go</div><p>The user-setup path performs <code>unix.Setgid(config.GID)</code> and then <code>unix.Setuid(config.UID)</code> after supplementary-group handling.</p></div>
+
+  <h3>Non-root is not a user namespace</h3>
+  <p><code>dockerd</code>'s OCI building code has a separate path for user namespaces. A user namespace is added only when the container is configured for private user-namespace mapping and the daemon has UID/GID mappings. Merely setting <code>USER app</code> or <code>--user 10001</code> does not create that namespace.</p>
+  <div class="warn"><div class="label">source-over-folklore correction</div><p>Without user-namespace remapping/rootless machinery, running as UID 10001 means the process uses that numeric UID in the host's user namespace as well. It is still safer than UID 0 for many permission checks, but it is not UID translation. Revisit Lesson 7 for user namespaces and Lesson 11 for capabilities.</p></div>
+  <p class="src">Source anchors: OCI runtime-spec 1.3.0 · <code>config.md::process.user</code>; Docker Engine 29.6.2 · <code>daemon/oci_linux.go::getUser</code>, <code>WithUser</code>, <code>WithNamespaces</code>; runc 1.3.6 · <code>libcontainer/init_linux.go::setupUser</code>.</p>
+</section>
+
+<section>
+  <h2>12. The four mechanisms interact, but ownership still stays separate</h2>
+  <h3>A healthcheck inherits the configured user</h3>
+  <p>The health probe is created with <code>cntr.Config.User</code>. So an image that works only when its probe runs as root can become unhealthy after you correctly move the application to non-root. That is not Docker arbitrarily changing health semantics; the probe is executing under the configured container user.</p>
+
+  <h3>A healthcheck also consumes the container's resources</h3>
+  <p>The probe is an exec process in the container's existing task context. Its CPU time, memory, and task count are not magically outside the container's runtime constraints. Very tight CPU/PID/memory limits can therefore affect the probe just as they affect the application.</p>
+
+  <h3>A restart creates a new task under the same stored policy</h3>
+  <p>When <code>dockerd</code> restarts a container, it rebuilds/starts the task from the same container configuration. The resource settings and selected user are applied again to the new task. The health state is reset to <code>starting</code> because the new main process must be evaluated afresh.</p>
+
+  <h3>OCI standardizes some fields, not Docker's lifecycle policy</h3>
+  <p>OCI runtime-spec defines numeric <code>process.user</code> and Linux resource fields. Docker's health monitor and restart manager are Engine behavior. OCI image-spec 1.1.1 reserves fields such as <code>Healthcheck</code>, <code>Memory</code>, <code>MemorySwap</code>, and <code>CpuShares</code> for compatibility; it does not define Docker's health state machine or restart policy.</p>
+  <div class="warn"><div class="label">boundary rule</div><p>Do not search runc for “restart policy” or Linux cgroup code for “healthy/unhealthy.” Those concepts terminate earlier in the pipeline. Conversely, do not expect <code>dockerd</code> to be the component enforcing every CPU scheduling decision once <code>cpu.max</code> is installed.</p></div>
+</section>
+
+<section>
+  <div class="kicker">observe the real objects</div>
+  <h2>13. Inspect it yourself</h2>
+
+  <div class="inspect">
+    <div class="label">A. prove unhealthy does not trigger restart</div>
+    <pre><code>docker rm -f l37-health 2>/dev/null || true
+
+docker run -d --name l37-health \
+  --restart=always \
+  --health-cmd='test -f /tmp/ready' \
+  --health-interval=2s \
+  --health-timeout=1s \
+  --health-retries=2 \
+  alpine sh -c 'sleep infinity'
+
+sleep 6
+docker inspect l37-health \
+  --format 'status={{.State.Status}} health={{.State.Health.Status}} restarts={{.RestartCount}}'
+
+# Expect: status=running, health=unhealthy, restarts=0
+
+docker exec l37-health touch /tmp/ready
+sleep 3
+docker inspect l37-health --format '{{.State.Health.Status}}'
+
+# Clean up later:
+docker rm -f l37-health</code></pre>
+  </div>
+
+  <div class="inspect">
+    <div class="label">B. disprove the “must run 10 seconds first” restart myth</div>
+    <pre><code>docker rm -f l37-restart 2>/dev/null || true
+
+docker run -d --name l37-restart \
+  --restart=on-failure:3 \
+  alpine sh -c 'echo started; sleep 1; exit 7'
+
+sleep 7
+docker inspect l37-restart \
+  --format 'running={{.State.Running}} exit={{.State.ExitCode}} restarts={{.RestartCount}}'
+
+# The process dies after ~1 second yet is restarted.
+# After the retry budget is exhausted, RestartCount should show 3.
+
+docker rm -f l37-restart</code></pre>
+  </div>
+
+  <div class="inspect">
+    <div class="label">C. follow Docker resource flags to the live cgroup-v2 files</div>
+    <pre><code>docker rm -f l37-cg 2>/dev/null || true
+
+docker run -d --name l37-cg \
+  --memory=256m \
+  --memory-reservation=128m \
+  --memory-swap=384m \
+  --cpus=1.5 \
+  --cpu-shares=1024 \
+  --pids-limit=64 \
+  alpine sleep 300
+
+pid=$(docker inspect -f '{{.State.Pid}}' l37-cg)
+cg=$(awk -F: '$1=="0" {print $3}' /proc/$pid/cgroup)
+printf 'pid=%s\ncgroup=%s\n' "$pid" "$cg"
+
+sudo sh -c "for f in memory.max memory.low memory.swap.max cpu.max cpu.weight pids.max; do
+  printf '%-18s ' \"\$f\"
+  cat /sys/fs/cgroup${cg}/\$f
+done"
+
+# Expected core values on cgroup v2:
+# memory.max      = 268435456
+# memory.low      = 134217728
+# memory.swap.max = 134217728
+# cpu.max         = 150000 100000
+# cpu.weight      = 100   (1024 historical shares maps to default v2 weight)
+# pids.max        = 64
+
+docker rm -f l37-cg</code></pre>
+    <p class="small">This experiment assumes a standard cgroup-v2 mount at <code>/sys/fs/cgroup</code>. The <code>/proc/$pid/cgroup</code> lookup avoids guessing whether the daemon uses a systemd scope or cgroupfs naming path.</p>
+  </div>
+
+  <div class="inspect">
+    <div class="label">D. prove non-root credentials without assuming a user namespace</div>
+    <pre><code>docker rm -f l37-user 2>/dev/null || true
+
+docker run -d --name l37-user \
+  --user 10001:10002 \
+  alpine sleep 300
+
+# What the process sees inside:
+docker exec l37-user sh -c 'id; grep -E "^(Uid|Gid):" /proc/1/status'
+
+# What the host kernel reports for the same main task:
+pid=$(docker inspect -f '{{.State.Pid}}' l37-user)
+grep -E '^(Uid|Gid):' /proc/$pid/status
+
+# Compare user namespace identity with your shell:
+readlink /proc/$pid/ns/user
+readlink /proc/$$/ns/user
+
+# With ordinary rootful Docker and no userns-remap, the user namespace
+# identifiers should match, while the process UID/GID are 10001/10002.
+
+docker rm -f l37-user</code></pre>
+  </div>
+
+  <div class="inspect">
+    <div class="label">E. observe a live resource update without restarting the process</div>
+    <pre><code>docker run -d --name l37-update --memory=256m alpine sleep 300
+pid_before=$(docker inspect -f '{{.State.Pid}}' l37-update)
+
+docker update --memory=384m l37-update
+
+pid_after=$(docker inspect -f '{{.State.Pid}}' l37-update)
+cg=$(awk -F: '$1=="0" {print $3}' /proc/$pid_after/cgroup)
+printf 'before=%s after=%s\n' "$pid_before" "$pid_after"
+sudo cat /sys/fs/cgroup${cg}/memory.max
+
+# PID is unchanged; memory.max should now be 402653184.
+
+docker rm -f l37-update</code></pre>
+  </div>
+</section>
+
+<section>
+  <h2>14. Check yourself</h2>
+  <ul>
+    <li>A healthcheck is an exec command launched and interpreted by <code>dockerd</code>; its result changes health state, not restart policy directly.</li>
+    <li>Restart policy is evaluated when the container's main task exits. A restart creates a new task/main process for the same container object.</li>
+    <li>The 10-second test resets exponential restart backoff; it is not a minimum survival period required for restart policies to work.</li>
+    <li><code>--memory</code> ends at <code>memory.max</code>; <code>--memory-reservation</code> ends at <code>memory.low</code>, which is reclaim protection rather than a soft ceiling.</li>
+    <li><code>--cpus</code> ends at CPU bandwidth quota in <code>cpu.max</code>; <code>--cpu-shares</code> becomes relative <code>cpu.weight</code>.</li>
+    <li><code>--pids-limit</code> ends at <code>pids.max</code>; the kernel rejects violating <code>fork()</code>/<code>clone()</code> with <code>EAGAIN</code>.</li>
+    <li><code>USER</code>/<code>--user</code> becomes numeric OCI <code>process.user</code> and then Linux process credentials. It does not itself create a user namespace.</li>
+    <li>Once cgroup files and process credentials are installed, the Linux kernel is the enforcement point. <code>dockerd</code> remains responsible for health state and restart decisions.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Primary-source appendix</h2>
+  <p class="small">The teaching text names runtime components as Docker CLI, <code>dockerd</code>, containerd, shim, runc, and Linux kernel. Exact repository identity appears here only where needed for provenance.</p>
+
+  <details><summary>Docker Engine / Docker CLI 29.6.2</summary>
+    <p><strong>Repository provenance:</strong> <code>moby/moby</code> tag <code>docker-v29.6.2</code> for Engine; Docker CLI tag <code>v29.6.2</code>.</p>
+    <ul>
+      <li><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/start.go"><code>daemon/start.go::containerStart</code></a> — OCI spec creation, containerd container/task creation, task start, and health-monitor initialization.</li>
+      <li><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/health.go"><code>daemon/health.go</code></a> — probe exec construction, configured user, timing, output/log limits, failure streak, health-state transitions.</li>
+      <li><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/monitor.go"><code>daemon/monitor.go::handleContainerExit</code></a> — main-task exit handling and restart decision.</li>
+      <li><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/internal/restartmanager/restartmanager.go"><code>daemon/internal/restartmanager/restartmanager.go::ShouldRestart</code></a> — policies and exponential backoff.</li>
+      <li><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/container/container.go"><code>daemon/container/container.go::ExitOnNext</code>, <code>ShouldRestart</code>, <code>RestartManager</code></a>.</li>
+      <li><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/kill.go"><code>daemon/kill.go::killWithSignal</code></a> — manual-stop cancellation/state.</li>
+      <li><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/daemon.go"><code>daemon/daemon.go::restore</code></a> — daemon-start restoration and policy-driven autostart.</li>
+      <li><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/oci_linux.go"><code>daemon/oci_linux.go::getUser</code>, <code>WithUser</code>, <code>WithResources</code>, <code>WithNamespaces</code>, <code>createSpec</code></a>.</li>
+      <li><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/daemon_unix.go"><code>daemon/daemon_unix.go::getMemoryResources</code>, <code>getCPUResources</code>, <code>getPidsLimit</code></a>.</li>
+      <li><a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/update.go"><code>daemon/update.go::ContainerUpdate</code></a> — live resource update path.</li>
+      <li><a href="https://github.com/moby/moby/blob/docker-v29.6.2/api/types/container/hostconfig.go"><code>api/types/container/hostconfig.go</code></a> — restart policy and resource configuration structures.</li>
+      <li><a href="https://github.com/docker/cli/blob/v29.6.2/cli/command/container/opts.go"><code>docker/cli::cli/command/container/opts.go</code></a> — learner-facing health, restart, resource, and user flags.</li>
+    </ul>
+  </details>
+
+  <details><summary>containerd 2.2.6</summary>
+    <ul>
+      <li><a href="https://github.com/containerd/containerd/blob/v2.2.6/client/task.go"><code>client/task.go</code></a> — task start, wait, exec, and update client requests.</li>
+      <li><a href="https://github.com/containerd/containerd/blob/v2.2.6/core/runtime/v2/shim.go"><code>core/runtime/v2/shim.go</code></a> — runtime-v2 shim task create/start/exec/wait/update forwarding.</li>
+      <li><a href="https://github.com/containerd/containerd/blob/v2.2.6/cmd/containerd-shim-runc-v2/task/service.go"><code>cmd/containerd-shim-runc-v2/task/service.go</code></a> — runc-v2 shim task service.</li>
+    </ul>
+  </details>
+
+  <details><summary>runc 1.3.6 + opencontainers/cgroups 0.0.4</summary>
+    <ul>
+      <li><a href="https://github.com/opencontainers/runc/blob/v1.3.6/go.mod"><code>runc/go.mod</code></a> — pins <code>github.com/opencontainers/cgroups v0.0.4</code>.</li>
+      <li><a href="https://github.com/opencontainers/runc/blob/v1.3.6/libcontainer/specconv/spec_linux.go"><code>libcontainer/specconv/spec_linux.go::CreateCgroupConfig</code></a> — OCI resource fields → runc cgroup resource configuration; CPU-share → cgroup-v2 weight conversion.</li>
+      <li><a href="https://github.com/opencontainers/runc/blob/v1.3.6/libcontainer/init_linux.go"><code>libcontainer/init_linux.go::setupUser</code></a> — supplementary groups, <code>setgid</code>, and <code>setuid</code>.</li>
+      <li><a href="https://github.com/opencontainers/cgroups/blob/v0.0.4/fs2/memory.go"><code>opencontainers/cgroups/fs2/memory.go</code></a> — <code>memory.swap.max</code>, <code>memory.max</code>, <code>memory.low</code>.</li>
+      <li><a href="https://github.com/opencontainers/cgroups/blob/v0.0.4/fs2/cpu.go"><code>opencontainers/cgroups/fs2/cpu.go</code></a> — <code>cpu.weight</code>, <code>cpu.max</code>.</li>
+      <li><a href="https://github.com/opencontainers/cgroups/blob/v0.0.4/fs2/pids.go"><code>opencontainers/cgroups/fs2/pids.go</code></a> — <code>pids.max</code>.</li>
+      <li><a href="https://github.com/opencontainers/cgroups/blob/v0.0.4/utils.go"><code>opencontainers/cgroups/utils.go</code></a> — CPU-share conversion and combined-memory+swap → swap-only conversion.</li>
+    </ul>
+  </details>
+
+  <details><summary>OCI runtime-spec 1.3.0</summary>
+    <ul>
+      <li><a href="https://github.com/opencontainers/runtime-spec/blob/v1.3.0/config.md#user"><code>config.md::process.user</code></a> — numeric POSIX UID/GID/additionalGids; symbolic names left to upper layers.</li>
+      <li><a href="https://github.com/opencontainers/runtime-spec/blob/v1.3.0/config-linux.md#control-groups"><code>config-linux.md::linux.resources</code></a> — memory, CPU, PIDs, and cgroup-v2 unified conversion rules.</li>
+    </ul>
+  </details>
+
+  <details><summary>OCI image-spec 1.1.1</summary>
+    <p><a href="https://github.com/opencontainers/image-spec/blob/v1.1.1/config.md"><code>config.md</code></a> — image <code>User</code> default; compatibility-reserved runtime fields including <code>Healthcheck</code>, <code>Memory</code>, <code>MemorySwap</code>, and <code>CpuShares</code>.</p>
+  </details>
+
+  <details><summary>Linux 6.18</summary>
+    <p><a href="https://github.com/torvalds/linux/blob/v6.18/Documentation/admin-guide/cgroup-v2.rst"><code>Documentation/admin-guide/cgroup-v2.rst</code></a> — authoritative semantics for <code>memory.low</code>, <code>memory.max</code>, <code>cpu.weight</code>, <code>cpu.max</code>, and <code>pids.max</code>.</p>
+  </details>
+</section>
+
+<section>
+  <div class="idea"><div class="label">transition</div><p>Lesson 37 ends with the live task running under policies that can observe it, restart it, constrain it, and choose its credentials. Lesson 38 will cross a different boundary: <strong>checkpoint/restore with CRIU</strong>—capturing enough live process/kernel state to stop execution and later reconstruct it.</p></div>
+  <div class="nav">
+    <a href="lesson-36-config-secrets.html">← Lesson 36 · Config &amp; secrets</a>
+    <a href="lesson-38-checkpoint-restore-criu.html">Lesson 38 · Checkpoint/restore (CRIU) →</a>
+  </div>
+</section>
+</div>
+</body>
+</html>

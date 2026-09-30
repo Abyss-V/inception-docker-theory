@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 35 — stdio & logging</title>
+<style>
+:root{--ink:#0e1116;--panel:#161b22;--well:#0a0d12;--bone:#e9e4d7;--dim:#9aa4b2;--faint:#6b7482;--rule:#262d38;--gold:#e0b155;--gold-dim:#7a6636;--teal:#5ac4b4;--teal-dim:#2f5f59;--rose:#d76d7f;--rose-dim:#6e3540;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--serif:"Iowan Old Style",Charter,Georgia,Cambria,serif}
+*{box-sizing:border-box} body{margin:0;background:var(--ink);color:var(--bone);font:18px/1.72 var(--serif)} .wrap{max-width:760px;margin:auto;padding:24px}
+header{padding:32px 0 20px;border-bottom:1px solid var(--rule)} .eyebrow{font:12px var(--mono);color:var(--gold);letter-spacing:.12em;text-transform:uppercase}
+h1{font-size:44px;line-height:1.05;margin:.35rem 0 1rem} .deck{color:#cfc8b8;max-width:52rem} .pill{display:inline-block;border:1px solid var(--rose-dim);color:var(--rose);font:12px var(--mono);padding:4px 8px;border-radius:999px}
+section{padding:28px 0;border-bottom:1px solid rgba(255,255,255,.04)} h2{font-size:30px;margin:0 0 14px} h3{font-size:22px;margin:24px 0 10px} p,li{color:var(--bone)} .dim{color:var(--dim)} code,pre{font-family:var(--mono)} code{background:#11161d;border:1px solid #2b3440;border-radius:6px;padding:1px 5px;color:#f2d493}
+pre{background:var(--well);border:1px solid var(--rule);border-radius:12px;padding:14px;overflow:auto;color:#d8e0e7}
+.note,.warn,.idea,.inspect{padding:16px 18px;border-radius:14px;border:1px solid var(--rule);margin:16px 0} .idea{border-left:4px solid var(--teal);background:#101a1a} .note{border-left:4px solid var(--gold);background:#17140e} .warn{border-left:4px solid var(--rose);background:#1a1013} .inspect{border-left:4px solid var(--teal);background:#0f1717}
+.label{font:12px var(--mono);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px} .idea .label,.inspect .label{color:var(--teal)} .note .label{color:var(--gold)} .warn .label{color:var(--rose)}
+.table{width:100%;border-collapse:collapse;margin:14px 0} .table th,.table td{border-bottom:1px solid var(--rule);padding:10px;vertical-align:top} .table th{font:12px var(--mono);color:var(--gold);text-align:left}
+.figure{background:var(--panel);border:1px solid var(--rule);border-radius:16px;padding:18px;margin:18px 0} .caption{color:var(--dim);font-size:15px;margin-top:10px}
+.small{font-size:15px;color:var(--dim)} .src{color:var(--gold);font:13px var(--mono)} details{background:#12171e;border:1px solid var(--rule);border-radius:12px;padding:12px 14px;margin-top:10px} summary{cursor:pointer;color:var(--gold);font-family:var(--mono)} a{color:var(--teal)}
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-34-networking-user-defined-bridges-dns-macvlan-ipvlan.html">← Lesson 34</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-36-config-secrets.html">Lesson 36 →</a></span></nav>
+<div class="wrap">
+<header>
+  <div class="eyebrow">Part 5 · Runtime concerns · Lesson 35 of 46</div>
+  <h1>stdio &amp; logging</h1>
+  <div class="pill">DEEP-CUT</div>
+  <p class="deck">This lesson is about <strong>how output moves</strong>. A program in the container writes bytes to stdout or stderr. Those bytes travel through containerd and the shim, then into <code>dockerd</code>, where they can be copied to a live attach session, turned into stored log records, or both.</p>
+</header>
+
+<section>
+  <div class="idea">
+    <div class="label">governing idea</div>
+    <p>A container process does <strong>not</strong> “write to Docker logs.” It only writes bytes to its standard file descriptors. Docker logging begins <em>after</em> those bytes leave the process.</p>
+  </div>
+  <p>So the right way to study this lesson is to follow one byte from start to finish:</p>
+  <div class="figure">
+    <svg viewBox="0 0 980 250" width="100%" role="img" aria-label="Logging pipeline diagram">
+      <defs>
+        <style>
+          .b{fill:#0f141a;stroke:#33404d;stroke-width:2}.t{fill:#e9e4d7;font:14px ui-monospace,monospace}.s{fill:#9aa4b2;font:12px ui-monospace,monospace}.a{stroke:#5ac4b4;stroke-width:3;marker-end:url(#m)}
+        </style>
+        <marker id="m" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5ac4b4"/></marker>
+      </defs>
+      <rect class="b" x="20" y="35" width="150" height="70" rx="12"/><text class="t" x="95" y="62" text-anchor="middle">container process</text><text class="s" x="95" y="82" text-anchor="middle">write(1, ...)</text><text class="s" x="95" y="96" text-anchor="middle">write(2, ...)</text>
+      <line class="a" x1="170" y1="70" x2="230" y2="70"/>
+      <rect class="b" x="230" y="35" width="170" height="70" rx="12"/><text class="t" x="315" y="62" text-anchor="middle">containerd + shim</text><text class="s" x="315" y="82" text-anchor="middle">keep stdio alive</text><text class="s" x="315" y="96" text-anchor="middle">for the task</text>
+      <line class="a" x1="400" y1="70" x2="460" y2="70"/>
+      <rect class="b" x="460" y="35" width="150" height="70" rx="12"/><text class="t" x="535" y="62" text-anchor="middle">dockerd</text><text class="s" x="535" y="82" text-anchor="middle">receives stdout</text><text class="s" x="535" y="96" text-anchor="middle">and stderr bytes</text>
+      <line class="a" x1="610" y1="70" x2="670" y2="70"/>
+      <rect class="b" x="670" y="15" width="140" height="55" rx="12"/><text class="t" x="740" y="41" text-anchor="middle">attach path</text><text class="s" x="740" y="57" text-anchor="middle">live stream</text>
+      <rect class="b" x="670" y="100" width="140" height="55" rx="12"/><text class="t" x="740" y="126" text-anchor="middle">log path</text><text class="s" x="740" y="142" text-anchor="middle">bytes → records</text>
+      <line class="a" x1="810" y1="42" x2="940" y2="42"/>
+      <rect class="b" x="835" y="10" width="125" height="64" rx="12"/><text class="t" x="897" y="37" text-anchor="middle">docker attach</text><text class="s" x="897" y="55" text-anchor="middle">or client API</text>
+      <line class="a" x1="810" y1="127" x2="940" y2="127"/>
+      <rect class="b" x="835" y="95" width="125" height="64" rx="12"/><text class="t" x="897" y="122" text-anchor="middle">logging driver</text><text class="s" x="897" y="140" text-anchor="middle">stored logs</text>
+      <text class="s" x="365" y="195">TTY changes the wiring earlier: stdout/stderr are merged into one terminal stream before the log path sees them.</text>
+    </svg>
+    <div class="caption">This is the roadmap for the whole lesson. We will now walk through each arrow.</div>
+  </div>
+</section>
+
+<section>
+  <h2>1. Where the bytes start: stdout and stderr</h2>
+  <p>Inside a Linux process, <code>stdout</code> is normally file descriptor 1 and <code>stderr</code> is file descriptor 2. The program does something like:</p>
+  <pre><code>write(1, "hello\n", 6);
+write(2, "oops\n", 5);</code></pre>
+  <p>At this moment the program has only done a normal kernel write to an open file descriptor. It has not created a “log record,” and it has not called a Docker API.</p>
+  <div class="note">
+    <div class="label">important distinction</div>
+    <p><strong>Byte stream</strong> means the raw stdout/stderr bytes. <strong>Docker log record</strong> means the structured message that <code>dockerd</code> later creates from those bytes.</p>
+  </div>
+</section>
+
+<section>
+  <h2>2. How the process gets connected to containerd and the shim</h2>
+  <p>When the container task is created, containerd sets up the standard I/O endpoints that will carry stdin, stdout, and stderr. On Linux, the common non-TTY path uses named pipes (FIFOs) so independent processes can open the same path and exchange stream data.</p>
+  <table class="table">
+    <tr><th>term</th><th>meaning here</th></tr>
+    <tr><td>FIFO</td><td>A named pipe with a filesystem path. containerd can open one end and the shim/task side can open the other end.</td></tr>
+    <tr><td>shim</td><td>The per-container runtime helper that keeps the task and its I/O alive even if the original CLI disconnects.</td></tr>
+    <tr><td>TTY / PTY</td><td>A pseudoterminal. If enabled, stdout and stderr no longer stay as two separate output streams.</td></tr>
+  </table>
+  <p>So the job split is:</p>
+  <ul>
+    <li><strong>containerd</strong> prepares the I/O endpoints and task configuration.</li>
+    <li><strong>the shim</strong> owns the lifetime of the task and its I/O.</li>
+    <li><strong>runc</strong> starts the container process with those standard streams attached.</li>
+  </ul>
+  <p class="src">Source anchors: containerd 2.2.6 · <code>pkg/cio</code> and runtime-v2 task create path.</p>
+</section>
+
+<section>
+  <h2>3. How <code>dockerd</code> receives the bytes</h2>
+  <p>Once the task exists, containerd exposes a live I/O object for it. <code>dockerd</code> connects to that object and begins reading the task's stdout and stderr streams. Internally, Docker Engine then sends those bytes into its own stream-distribution layer.</p>
+  <p>The key idea is simple:</p>
+  <div class="figure">
+    <pre><code>containerd task stdout/stderr
+            ↓
+        dockerd receives bytes
+            ↓
+   dockerd can copy the same bytes to:
+   - the logging path
+   - a live attach session</code></pre>
+  </div>
+  <p>This is why stored logs and live attach can coexist. Docker is not choosing one or the other at the moment the program writes to stdout. It is reading the stream once and then distributing it.</p>
+  <div class="note">
+    <div class="label">names you may see in the source</div>
+    <p>The containerd-side live I/O object is called <code>DirectIO</code>. Docker Engine’s stream fan-out object is called <code>StreamConfig</code>. You do not need those names to understand the mechanism, but now you know what they refer to when you inspect the source.</p>
+  </div>
+  <p class="src">Source anchors: Docker Engine 29.6.2 · <code>daemon/container/container.go::InitializeStdio</code>, <code>daemon/internal/stream/streams.go</code>.</p>
+</section>
+
+<section>
+  <h2>4. Where raw bytes become stored log records</h2>
+  <p>The logging path is where Docker stops thinking in terms of a raw stream and starts thinking in terms of messages.</p>
+  <p>Docker Engine runs a copier for stdout and another copier for stderr. Each copier reads bytes, searches for newline boundaries, and when it has a line, creates a log message with:</p>
+  <ul>
+    <li>the line bytes,</li>
+    <li>the source stream: <code>stdout</code> or <code>stderr</code>,</li>
+    <li>a timestamp.</li>
+  </ul>
+  <p>If a line is very long or never ends with <code>\n</code>, Docker can emit a <strong>partial</strong> log message instead of waiting forever.</p>
+  <div class="warn">
+    <div class="label">source-over-folklore correction</div>
+    <p>Docker log records do <strong>not</strong> preserve application <code>write(2)</code> boundaries. Two writes may become one stored line. One large write may become several partial records.</p>
+  </div>
+  <p>After Docker Engine has created a log message, it hands that message to the selected logging driver such as <code>json-file</code>.</p>
+  <p class="src">Source anchors: Docker Engine 29.6.2 · <code>daemon/logger/copier.go</code>, <code>daemon/logger/logger.go</code>, <code>daemon/logger/jsonfilelog</code>.</p>
+
+  <h3>What about stdout/stderr ordering?</h3>
+  <p>Within one stream, byte order is preserved. But stdout and stderr are drained by different goroutines. So Docker does <strong>not</strong> promise one perfect combined ordering across both streams.</p>
+</section>
+
+<section>
+  <h2>5. <code>docker logs</code> and <code>docker attach</code> are different pipelines</h2>
+  <table class="table">
+    <tr><th>command</th><th>what it reads</th><th>what that means</th></tr>
+    <tr><td><code>docker logs</code></td><td>stored log records</td><td>It goes through the logger read path.</td></tr>
+    <tr><td><code>docker attach</code></td><td>live stream bytes</td><td>It taps into the current live output stream.</td></tr>
+  </table>
+  <p>So:</p>
+  <ul>
+    <li><code>docker logs</code> is mainly a <strong>storage read</strong>.</li>
+    <li><code>docker attach</code> is mainly a <strong>live stream</strong>.</li>
+  </ul>
+  <p>If Docker is not using a TTY, one API connection may carry both stdout and stderr. In that case Docker prefixes each payload with an 8-byte header so the client can demultiplex the stream back into stdout versus stderr.</p>
+  <div class="note">
+    <div class="label">why the 8-byte header exists</div>
+    <p>The program inside the container did not generate that header. Docker adds it later so one connection can carry two logical streams.</p>
+  </div>
+  <p class="src">Source anchors: Docker Engine 29.6.2 · <code>daemon/logs.go</code>, <code>daemon/attach.go</code>, <code>api/pkg/stdcopy/stdcopy.go</code>.</p>
+</section>
+
+<section>
+  <h2>6. Why <code>-t</code> changes more than formatting</h2>
+  <p>Without a TTY, stdout and stderr stay separate. With <code>-t</code>, the process gets a pseudoterminal. That changes the wiring <em>before</em> Docker logging sees the bytes.</p>
+  <div class="figure">
+    <pre><code>without -t:
+  fd 1 → stdout stream
+  fd 2 → stderr stream
+
+with -t:
+  fd 1 and fd 2 → one terminal stream</code></pre>
+  </div>
+  <p>That is why Docker cannot later tell which original descriptor produced each byte in TTY mode: that information was destroyed earlier by the PTY wiring.</p>
+  <div class="warn">
+    <div class="label">important consequence</div>
+    <p><code>-t</code> does not just make output look terminal-like. It changes the actual data path, and it can also change application behavior because programs detect that they are talking to a terminal.</p>
+  </div>
+  <p class="src">Source anchors: OCI runtime-spec 1.3.0 · <code>process.terminal</code>; containerd 2.2.6 <code>pkg/cio</code> terminal handling.</p>
+</section>
+
+<section>
+  <h2>7. How a slow logging path can eventually block the application</h2>
+  <p>Now follow the pipeline backward. If the logging driver is slow, the logging copier stops draining its input quickly enough. That can stall Docker Engine’s stream distribution. Then Docker stops draining containerd’s live output quickly enough. Eventually buffers fill, and the next application write to stdout or stderr can block.</p>
+  <div class="figure">
+    <pre><code>slow logging driver
+      ↓
+log copier cannot keep up
+      ↓
+dockerd stops draining fast enough
+      ↓
+runtime buffers fill
+      ↓
+application write() can block</code></pre>
+  </div>
+  <p>This is not always immediate because several buffers may absorb data first.</p>
+
+  <h3>Non-blocking logging</h3>
+  <p>Docker also has a non-blocking mode. In that mode, Docker puts log messages into an in-memory queue and a background goroutine forwards them to the real logging driver.</p>
+  <div class="warn">
+    <div class="label">source-over-folklore correction</div>
+    <p>When the non-blocking queue is full, Docker drops the <strong>new incoming log message</strong>. It does not rotate by evicting the oldest queued message.</p>
+  </div>
+  <p class="src">Source anchors: Docker Engine 29.6.2 · <code>daemon/logger/ring.go</code>.</p>
+</section>
+
+<section>
+  <h2>8. Inspect it yourself</h2>
+  <div class="inspect">
+    <div class="label">A. prove stdout and stderr are separate without a TTY</div>
+    <pre><code>docker rm -f l35 2>/dev/null || true
+
+docker run -d --name l35 alpine sh -c '
+  i=0
+  while :; do
+    printf "OUT %03d\n" "$i"
+    printf "ERR %03d\n" "$i" >&2
+    i=$((i+1))
+    sleep 1
+  done
+'
+
+docker inspect -f 'tty={{.Config.Tty}} driver={{.HostConfig.LogConfig.Type}}' l35
+docker logs --tail 6 l35</code></pre>
+  </div>
+  <div class="inspect">
+    <div class="label">B. compare stored logs with live attach</div>
+    <pre><code># terminal 1
+docker logs --tail 3 l35
+
+# terminal 2
+docker attach --no-stdin l35
+# detach with Ctrl-p Ctrl-q</code></pre>
+  </div>
+  <div class="inspect">
+    <div class="label">C. see that TTY mode changes fd topology</div>
+    <pre><code>docker run --rm alpine sh -c '
+  echo "stdout=$(readlink /proc/$$/fd/1)"
+  echo "stderr=$(readlink /proc/$$/fd/2)" >&2
+'
+
+docker run --rm -t alpine sh -c '
+  echo "stdout=$(readlink /proc/$$/fd/1)"
+  echo "stderr=$(readlink /proc/$$/fd/2)" >&2
+'</code></pre>
+  </div>
+</section>
+
+<section>
+  <h2>9. Check yourself</h2>
+  <ul>
+    <li>The process writes bytes to fd 1 and fd 2, not to a Docker logging API.</li>
+    <li>containerd and the shim keep the task I/O alive; <code>dockerd</code> reads those streams.</li>
+    <li><code>dockerd</code> can copy one live stream into both a logging path and an attach path.</li>
+    <li>Stored log records are created later by splitting byte streams into line/partial messages.</li>
+    <li><code>docker logs</code> reads stored log records. <code>docker attach</code> reads live bytes.</li>
+    <li>TTY mode merges output into one terminal stream earlier, so stdout/stderr identity is lost.</li>
+    <li>A slow logging path can push back far enough that the application eventually blocks on write.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Primary-source appendix</h2>
+  <p class="small">Main teaching text uses <code>dockerd</code>, containerd, and runc as component names. Exact repository/file anchors are listed here for auditability.</p>
+  <details><summary>Docker Engine 29.6.2</summary><p><code>daemon/container/container.go</code> · <code>InitializeStdio</code>, <code>startLogging</code> · <code>daemon/internal/stream/streams.go</code> · <code>daemon/logger/copier.go</code> · <code>daemon/logger/logger.go</code> · <code>daemon/logger/jsonfilelog</code> · <code>daemon/logger/ring.go</code> · <code>daemon/logs.go</code> · <code>daemon/attach.go</code> · <code>api/pkg/stdcopy/stdcopy.go</code>.</p></details>
+  <details><summary>containerd 2.2.6</summary><p><code>pkg/cio</code> for FIFO/terminal I/O setup and runtime-v2 task-create I/O handoff.</p></details>
+  <details><summary>OCI runtime-spec 1.3.0</summary><p><code>config.md</code> · <code>process.terminal</code>.</p></details>
+</section>
+</div>
+</body>
+</html>

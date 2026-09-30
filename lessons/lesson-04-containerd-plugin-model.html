@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 04 · containerd Internals: The Plugin Model</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.65; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:44px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--teal); margin:52px 0 4px; display:flex; align-items:center; gap:10px;}
+  .eyebrow::before{content:""; width:16px; height:1px; background:var(--teal); opacity:.6}
+  h2{font-family:var(--mono); font-weight:600; font-size:22px; margin:6px 0 18px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--gold); display:inline-block; padding:3px 9px; border-radius:3px; margin:40px 0 10px; font-weight:600;}
+  .step.verify{background:var(--teal)}
+
+  figure.src{margin:14px 0 8px; border:1px solid var(--gold-dim); border-radius:8px; overflow:hidden; background:var(--well)}
+  figure.src .tab{font-family:var(--mono); font-size:12px; color:var(--gold); background:linear-gradient(180deg,#1c1a12,#141109); border-bottom:1px solid var(--gold-dim); padding:8px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  figure.src .tab .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none}
+  figure.src .tab .path{overflow-wrap:anywhere}
+  figure.src .tab .repo{color:var(--faint); margin-left:auto; font-size:11px}
+  figure.src pre{margin:0; padding:16px 16px; overflow-x:auto}
+  pre,code{font-family:var(--mono)}
+  pre{font-size:13px; line-height:1.6; color:#d7d2c4}
+  pre .kw{color:var(--rose)} pre .fn{color:var(--teal)} pre .cmt{color:var(--faint); font-style:italic}
+  pre .str{color:var(--gold)} pre .field{color:var(--gold)} pre .ty{color:#c1a3ea}
+  .keyline{background:rgba(224,177,81,.10); border-left:2px solid var(--gold); display:block; padding-left:8px; margin-left:-10px}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{padding:14px 16px; color:#bfe6df; font-size:13px}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:16px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:70px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  .lead{font-size:20px; line-height:1.6; color:var(--bone)}
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:40px 0}
+
+  .flow{font-family:var(--mono); font-size:12.5px; line-height:1.75; color:var(--dim); background:var(--panel); border:1px solid var(--rule); border-radius:8px; padding:18px 20px; margin:24px 0; overflow-x:auto}
+  .flow .who{color:var(--gold)} .flow .note{color:var(--faint)} .flow .dep{color:var(--teal)}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-03-contexts-remote-daemons.html">← Lesson 03</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-05-the-shim-in-depth.html">Lesson 05 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part I — Foundations</div>
+  <div class="lesson-no">04</div>
+  <h1>containerd internals: it's a micro-kernel of plugins</h1>
+  <p class="dek">We've been calling containerd "the container supervisor." Open it up and there's almost no monolith inside — just a tiny core that loads ~30 typed plugins and wires them together by declared dependencies. Learn that wiring and containerd stops being a black box.</p>
+</header>
+
+<p class="lead">In Lesson 2, <code class="inl">dockerd</code> handed work to containerd over a socket and we left it there. Now we go inside. The guiding question: when containerd "stores an image" and "runs a container," <em>what parts of it</em> do those jobs, and how are those parts assembled? The answer is a plugin architecture, and it's worth understanding because it explains why containerd can swap storage backends, swap low-level runtimes, and be embedded in tools that aren't Docker at all.</p>
+
+<div class="eyebrow">The intuition</div>
+<h2>Why a plugin system instead of one big program?</h2>
+
+<p>containerd has to do several very different storage and execution jobs, and for most of them there is <em>more than one valid implementation</em>. Layer storage can be done with OverlayFS, or Btrfs, or ZFS, or device-mapper — different filesystems suit different hosts. The low-level thing that actually creates the container could be <code class="inl">runc</code>, or a VM-based runtime like Kata, or a syscall-sandbox like gVisor. And containerd is meant to be embeddable: Docker uses it, but so do Kubernetes and others, and each wants to enable some parts and disable others.</p>
+
+<p>If all of that were hard-wired into one binary, every new storage backend or runtime would mean surgery on the core, and you couldn't turn off the parts you don't use. So containerd is built the way an operating-system kernel handles drivers: a small core defines a set of <strong>plugin types</strong> (roles like "content store," "snapshotter," "runtime"), and concrete <strong>plugins</strong> register themselves to fill those roles. The core's job is mostly to load them in the right order and hand each one the others it needs. Let's see the roles first.</p>
+
+<div class="eyebrow">Mechanism 1</div>
+<h2>The taxonomy: what containerd is made of</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Every capability in containerd is tagged with a <strong>plugin type</strong> — a versioned string like <code class="inl">io.containerd.content.v1</code>. The type names a <em>role</em>; one or more plugins implement each role. This single file is essentially a table of contents for the entire daemon:</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">plugins/types.go</span><span class="repo">containerd/containerd &nbsp;(~30 types; key ones shown)</span></div>
+<pre><span class="keyline">ContentPlugin      = <span class="str">"io.containerd.content.v1"</span>      <span class="cmt">// stores blobs by digest</span></span>
+<span class="keyline">SnapshotPlugin     = <span class="str">"io.containerd.snapshotter.v1"</span>  <span class="cmt">// builds mountable rootfs from layers</span></span>
+<span class="keyline">MetadataPlugin     = <span class="str">"io.containerd.metadata.v1"</span>     <span class="cmt">// the bookkeeping DB (bolt)</span></span>
+<span class="keyline">DiffPlugin         = <span class="str">"io.containerd.differ.v1"</span>       <span class="cmt">// apply/compare layer tars</span></span>
+<span class="keyline">RuntimePluginV2    = <span class="str">"io.containerd.runtime.v2"</span>      <span class="cmt">// launches the shim/task (Lesson 5)</span></span>
+GCPlugin           = <span class="str">"io.containerd.gc.v1"</span>          <span class="cmt">// garbage-collects unreferenced blobs</span>
+LeasePlugin        = <span class="str">"io.containerd.lease.v1"</span>       <span class="cmt">// keeps GC from deleting in-use data</span>
+GRPCPlugin         = <span class="str">"io.containerd.grpc.v1"</span>        <span class="cmt">// the API surface dockerd calls</span>
+ServicePlugin      = <span class="str">"io.containerd.service.v1"</span>     <span class="cmt">// in-process business logic</span>
+EventPlugin        = <span class="str">"io.containerd.event.v1"</span>       <span class="cmt">// the event bus</span>
+<span class="cmt">// … plus sandbox, cri, streaming, transfer, nri, metrics, tracing, warning, …</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>Focus on the five highlighted types — they are the ones a container's life actually flows through. <strong>Content</strong> holds the raw image blobs addressed by their SHA-256 digest. <strong>Snapshot</strong> turns stacked layers into a mountable root filesystem (this is containerd's name for what Docker calls a storage driver). <strong>Metadata</strong> is a small embedded database that records which images, containers, and snapshots exist. <strong>Diff</strong> knows how to apply a layer tar onto a snapshot (unpacking) and how to produce a diff (committing). <strong>Runtime v2</strong> is the piece that launches the shim. Everything else (GC, leases, gRPC, events) is supporting plumbing around those five.</p>
+</div>
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>containerd is usually introduced as "the container runtime." The type list shows that's misleading: the thing that literally runs a container is one plugin (<code class="inl">runtime.v2</code>, which just launches a shim), while the <em>majority</em> of containerd is storage and metadata — content, snapshots, diff, GC, leases. containerd is better understood as a <strong>content-and-execution supervisor</strong> that delegates the actual running downward, exactly as we saw in Lesson 2. Also note <code class="inl">snapshotter.v1</code> is a <em>role</em>, not a specific filesystem — OverlayFS is just the most common plugin filling it (Lesson 16).</p>
+</aside>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 2</div>
+<h2>The contract: how a plugin registers itself</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>A plugin is just a value that fills in a standard form and hands it to a registry at program startup. The form has four fields that matter: <em>what role am I</em> (Type), <em>which variant am I</em> (ID), <em>what other plugins do I need</em> (Requires), and <em>how do I start up</em> (InitFn). That's the entire extension model.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">plugin.go — type Registration</span><span class="repo">github.com/containerd/plugin</span></div>
+<pre>type Registration struct {
+<span class="keyline">    Type     Type                              <span class="cmt">// the role, e.g. SnapshotPlugin</span></span>
+<span class="keyline">    ID       string                            <span class="cmt">// the variant, e.g. "overlayfs"</span></span>
+<span class="keyline">    Requires []Type                            <span class="cmt">// roles I need present before I start</span></span>
+<span class="keyline">    InitFn   func(*InitContext) (interface{}, error)  <span class="cmt">// build my instance</span></span>
+    Config   interface{}                       <span class="cmt">// my config section</span>
+}
+
+<span class="cmt">// identity string used for logs AND on-disk dir names:</span>
+func (r *Registration) <span class="fn">URI</span>() string { <span class="kw">return</span> r.Type.String() + <span class="str">"."</span> + r.ID }</pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p><code class="inl">Type</code> + <code class="inl">ID</code> uniquely name a plugin — e.g. type <code class="inl">io.containerd.snapshotter.v1</code> + id <code class="inl">overlayfs</code>. <code class="inl">Requires</code> is the dependency declaration that drives load order (next mechanism). <code class="inl">InitFn</code> is where the plugin actually constructs itself, and it receives an <code class="inl">InitContext</code> from which it can fetch its dependencies. And <code class="inl">URI()</code> = <code class="inl">Type + "." + ID</code> is quietly important: containerd uses that exact string as the plugin's directory name on disk, which is why the inspect step at the end will show folders like <code class="inl">io.containerd.snapshotter.v1.overlayfs</code>.</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 3</div>
+<h2>The wiring: dependencies decide load order</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Here's where the plugin list becomes an actual architecture. A plugin can't initialize until the plugins it depends on already exist — a snapshotter needs nothing else, but the metadata database sits on top of content and snapshots and can't start before them. containerd figures out a safe order automatically by reading every plugin's <code class="inl">Requires</code> list and sorting so that dependencies come first. The clearest example is the metadata plugin declaring exactly what it stands on:</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">plugins/metadata/plugin.go</span><span class="repo">containerd/containerd</span></div>
+<pre>registry.Register(&amp;plugin.Registration{
+    Type: plugins.MetadataPlugin,
+<span class="keyline">    ID:   <span class="str">"bolt"</span>,                        <span class="cmt">// metadata store = an embedded BoltDB</span></span>
+<span class="keyline">    Requires: []plugin.Type{               <span class="cmt">// cannot start until these exist:</span></span>
+<span class="keyline">        plugins.ContentPlugin,             <span class="cmt">//   the blob store</span></span>
+<span class="keyline">        plugins.EventPlugin,
+        plugins.SnapshotPlugin,            <span class="cmt">//   the rootfs builder(s)</span></span>
+    },
+    InitFn: func(ic *plugin.InitContext) (any, error) { ... },
+})</pre>
+</figure>
+<p>And the ordering itself — a depth-first walk that emits a plugin's requirements before the plugin, and refuses to tolerate a cycle:</p>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">plugin.go — Graph() / children()</span><span class="repo">github.com/containerd/plugin</span></div>
+<pre>func children(stack, registry, handled, ordered) {
+    reg := stack[len(stack)-1]
+<span class="keyline">    for _, t := range reg.Requires {          <span class="cmt">// for each required role…</span></span>
+        for _, r := range registry {
+            if r.Type == t &amp;&amp; r != reg {
+<span class="keyline">                if inStack(stack, r) { panic(ErrPluginCircularDependency) }  <span class="cmt">// no loops</span></span>
+<span class="keyline">                children(append(stack, r), ...)   <span class="cmt">// recurse: deps of deps first</span></span>
+<span class="keyline">                *ordered = append(*ordered, *r)   <span class="cmt">// emit dependency BEFORE dependent</span></span>
+            }
+        }
+    }
+}</pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>Two ideas carry the whole mechanism. First, in the metadata registration, the <code class="inl">Requires</code> list is a literal statement of architecture: "metadata depends on content + snapshots," so you can read containerd's layering straight off these declarations. Second, in <code class="inl">children()</code>, the recursion emits each dependency into the <code class="inl">ordered</code> list <em>before</em> the plugin that needs it, and the <code class="inl">panic(ErrPluginCircularDependency)</code> guard fires if a plugin is ever found waiting on itself. The result is a startup order where, by the time any <code class="inl">InitFn</code> runs, everything it will ask for already exists. At init a plugin simply calls <code class="inl">ic.GetSingle(ContentPlugin)</code> and receives the ready instance.</p>
+</div>
+
+<aside class="note"><b>This is dependency injection, kernel-style.</b> No plugin constructs its own dependencies or knows where they came from; it declares the <em>roles</em> it needs and the core supplies concrete instances. That's exactly why you can replace the <code class="inl">overlayfs</code> snapshotter with <code class="inl">btrfs</code> without touching the metadata plugin — metadata asked for "a snapshotter," not "overlayfs."</aside>
+
+<hr class="soft">
+
+<div class="eyebrow">Putting it together</div>
+<h2>Which plugins a single <code style="font-size:.8em">docker run</code> touches</h2>
+<p>With the roles named, the path from Lesson 2 gets sharper. When an image is pulled and a container started, work flows across these plugins in turn:</p>
+<div class="flow">
+pull image → <span class="who">content.v1</span> <span class="note">stores each layer blob under its sha256 digest</span>
+           → <span class="who">differ.v1</span>  <span class="note">unpacks (applies) each layer tar…</span>
+           → <span class="who">snapshotter.v1</span> <span class="note">…into stacked snapshots = a mountable rootfs</span>
+           → <span class="who">metadata.v1 (bolt)</span> <span class="note">records the image, container, snapshot records</span>
+create/run → <span class="who">runtime.v2</span> <span class="note">launches containerd-shim-runc-v2 → runc (Lesson 5)</span>
+throughout → <span class="who">lease.v1</span> + <span class="who">gc.v1</span> <span class="note">keep in-use blobs alive, sweep the rest (Lesson 22)</span>
+API access → <span class="who">grpc.v1</span> <span class="note">the services dockerd actually calls over the socket</span>
+</div>
+<p>Every noun in that flow is a plugin from the type list, wired in by <code class="inl">Requires</code>. containerd's "magic" is just this set of roles talking to each other in dependency order.</p>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<p>Two commands make the whole architecture visible. First, ask containerd to list its live plugins and their status; then look at the on-disk directories, whose names are exactly the <code class="inl">URI()</code> strings (<code class="inl">type + "." + id</code>) from Mechanism 2:</p>
+<figure class="inspect">
+  <div class="tab">host shell &nbsp;(needs containerd + ctr; run as root)</div>
+<pre><span class="p">$</span> ctr plugins ls | head
+<span class="o">TYPE                            ID          PLATFORMS      STATUS</span>
+<span class="o">io.containerd.content.v1        content     -              ok</span>
+<span class="o">io.containerd.snapshotter.v1    overlayfs   linux/amd64    ok</span>
+<span class="o">io.containerd.metadata.v1       bolt        -              ok</span>
+<span class="o">io.containerd.differ.v1         walking     linux/amd64    ok</span>
+<span class="o">io.containerd.runtime.v2        task        -              ok</span>
+<span class="o">io.containerd.grpc.v1           containers  -              ok</span>
+
+<span class="p">$</span> sudo ls /var/lib/containerd/
+<span class="o">io.containerd.content.v1.content        <span style="color:#6b7482"># ← the blob store (Lessons 17 &amp; 22)</span></span>
+<span class="o">io.containerd.snapshotter.v1.overlayfs  <span style="color:#6b7482"># ← the rootfs snapshots (Lesson 16)</span></span>
+<span class="o">io.containerd.metadata.v1.bolt          <span style="color:#6b7482"># ← meta.db, the BoltDB file</span></span>
+<span class="o">io.containerd.runtime.v2.task           <span style="color:#6b7482"># ← per-container shim state</span></span></pre>
+</figure>
+<p>Those directory names are the plugin taxonomy made physical: the abstract "content plugin" is a folder, the "overlayfs snapshotter" is a folder, the "bolt metadata store" is a folder holding a real <code class="inl">meta.db</code>. Every abstraction in this lesson has an address on disk you can point at.</p>
+
+<hr class="soft">
+
+<div class="eyebrow">Where we are</div>
+<h2>Summary</h2>
+<p>containerd is a small core that hosts ~30 <strong>plugin types</strong> — roles like content store, snapshotter, metadata DB, differ, and runtime. Each concrete plugin registers a <code class="inl">Registration</code> declaring its <code class="inl">Type</code>, <code class="inl">ID</code>, its <code class="inl">Requires</code> dependencies, and an <code class="inl">InitFn</code>. The core reads those <code class="inl">Requires</code> lists, topologically sorts them (panicking on cycles), and initializes each plugin only after its dependencies exist — so a plugin can just ask for "a content store" and receive one. A container's life is that handful of plugins cooperating: content stores blobs, differ+snapshotter build a rootfs, metadata records everything, runtime.v2 launches the shim. Next we follow that last one all the way into the shim itself, and finally answer how a container keeps running when containerd restarts.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 02 · dockerd → containerd</span>
+  <span class="xref"><b>forward →</b> Lesson 05 · The shim (runtime.v2) in depth</span>
+  <span class="xref"><b>forward →</b> Lesson 16 · Snapshotters &amp; storage drivers</span>
+  <span class="xref"><b>forward →</b> Lesson 22 · Content store GC &amp; leases</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">03 · Contexts &amp; remote daemons</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">05 · The shim in depth</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

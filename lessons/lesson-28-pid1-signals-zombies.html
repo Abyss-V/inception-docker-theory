@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 28 · PID 1, Signals &amp; Zombies</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.7; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:36px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .oneline{border:1px solid var(--teal-dim); background:linear-gradient(180deg,#0b1615,#0a1210); border-radius:10px; padding:18px 20px; margin:30px 0 8px}
+  .oneline .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); display:block; margin-bottom:8px}
+  .oneline p{margin:0; font-size:20px; line-height:1.5; color:#fff}
+
+  .concept{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:48px 0 4px; display:flex; align-items:center; gap:10px;}
+  .concept .num{width:24px;height:24px;border-radius:50%;border:1px solid var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  h2{font-family:var(--mono); font-weight:600; font-size:21px; margin:8px 0 16px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  .term{color:var(--teal); font-weight:600}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+  .plain{color:var(--dim); font-size:16px; border-left:2px solid var(--rule); padding-left:14px; margin:0 0 18px}
+  .plain b{color:var(--teal); font-weight:600}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--teal); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .c{color:var(--faint)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .tree{font-family:var(--mono); font-size:13.5px; background:var(--well); border:1px solid var(--rule); border-radius:8px; padding:16px 18px; margin:16px 0; line-height:1.9}
+  .tree .bad{color:var(--rose)} .tree .good{color:var(--teal)} .tree .c{color:var(--faint)} .tree .p1{color:var(--gold)}
+  .tlabel{font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); margin:0 0 4px}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:20px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  .recap{border:1px solid var(--teal-dim); border-radius:10px; background:#0a1210; padding:20px 22px; margin:30px 0}
+  .recap h3{font-family:var(--mono); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:0 0 14px}
+  .recap ul{margin:0; padding-left:20px} .recap li{margin:0 0 10px; color:var(--bone)} .recap li:last-child{margin:0}
+  .recap li b{color:#fff}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:60px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:38px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-27-multi-stage-builds.html">← Lesson 27</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-29-build-context-dockerignore.html">Lesson 29 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part IV — Building &amp; running</div>
+  <div class="lesson-no">28</div>
+  <span class="pill">core</span>
+  <h1>PID 1: signals, zombies, and why <code style="font-size:.8em">docker stop</code> hangs</h1>
+  <p class="dek">Inside a container your program is process number 1 — and the kernel treats process 1 unlike any other. Get this wrong and containers ignore shutdown, leak zombies, and die hard. Get it right in one line.</p>
+</header>
+
+<div class="oneline">
+  <span class="lbl">The idea in one sentence</span>
+  <p>When a container uses its own PID namespace, its main process is namespace PID 1. The kernel restricts which ordinary signals other processes may deliver to that namespace init, and orphaned descendants are adopted there unless a nearer subreaper exists — so shutdown and reaping must be designed deliberately.</p>
+</div>
+
+<div class="concept"><span class="num">1</span> Start here</div>
+<h2>Your process is PID 1, and that's unusual</h2>
+
+<p class="plain"><b>Plain version:</b> a container has its own process-number space, and your program is number 1 in it — the role the operating system's "init" normally plays.</p>
+
+<p>From Lesson 6, a container has its own PID namespace, so your entrypoint isn't some ordinary process — it's <span class="term">PID 1</span>, the <em>init</em> process of that namespace. On a normal Linux system PID 1 is a purpose-built init program (systemd, etc.) designed for the job. In a container, <em>your app</em> is unexpectedly cast in that role, and the kernel gives PID 1 two special behaviors that ordinary processes never deal with.</p>
+
+<div class="concept"><span class="num">2</span> Special behavior one</div>
+<h2>Signals: namespace PID 1 only accepts ordinary signals it handles</h2>
+
+<p class="plain"><b>Plain version:</b> for namespace PID 1, an ordinary signal such as <code class="inl">SIGTERM</code> is deliverable from peer processes only if PID 1 installed a handler for it. An unhandled <code class="inl">SIGTERM</code> therefore does not terminate it.</p>
+
+<p>For an ordinary process, <code class="inl">SIGTERM</code> has the default action “terminate.” The PID-namespace rule is narrower and more precise: processes in the same or an ancestor PID namespace may send an ordinary non-<code class="inl">SIGKILL</code>/<code class="inl">SIGSTOP</code> signal to namespace PID 1 only when PID 1 installed a handler for that signal. Therefore an unhandled <code class="inl">SIGTERM</code> does nothing. <code class="inl">docker stop</code> sends the configured stop signal, waits the configured timeout, and then sends <code class="inl">SIGKILL</code>. Ten seconds is the normal Linux default. It is configurable when the container is created with <code class="inl">--stop-timeout</code>; if unset, the daemon chooses the platform default.</p>
+
+<aside class="note"><b>Why the final SIGKILL always works.</b> <code class="inl">SIGKILL</code> can't be caught by anyone, and while the kernel shields PID 1 from being killed <em>by its own namespace</em>, Docker's kill comes from the <em>host</em> namespace — an ancestor — which is not shielded. So the grace-period-then-<code class="inl">SIGKILL</code> path is guaranteed to stop the container, just ungracefully (abrupt exit, possible lost writes).</aside>
+
+<div class="concept"><span class="num">3</span> Special behavior two</div>
+<h2>Reaping: PID 1 must bury the dead</h2>
+
+<p class="plain"><b>Plain version:</b> when any process's parent dies, its leftover children get handed to PID 1, which must formally collect their exit status — or they pile up as "zombies."</p>
+
+<p>When a process exits, it stays as a <span class="term">zombie</span> (a defunct entry holding a slot in the process table) until its parent calls <code class="inl">wait()</code> to collect its exit status. If a parent dies before its children, those orphans are <strong>re-parented to PID 1</strong>. So PID 1 inherits the duty of reaping every orphan in the namespace. A real init does this in a loop; an app that never calls <code class="inl">wait()</code> on unexpected children doesn't — and if your PID 1 spawns subprocesses (or inherits orphans) without reaping, zombies accumulate and can exhaust the process table.</p>
+
+<div class="concept"><span class="num">4</span> The trap</div>
+<h2>Shell form quietly makes <code style="font-size:.85em">sh</code> your PID 1</h2>
+
+<p class="plain"><b>Plain version:</b> writing your entrypoint as a plain string hides a shell in front of your app — the shell becomes PID 1, and it's bad at the job.</p>
+
+<p>Here's where Lesson 26's shell-vs-exec form bites. <code class="inl">ENTRYPOINT node server.js</code> becomes <code class="inl">/bin/sh -c "node server.js"</code>, so <strong><code class="inl">sh</code> is PID 1</strong> and your app is its child. A shell normally waits for its own foreground child, but it is not automatically a general-purpose init or subreaper and usually does not forward <code class="inl">SIGTERM</code> to that child. The app can remain unsignaled, and unexpected orphaned descendants may go unreaped. Exec form puts the application directly at PID 1.</p>
+
+<p class="tlabel">Shell form — sh is PID 1, signal stops here:</p>
+<div class="tree">
+PID 1  <span class="bad">/bin/sh -c "node server.js"</span>   <span class="c">← docker stop's SIGTERM lands here, ignored/not forwarded</span>
+  └─ PID 7  node server.js            <span class="c">← your app, never told to shut down</span>
+</div>
+<p class="tlabel">Exec form — your app is PID 1:</p>
+<div class="tree">
+PID 1  <span class="p1">node server.js</span>              <span class="c">← gets SIGTERM directly (if it handles it)</span>
+</div>
+
+<div class="concept"><span class="num">5</span> The fix</div>
+<h2>Write for PID 1, or delegate it to a tiny init</h2>
+
+<p class="plain"><b>Plain version:</b> either make your app handle <code class="inl">SIGTERM</code> and reap children, or run a minimal init that does both for you.</p>
+
+<p>Two paths. If your app <em>is</em> PID 1 (exec form), give it a <code class="inl">SIGTERM</code> handler that shuts down cleanly, and reap children if it spawns any. But most apps aren't written to be init — so the common fix is to put a tiny init process at PID 1 that forwards signals and reaps zombies for you. <span class="term">tini</span> is the standard one, and <code class="inl">docker run --init</code> injects it: tini becomes PID 1, your app runs as its child, and tini relays <code class="inl">SIGTERM</code> to your app and reaps any orphans. Graceful <code class="inl">docker stop</code> and zombie-free operation, for free.</p>
+
+<p class="tlabel">With --init — tini is PID 1 and does the init duties:</p>
+<div class="tree">
+PID 1  <span class="good">tini -- node server.js</span>      <span class="c">← forwards SIGTERM ↓ , reaps zombies</span>
+  └─ PID 7  node server.js            <span class="c">← receives the forwarded signal, shuts down cleanly</span>
+</div>
+
+<div class="keybox">
+  <div class="h">The rule to remember</div>
+  <p>Namespace PID 1 receives ordinary peer/ancestor signals only when it installed a handler, and it is the final adopter for orphans unless a nearer subreaper exists. Use exec form, install a graceful stop-signal handler, and use <code class="inl">--init</code>/tini when the application is not designed to perform init duties.</p>
+</div>
+
+<span class="step">Inspect it yourself</span>
+<p>See who's PID 1, watch shell form eat the stop signal, then fix it with <code class="inl">--init</code>:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> <span class="o"># shell form: sh is PID 1; with the normal Linux default, stop waits about 10s</span>
+<span class="p">$</span> docker run -d --name a --entrypoint /bin/sh app -c 'sleep 999'
+<span class="p">$</span> docker exec a ps -o pid,comm
+<span class="o">  PID COMMAND</span>
+<span class="o">    1 sh</span>                          <span class="hl"># sh is PID 1</span>
+<span class="o">    7 sleep</span>
+<span class="p">$</span> time docker stop a
+<span class="o">real  about <span class="hl">10s</span></span>                      <span class="c"># normal default; your configured timeout may differ</span>
+
+<span class="p">$</span> <span class="o"># with --init: tini is PID 1, forwards the signal, stop is immediate</span>
+<span class="p">$</span> docker run -d --init --name b app
+<span class="p">$</span> docker exec b ps -o pid,comm
+<span class="o">    1 <span class="hl">tini</span></span>
+<span class="o">    7 node</span>                        <span class="c"># app is tini's child; signals forwarded</span>
+<span class="p">$</span> time docker stop b
+<span class="o">real  0m<span class="hl">0.4s</span></span>                        <span class="c"># graceful</span></pre>
+</figure>
+
+<div class="recap">
+  <h3>Check yourself</h3>
+  <ul>
+    <li>Your container's main process is <b>PID 1</b> — the init of its PID namespace — and the kernel treats it specially.</li>
+    <li>For namespace PID 1, an ordinary peer/ancestor signal is deliverable only when PID 1 installed a handler; an unhandled <code class="inl">SIGTERM</code> therefore does nothing.</li>
+    <li>Orphans are <b>re-parented to PID 1</b>, which must reap them or <b>zombies</b> accumulate.</li>
+    <li><b>Shell form</b> makes <code class="inl">/bin/sh</code> PID 1; it usually does not forward termination signals and is not guaranteed to reap arbitrary orphaned descendants. <b>Exec form</b> makes your app PID 1.</li>
+    <li>Fix: exec form + a real <code class="inl">SIGTERM</code> handler, or a tiny init (<b><code class="inl">--init</code> / tini</b>) that forwards signals and reaps.</li>
+    <li>The final <code class="inl">SIGKILL</code> always works because it comes from the <b>host namespace</b>, not PID 1's own.</li>
+  </ul>
+</div>
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>"<code class="inl">docker stop</code> is slow" is often PID 1 not handling the configured stop signal; the usual ten seconds is the Linux daemon default when the container has no configured stop timeout, not a fixed law. Shell form inserts <code class="inl">sh</code> as PID 1; it generally does not forward the termination signal and is not a full init/subreaper. The fix isn't a longer timeout — it's making the <em>right</em> process PID 1 (exec form, or tini) and handling the signal.</p>
+</aside>
+
+<div style="font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:44px 0 4px">Where we are</div>
+<h2>Summary</h2>
+<p>When the container has its own PID namespace, the main process is <strong>namespace PID 1</strong>. Ordinary peer/ancestor signals are deliverable only when that init installed a handler, except that ancestor <code class="inl">SIGKILL</code>/<code class="inl">SIGSTOP</code> are forced; orphaned descendants are adopted by namespace PID 1 unless a nearer subreaper exists. So an app that ignores <code class="inl">SIGTERM</code> makes <code class="inl">docker stop</code> hang until the grace period expires and <code class="inl">SIGKILL</code> lands, and an app that never reaps leaks zombies. <strong>Shell form</strong> quietly inserts <code class="inl">sh</code> as PID 1 and breaks both; <strong>exec form</strong> puts your app there. The fixes are to handle <code class="inl">SIGTERM</code> yourself or delegate PID-1 duties to a tiny init like <strong>tini</strong> (<code class="inl">--init</code>). Next, Lesson 29 steps back to build inputs: the build context and <code class="inl">.dockerignore</code> — what actually gets sent to the builder, and why it matters.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 06 · PID namespace</span>
+  <span class="xref"><b>back ←</b> Lesson 26 · shell vs exec form</span>
+  <span class="xref"><b>forward →</b> Lesson 37 · healthchecks &amp; restart</span>
+  <span class="xref"><b>forward →</b> Lesson 29 · build context</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">27 · Multi-stage builds</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">29 · Build context &amp; .dockerignore</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

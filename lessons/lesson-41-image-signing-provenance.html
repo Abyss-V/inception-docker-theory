@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 41 — Image signing &amp; provenance</title>
+<style>
+:root{--ink:#0e1116;--panel:#161b22;--well:#0a0d12;--bone:#e9e4d7;--dim:#9aa4b2;--faint:#6b7482;--rule:#262d38;--gold:#e0b155;--gold-dim:#7a6636;--teal:#5ac4b4;--teal-dim:#2f5f59;--rose:#d76d7f;--rose-dim:#6e3540;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--serif:"Iowan Old Style",Charter,Georgia,Cambria,serif}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--ink);color:var(--bone);font:18px/1.72 var(--serif)}.wrap{max-width:760px;margin:auto;padding:24px}
+header{padding:32px 0 20px;border-bottom:1px solid var(--rule)}.eyebrow{font:12px var(--mono);color:var(--gold);letter-spacing:.12em;text-transform:uppercase}h1{font-size:44px;line-height:1.05;margin:.35rem 0 1rem}.deck{color:#cfc8b8;max-width:52rem}.pill{display:inline-block;border:1px solid var(--teal-dim);color:var(--teal);font:12px var(--mono);padding:4px 8px;border-radius:999px}
+section{padding:28px 0;border-bottom:1px solid rgba(255,255,255,.04)}h2{font-size:30px;line-height:1.2;margin:0 0 14px}h3{font-size:22px;line-height:1.3;margin:24px 0 10px}p,li{color:var(--bone)}.dim{color:var(--dim)}strong{color:#f4f0e6}code,pre{font-family:var(--mono)}code{background:#11161d;border:1px solid #2b3440;border-radius:6px;padding:1px 5px;color:#f2d493}pre{background:var(--well);border:1px solid var(--rule);border-radius:12px;padding:14px;overflow:auto;color:#d8e0e7;line-height:1.55;white-space:pre-wrap}
+.note,.warn,.idea,.inspect{padding:16px 18px;border-radius:14px;border:1px solid var(--rule);margin:16px 0}.idea{border-left:4px solid var(--teal);background:#101a1a}.note{border-left:4px solid var(--gold);background:#17140e}.warn{border-left:4px solid var(--rose);background:#1a1013}.inspect{border-left:4px solid var(--teal);background:#0f1717}.label{font:12px var(--mono);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}.idea .label,.inspect .label{color:var(--teal)}.note .label{color:var(--gold)}.warn .label{color:var(--rose)}
+.table{width:100%;border-collapse:collapse;margin:14px 0}.table th,.table td{border-bottom:1px solid var(--rule);padding:10px;vertical-align:top}.table th{font:12px var(--mono);color:var(--gold);text-align:left}.figure{background:var(--panel);border:1px solid var(--rule);border-radius:16px;padding:18px;margin:18px 0;overflow:hidden}.caption{color:var(--dim);font-size:15px;margin-top:10px}.small{font-size:15px;color:var(--dim)}.src{color:var(--gold);font:13px/1.55 var(--mono)}details{background:#12171e;border:1px solid var(--rule);border-radius:12px;padding:12px 14px;margin-top:10px}summary{cursor:pointer;color:var(--gold);font-family:var(--mono)}a{color:var(--teal);text-decoration-color:var(--teal-dim)}
+.kicker{font:13px var(--mono);color:var(--teal);letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px}.hop{display:grid;grid-template-columns:38px 1fr;gap:12px;margin:18px 0}.hopn{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--teal-dim);color:var(--teal);font:13px var(--mono)}.hop h3{margin:1px 0 6px}.nav{display:flex;justify-content:space-between;gap:12px;padding-top:22px}.nav a{display:block;border:1px solid var(--teal-dim);border-radius:12px;padding:10px 12px;text-decoration:none;font:13px var(--mono)}.sourcechips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.sourcechips a{font:12px var(--mono);border:1px solid var(--gold-dim);color:var(--gold);text-decoration:none;border-radius:999px;padding:5px 8px}.callout{font:600 21px/1.5 var(--serif);padding:4px 0}.state{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin:14px 0}.state>div{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:12px}.arrow{font:18px var(--mono);color:var(--teal)}
+@media(max-width:650px){h1{font-size:36px}.wrap{padding:18px}.table{font-size:15px}.figure{padding:10px}.nav{flex-direction:column}.state{grid-template-columns:1fr}.arrow{text-align:center;transform:rotate(90deg)}}
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-40-tags-digests-content-addressed-transfer-dedup.html">← Lesson 40</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-42-docker-compose.html">Lesson 42 →</a></span></nav><main class="wrap">
+<header>
+  <div class="eyebrow">Part 6 · Distribution · Lesson 41</div>
+  <h1>Image signing &amp; provenance</h1>
+  <p class="deck">Lesson 40 gave us a stable identity: a digest names exact image content. This lesson adds two different things around that identity. <strong>Provenance says what happened during the build.</strong> <strong>A signature proves that a particular signing key approved a digest-bound claim.</strong> They are related, but they are not the same mechanism.</p>
+  <span class="pill">DEEP-CUT</span>
+</header>
+
+<section>
+  <div class="idea"><div class="label">governing idea</div><p><strong>Do not sign a tag. Resolve the image to immutable content, then bind claims and signatures to the digest of that content.</strong></p></div>
+  <p>We will use one example throughout:</p>
+  <pre><code>registry.example.com/course/app:1.0
+
+platform image manifest M = sha256:11aa…
+provenance statement P    = sha256:22bb…
+attestation manifest A    = sha256:33cc…
+final image index I       = sha256:44dd…
+signature artifact S      = sha256:55ee…</code></pre>
+  <p>Those letters are only labels for this lesson. The important part is <strong>which digest points to which object</strong>.</p>
+  <p>Lessons 18–19 taught descriptors and content-addressed image graphs. Lesson 39 taught registry movement. Lesson 40 taught tag resolution and digest identity. We will use those mechanisms rather than re-teach them.</p>
+</section>
+
+<section>
+  <div class="kicker">whole movement first</div>
+  <h2>1. The complete pipeline</h2>
+  <p>There are actually <strong>two pipelines</strong>. BuildKit creates provenance while exporting the image. A signer can later sign the finished published image digest.</p>
+
+  <div class="figure">
+    <svg viewBox="0 0 720 760" width="100%" role="img" aria-labelledby="t d">
+      <title id="t">Provenance creation, signature creation, registry attachment, and verification</title>
+      <desc id="d">BuildKit captures facts from the solved build, creates a provenance statement about the platform manifest, packages it into an attestation manifest, and builds a root image index. A separate signer signs the final root digest and stores a referring signature artifact. A verifier resolves the image digest, discovers the signature artifact, verifies the key signature and checks that the signed subject is the resolved digest.</desc>
+      <defs><marker id="arr41" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#5ac4b4"/></marker></defs>
+      <style>.b{fill:#111820;stroke:#34404d;stroke-width:1.4}.g{fill:#101a1a;stroke:#2f5f59;stroke-width:1.4}.y{fill:#17140e;stroke:#7a6636;stroke-width:1.4}.r{fill:#1a1013;stroke:#6e3540;stroke-width:1.4}.tx{fill:#e9e4d7;font:600 14px ui-monospace,monospace}.sm{fill:#9aa4b2;font:11px ui-monospace,monospace}.a{stroke:#5ac4b4;stroke-width:2;fill:none;marker-end:url(#arr41)}</style>
+
+      <text x="22" y="24" class="sm">BUILD / PROVENANCE PIPELINE</text>
+      <rect x="20" y="42" width="210" height="82" rx="12" class="b"/><text x="36" y="72" class="tx">solved build graph</text><text x="36" y="96" class="sm">sources + exec facts</text>
+      <rect x="255" y="42" width="210" height="82" rx="12" class="g"/><text x="271" y="72" class="tx">BuildKit</text><text x="271" y="96" class="sm">capture provenance</text>
+      <rect x="490" y="42" width="210" height="82" rx="12" class="y"/><text x="506" y="70" class="tx">statement P</text><text x="506" y="94" class="sm">subject.digest = M</text>
+      <path d="M230 83H250" class="a"/><path d="M465 83H485" class="a"/>
+
+      <rect x="80" y="164" width="250" height="92" rx="12" class="g"/><text x="97" y="194" class="tx">attestation manifest A</text><text x="97" y="218" class="sm">references statement P</text><text x="97" y="238" class="sm">non-runnable metadata object</text>
+      <rect x="390" y="164" width="250" height="92" rx="12" class="b"/><text x="407" y="194" class="tx">root image index I</text><text x="407" y="218" class="sm">contains descriptor M</text><text x="407" y="238" class="sm">and descriptor A</text>
+      <path d="M590 124C590 144 318 141 260 160" class="a"/><path d="M330 210H385" class="a"/>
+
+      <rect x="205" y="292" width="310" height="72" rx="12" class="b"/><text x="224" y="321" class="tx">registry.example.com/course/app:1.0</text><text x="224" y="345" class="sm">tag now resolves to I = sha256:44dd…</text>
+      <path d="M515 256C515 275 450 279 420 288" class="a"/>
+
+      <text x="22" y="410" class="sm">SIGNING PIPELINE</text>
+      <rect x="20" y="430" width="210" height="86" rx="12" class="b"/><text x="36" y="460" class="tx">image reference</text><text x="36" y="484" class="sm">prefer repo@sha256:44dd…</text>
+      <rect x="255" y="430" width="210" height="86" rx="12" class="g"/><text x="271" y="460" class="tx">external signer</text><text x="271" y="484" class="sm">sign digest-bound payload</text>
+      <rect x="490" y="430" width="210" height="86" rx="12" class="y"/><text x="506" y="458" class="tx">signature artifact S</text><text x="506" y="482" class="sm">refers to I</text><text x="506" y="500" class="sm">stored separately</text>
+      <path d="M230 473H250" class="a"/><path d="M465 473H485" class="a"/>
+
+      <text x="22" y="566" class="sm">VERIFICATION PIPELINE</text>
+      <rect x="20" y="585" width="210" height="102" rx="12" class="b"/><text x="36" y="615" class="tx">resolve image</text><text x="36" y="639" class="sm">current digest = I?</text><text x="36" y="661" class="sm">discover referrers to I</text>
+      <rect x="255" y="585" width="210" height="102" rx="12" class="g"/><text x="271" y="615" class="tx">verify signature</text><text x="271" y="639" class="sm">accepted public key</text><text x="271" y="661" class="sm">checks signed payload</text>
+      <rect x="490" y="585" width="210" height="102" rx="12" class="r"/><text x="506" y="613" class="tx">check claim target</text><text x="506" y="637" class="sm">signed subject digest</text><text x="506" y="659" class="sm">must equal I</text>
+      <path d="M230 636H250" class="a"/><path d="M465 636H485" class="a"/>
+      <rect x="180" y="714" width="360" height="36" rx="10" class="g"/><text x="199" y="738" class="tx">result: this key signed a claim about exact digest I</text>
+      <path d="M595 687C595 705 500 703 480 710" class="a"/>
+    </svg>
+    <p class="caption">Provenance becomes part of the exported image graph. The signature is created afterward and stored as a separate object that refers back to the final image digest.</p>
+  </div>
+
+  <div class="callout">First build the exact content graph. Then sign the digest of the graph you actually intend to publish.</div>
+</section>
+
+<section>
+  <h2>2. First separate the three ideas</h2>
+  <p>The words <em>provenance</em>, <em>attestation</em>, and <em>signature</em> are often thrown into one bucket. That makes the mechanism harder than it is.</p>
+  <table class="table"><thead><tr><th>Thing</th><th>What it answers</th><th>Does it cryptographically prove who approved it?</th></tr></thead><tbody>
+    <tr><td><strong>Provenance</strong></td><td>What build inputs and build actions produced this result?</td><td>No, not by itself.</td></tr>
+    <tr><td><strong>Attestation object</strong></td><td>How are those claims packaged and attached to an image result?</td><td>Attachment alone is not trust.</td></tr>
+    <tr><td><strong>Signature</strong></td><td>Did the holder of an accepted private key sign this digest-bound payload?</td><td>Yes, if verification succeeds with the corresponding trusted public key or accepted identity material.</td></tr>
+  </tbody></table>
+  <div class="warn"><div class="label">common mistake</div><p>A provenance document can be perfectly well formed and still be untrusted. A registry can store an artifact that <em>claims</em> to refer to your image. Cryptographic verification is the extra step that establishes who signed the claim.</p></div>
+</section>
+
+<section>
+  <div class="kicker">pipeline A · build</div>
+  <h2>3. Where provenance starts: the solved build graph</h2>
+  <p>Consider a small build:</p>
+  <pre><code>FROM alpine:3.22
+COPY app /usr/local/bin/app
+RUN chmod +x /usr/local/bin/app
+ENTRYPOINT ["/usr/local/bin/app"]</code></pre>
+  <p>By the time BuildKit is exporting the result, it has more information than the final root filesystem contains. It knows which source operations and execution operations were actually part of the solved build.</p>
+  <p>In pinned BuildKit 0.31.1, <code>captureProvenance</code> walks the build result's provider graph. It records information from source operations and execution operations. For example, source operations contribute source identity/pinning information; execution operations contribute selected execution facts such as network access and the IDs of secret or SSH mounts.</p>
+  <div class="note"><div class="label">important boundary</div><p>The provenance capture code records a secret mount's <strong>ID and whether it was optional</strong>; this source path is not dumping the secret's value into provenance. The distinction matters.</p></div>
+  <p>The main relationship is:</p>
+  <pre><code>actual solved build operations
+        │
+        │ BuildKit walks them
+        ▼
+structured provenance data
+        │
+        ▼
+serialized provenance statement</code></pre>
+  <p>This is why provenance cannot be reconstructed accurately just by looking at the final layer tar files. A layer tells you filesystem changes. Provenance records facts about <strong>how the build result was produced</strong>.</p>
+  <p class="src">Source anchor: BuildKit v0.31.1 · solver/llbsolver/provenance.go · captureProvenance / ProvenanceCreator</p>
+</section>
+
+<section>
+  <h2>4. What object does BuildKit say the provenance is about?</h2>
+  <p>Now we need the most important digest relationship in the provenance half.</p>
+  <p>BuildKit packages its provenance inside an <strong>in-toto statement</strong>. For this lesson, that means a JSON claim envelope with three load-bearing pieces: <code>subject</code> says which content the claim is about; <code>predicateType</code> identifies the claim schema; <code>predicate</code> contains the build-specific facts. We need those names because they are the real fields you will inspect.</p>
+  <p>Assume BuildKit has created the runnable platform image manifest:</p>
+  <pre><code>M = sha256:11aa…</code></pre>
+  <p>That manifest already points to the image config and layer descriptors. BuildKit then creates a default <strong>subject</strong> for the provenance statement from that platform manifest descriptor.</p>
+  <p>Here, <strong>subject</strong> simply means: <em>the content object this statement is making claims about</em>.</p>
+  <pre><code>provenance statement P
+{
+  "subject": [
+    {
+      "digest": {
+        "sha256": "11aa…"
+      }
+    }
+  ],
+  "predicateType": "...",
+  "predicate": {
+      ... build facts ...
+  }
+}</code></pre>
+  <div class="idea"><div class="label">load-bearing relationship</div><p><strong>The provenance statement is not about the tag <code>:1.0</code>.</strong> In the pinned BuildKit export path, its subject is derived from the exact platform manifest descriptor <code>M</code>.</p></div>
+  <p>The source-level bridge is small but important: while exporting each platform, BuildKit constructs <code>defaultSubjects</code> from the just-created platform manifest's <code>desc.Digest</code>, then passes those subjects into its in-toto statement creation.</p>
+  <p class="src">Source anchor: BuildKit v0.31.1 · exporter/containerimage/writer.go · defaultSubjects / MakeInTotoStatements</p>
+</section>
+
+<section>
+  <h2>5. How provenance bytes become content-addressed image metadata</h2>
+  <p>A statement is still only bytes. BuildKit has to place it into a registry-storable content graph.</p>
+
+  <div class="hop"><div class="hopn">1</div><div><h3>serialize the statement</h3><p>BuildKit marshals the in-toto statement to JSON. Call those bytes <code>P</code>.</p><pre><code>P bytes → sha256:22bb…</code></pre></div></div>
+
+  <div class="hop"><div class="hopn">2</div><div><h3>store the statement as content</h3><p>The exporter computes the digest from the statement bytes and writes those bytes into the content store. The descriptor for this payload carries its digest, size, and in-toto media type.</p></div></div>
+
+  <div class="hop"><div class="hopn">3</div><div><h3>create an attestation manifest</h3><p>BuildKit creates a separate manifest <code>A</code> whose payload descriptor points to <code>P</code>. This manifest is metadata, not another runnable Linux root filesystem.</p><pre><code>A = sha256:33cc…
+A ──descriptor──► P = sha256:22bb…</code></pre></div></div>
+
+  <div class="hop"><div class="hopn">4</div><div><h3>put the image and its attestation into the exported index</h3><p>The exporter appends the attestation-manifest descriptor beside the runnable platform-manifest descriptor, then serializes the root image index.</p><pre><code>I = sha256:44dd…
+
+image index I
+├── platform manifest M = sha256:11aa…
+└── attestation manifest A = sha256:33cc…
+       └── provenance statement P = sha256:22bb…
+             └── subject digest = M</code></pre></div></div>
+
+  <p>With attestations present, the image exporter has a reason to produce an index even for what you may think of as a single-platform build: the index is the container that can carry the runnable manifest descriptor and the additional attestation-manifest descriptor together.</p>
+  <div class="note"><div class="label">why the root digest changes</div><p>If the provenance statement bytes change, <code>P</code>'s digest changes. Then <code>A</code>'s descriptor changes, which changes <code>A</code>'s bytes and digest. The root index contains <code>A</code>'s descriptor, so <code>I</code> changes too. This is normal content-addressed graph behavior from Lessons 18–19.</p></div>
+  <p class="src">Source anchor: BuildKit v0.31.1 · exporter/containerimage/writer.go · commitAttestationsManifest and index assembly</p>
+</section>
+
+<section>
+  <h2>6. Provenance is now attached — but it still is not a signature</h2>
+  <p>At the end of the BuildKit pipeline we have:</p>
+  <pre><code>tag :1.0
+   │
+   ▼
+root index I
+├── runnable platform manifest M
+└── attestation manifest A
+       └── provenance statement P
+             subject = M</code></pre>
+  <p>You can inspect the statement and learn what BuildKit recorded. But none of the steps above inherently says:</p>
+  <pre><code>"a private key controlled by organization X signed this statement/image"</code></pre>
+  <p>The pinned BuildKit path shown here <strong>captures, serializes, hashes, stores, and attaches</strong> provenance. Those operations should not be renamed “signing.”</p>
+  <div class="warn"><div class="label">source-over-folklore correction</div><p><strong>“BuildKit generated provenance, therefore the image is signed” is false.</strong> Provenance supplies claims. A signature supplies cryptographic signer evidence.</p></div>
+</section>
+
+<section>
+  <div class="inspect"><div class="label">inspect it yourself · provenance movement</div>
+    <p>Use a registry repository you can push to. This explicitly requests <strong>SLSA provenance v1</strong>, the provenance predicate schema BuildKit will place inside the in-toto statement. We name the schema only because the command must select a concrete version; it is not another component in the pipeline.</p>
+    <pre><code>export IMAGE=registry.example.com/your-user/lesson41
+
+docker buildx build \
+  --platform linux/amd64 \
+  --attest type=provenance,mode=max,version=v1 \
+  --push \
+  -t "$IMAGE:1.0" .
+
+# 1. See the root manifest/index bytes.
+docker buildx imagetools inspect --raw "$IMAGE:1.0" | jq .
+
+# 2. Ask Buildx to extract the provenance it finds.
+docker buildx imagetools inspect "$IMAGE:1.0" \
+  --format '{{ json .Provenance.SLSA }}' | jq .</code></pre>
+    <p>In the first command, look for multiple descriptors under the root index. In the second, inspect <code>subject</code>, <code>predicateType</code>, materials, invocation/build metadata, and the exact values your build produced.</p>
+  </div>
+</section>
+
+<section>
+  <div class="kicker">pipeline B · signing</div>
+  <h2>7. Why the signer should target the final root digest</h2>
+  <p>After BuildKit has finished attaching provenance, our published tag resolves to:</p>
+  <pre><code>registry.example.com/course/app:1.0
+              │
+              ▼
+I = sha256:44dd…</code></pre>
+  <p>If the goal is to approve <strong>the published image result including its attached BuildKit provenance graph</strong>, the clean target is the final root digest <code>I</code>.</p>
+  <p>Why not sign <code>M</code> here? Because <code>M</code> is only the runnable platform manifest. <code>I</code> is the published root that points to both the runnable manifest and the attestation manifest in our example.</p>
+  <p>Why not sign the text <code>:1.0</code>? Because Lesson 40 already established that the tag can be moved to another root digest.</p>
+  <div class="state"><div><strong>Before signing</strong><br><code>repo:1.0 → I</code><br><span class="small">resolve the mutable name once</span></div><div class="arrow">→</div><div><strong>Signing target</strong><br><code>repo@sha256:44dd…</code><br><span class="small">exact root content identity</span></div></div>
+  <div class="note"><div class="label">practical rule</div><p>Resolve the tag, record the digest, and sign the digest reference. Current Cosign documentation makes the same recommendation because a tag can change between resolution and signing.</p></div>
+</section>
+
+<section>
+  <h2>8. What a cryptographic signature actually proves</h2>
+  <p>For this lesson, we need only the minimal asymmetric-signature model:</p>
+  <pre><code>private key Kpriv
+      │
+      │ signing algorithm over payload bytes
+      ▼
+signature bytes σ
+
+public key Kpub + payload bytes + σ
+      │
+      │ verification algorithm
+      ▼
+valid / invalid</code></pre>
+  <p>The private key is used to produce the signature. The corresponding public key can check it. Verification does <strong>not</strong> require the private key.</p>
+  <p>For an image, a signer does not need to cryptographically process every layer byte independently. The signed payload can contain the immutable image digest. Because that digest identifies the root content and the root descriptors identify their children, the digest is the compact identity being approved.</p>
+  <div class="warn"><div class="label">what a valid signature does not prove</div><p>It does not prove the software is bug-free, safe, or morally trustworthy. It proves that the accepted key signed the verified payload. Your trust decision is then: <em>do I trust the holder/identity represented by this verification key or certificate?</em></p></div>
+</section>
+
+<section>
+  <h2>9. Current Docker boundary: the signer is external</h2>
+  <p>The course baseline is Docker CLI 29.6.2. Docker CLI v29 removed the old built-in <code>docker trust</code> signing commands. Therefore this lesson does <strong>not</strong> teach <code>docker trust sign</code> as the current Docker signing pipeline.</p>
+  <p>To inspect a concrete current signing implementation without changing the Docker/containerd/OCI source family, this lesson locally pins <strong>Cosign v3.0.6</strong> as the external signer.</p>
+  <pre><code>Docker / BuildKit responsibility in this lesson:
+  build image + provenance → publish digest-addressed OCI graph
+
+Cosign responsibility in this lesson:
+  take exact image digest → build digest-bound signed payload
+  → create signature material → store referring artifact</code></pre>
+  <div class="idea"><div class="label">component boundary</div><p>Cosign is not secretly part of <code>dockerd</code>, containerd, shim, or runc. It is a separate client talking to the registry. No container-runtime process is involved in creating an image signature.</p></div>
+  <p class="src">Source anchors: Docker Engine v29 release notes · Docker Content Trust removal; Cosign v3.0.6 · cmd/cosign/cli/sign/sign.go</p>
+</section>
+
+<section>
+  <h2>10. The signing payload is bound to the image digest</h2>
+  <p>Give Cosign the exact image reference:</p>
+  <pre><code>registry.example.com/course/app@sha256:44dd…</code></pre>
+  <p>In the v3.0.6 signing path, Cosign decomposes that digest and constructs an in-toto subject whose digest map contains the algorithm and hex digest value. Conceptually:</p>
+  <pre><code>signed statement / payload
+{
+  "subject": [
+    {
+      "digest": {
+        "sha256": "44dd…"
+      }
+    }
+  ],
+  ...
+}</code></pre>
+  <p>Then the signing machinery signs the digest-bound payload with the selected signer and prepares the resulting signature material for storage.</p>
+  <div class="idea"><div class="label">what is being vouched for</div><p>The key is not vouching for the characters <code>course/app:1.0</code>. The signed claim contains the immutable digest <code>sha256:44dd…</code>.</p></div>
+  <p>If someone later changes the tag so that:</p>
+  <pre><code>course/app:1.0 → sha256:99ee…</code></pre>
+  <p>the old signature over <code>44dd…</code> remains a valid signature for the old object. It does <strong>not</strong> become a signature for <code>99ee…</code>.</p>
+  <p class="src">Source anchor: Cosign v3.0.6 · cmd/cosign/cli/sign/sign.go · signDigestBundle</p>
+</section>
+
+<section>
+  <h2>11. Where the signature lives without changing the image digest</h2>
+  <p>This is a subtle storage problem.</p>
+  <p>Suppose we tried to put the signature descriptor <em>inside</em> the already-signed index <code>I</code>. Adding the descriptor would change the index bytes, which would change <code>I</code>'s digest. Then the signature would point to the old digest. Trying again would repeat the problem.</p>
+  <p>So the signature is stored as a <strong>separate registry object that refers to the signed digest</strong>.</p>
+  <pre><code>signed image root
+I = sha256:44dd…
+
+signature artifact
+S = sha256:55ee…
+        │
+        └── subject descriptor → I = sha256:44dd…</code></pre>
+  <p>OCI Image Spec 1.1.1 gives a manifest an optional <code>subject</code> descriptor. The spec deliberately describes that link as a <strong>weak association</strong>: it is a reference relationship, not cryptographic proof.</p>
+  <div class="warn"><div class="label">do not confuse storage with trust</div><p>Anyone able to push an artifact could potentially push an object whose outer OCI <code>subject</code> says “I refer to <code>44dd…</code>.” That declaration alone proves nothing about who signed it. The verifier must still validate the cryptographic signature and its digest-bound claim.</p></div>
+  <p>Cosign v3 stores current container signature material as an OCI Image 1.1 referring artifact, so the registry can keep <code>S</code> separately while indexing it under subject digest <code>I</code>.</p>
+  <p class="src">Source anchors: OCI image-spec v1.1.1 · manifest.md · subject; Cosign v3.0.6 release/source</p>
+</section>
+
+<section>
+  <h2>12. How the registry finds artifacts that refer to a digest</h2>
+  <p>Once a signature is separate, a verifier needs a discovery mechanism. OCI Distribution Spec 1.1.1 defines the referrers API:</p>
+  <pre><code>GET /v2/course/app/referrers/sha256:44dd…</code></pre>
+  <p>The registry returns an OCI image index containing descriptors for manifests that claim <code>sha256:44dd…</code> as their subject.</p>
+  <pre><code>I = sha256:44dd…
+      │
+      │ registry referrers lookup
+      ▼
+[ descriptor for S, ... ]</code></pre>
+  <p>This endpoint is a <strong>reverse lookup</strong>. Normal OCI descriptors point from a parent object to children. Referrers lets the registry answer the opposite question: “which stored manifests say they refer to this digest?”</p>
+  <p>Again, discovery and trust stay separate:</p>
+  <table class="table"><thead><tr><th>Step</th><th>Who does it?</th><th>What it proves</th></tr></thead><tbody>
+    <tr><td>Referrers lookup</td><td>registry</td><td>These stored artifact descriptors claim this subject relationship.</td></tr>
+    <tr><td>Fetch signature artifact</td><td>signing/verifying client</td><td>Obtains bytes to inspect.</td></tr>
+    <tr><td>Cryptographic verification</td><td>verifying client</td><td>The accepted key/identity signed the payload.</td></tr>
+    <tr><td>Subject-digest claim check</td><td>verifying client</td><td>The verified payload is actually about the image digest being verified.</td></tr>
+  </tbody></table>
+  <p class="src">Source anchor: OCI distribution-spec v1.1.1 · Referrers API · GET /v2/&lt;name&gt;/referrers/&lt;digest&gt;</p>
+</section>
+
+<section>
+  <h2>13. Verification in real execution order</h2>
+  <p>Assume a consumer wants to verify:</p>
+  <pre><code>registry.example.com/course/app:1.0</code></pre>
+  <p>With a mutable tag, the first job is still Lesson 40's job: resolve the tag to the digest that exists <strong>now</strong>.</p>
+
+  <div class="hop"><div class="hopn">1</div><div><h3>resolve the image identity</h3><pre><code>course/app:1.0 → I = sha256:44dd…</code></pre><p>The verifier now has the exact subject it intends to verify.</p></div></div>
+
+  <div class="hop"><div class="hopn">2</div><div><h3>discover/fetch signature material associated with I</h3><p>In the OCI 1.1 path, the client can obtain referring signature/bundle artifacts associated with <code>I</code>.</p></div></div>
+
+  <div class="hop"><div class="hopn">3</div><div><h3>choose the trust material</h3><p>For the simplest experiment, that is an explicit public key file. More elaborate identity/certificate systems exist, but we do not need them to understand the digest/signature mechanism.</p></div></div>
+
+  <div class="hop"><div class="hopn">4</div><div><h3>cryptographically verify the payload</h3><p>Cosign loads the verifier from the supplied public key/certificate path and invokes its image-signature/attestation verification machinery.</p></div></div>
+
+  <div class="hop"><div class="hopn">5</div><div><h3>check the verified claim is about I</h3><p>Current Cosign's v3 verification path for its OCI-stored signature material installs an in-toto subject claim verifier. The subject digest in the verified statement must correspond to the image reference being verified. Otherwise a valid signature over some <em>other</em> digest would be useless for this image.</p></div></div>
+
+  <div class="callout">A signature can be mathematically valid and still be irrelevant unless the signed subject is the image digest you intended to verify.</div>
+  <p class="src">Source anchor: Cosign v3.0.6 · cmd/cosign/cli/verify/verify.go · VerifyCommand.Exec / IntotoSubjectClaimVerifier / VerifyImageAttestations</p>
+</section>
+
+<section>
+  <h2>14. The two different “subject” fields you may encounter</h2>
+  <p>Now that the core path is clear, we can safely distinguish two uses of the word <code>subject</code>.</p>
+  <table class="table"><thead><tr><th>Location</th><th>Meaning</th><th>Job</th></tr></thead><tbody>
+    <tr><td>Inside an in-toto statement</td><td>The digest the claim is semantically about.</td><td>Lets verification check “this signed/attested statement concerns digest X.”</td></tr>
+    <tr><td>OCI manifest's outer <code>subject</code> descriptor</td><td>The OCI object this separate artifact says it refers to.</td><td>Lets registries index/discover referrers.</td></tr>
+  </tbody></table>
+  <p>Those two relationships often point to the same digest for a signature artifact, but they solve different problems:</p>
+  <pre><code>outer OCI subject
+   → registry discovery
+
+inner in-toto subject
+   → meaning of the claim + verification target</code></pre>
+  <p>Do not treat the outer OCI subject as a replacement for checking the signed inner claim.</p>
+</section>
+
+<section>
+  <h2>15. Why signing the final root also binds its provenance graph</h2>
+  <p>Return to our BuildKit result:</p>
+  <pre><code>I = sha256:44dd…
+├── descriptor → M = sha256:11aa…
+└── descriptor → A = sha256:33cc…
+                  └── descriptor → P = sha256:22bb…</code></pre>
+  <p>Suppose someone changes one byte in the provenance statement <code>P</code>.</p>
+  <ol>
+    <li>The changed statement no longer has digest <code>22bb…</code>.</li>
+    <li>The attestation manifest would need the new statement descriptor, so <code>A</code>'s bytes change.</li>
+    <li>The root index would need the new <code>A</code> descriptor, so <code>I</code>'s bytes change.</li>
+    <li>The old signature's signed subject is still <code>44dd…</code>, so it does not approve the newly changed graph.</li>
+  </ol>
+  <div class="idea"><div class="label">transitive binding</div><p>A signature over the final root digest does not contain every descendant byte. It relies on the OCI graph's descriptor digests: changing a descendant requires changing each affected parent descriptor up to a different root digest.</p></div>
+  <div class="warn"><div class="label">but do not overclaim</div><p>This proves which exact provenance bytes were inside the signed graph. It does <strong>not</strong> independently prove that every factual claim inside the provenance is true. You still need to decide whether you trust the builder/signer and what policy you require.</p></div>
+</section>
+
+<section>
+  <div class="inspect"><div class="label">inspect it yourself · sign and verify exact digest</div>
+    <p>This experiment deliberately uses a local key pair because it exposes the core cryptographic relationship without requiring a second identity system before the digest/signature mechanism is clear.</p>
+    <pre><code># Pin/check the lesson-specific signer version.
+cosign version
+# Lesson source pin: v3.0.6
+
+# Create an asymmetric key pair.
+cosign generate-key-pair
+
+export IMAGE=registry.example.com/your-user/lesson41
+
+# Resolve the tag once and capture the published root digest.
+DIGEST=$(docker buildx imagetools inspect "$IMAGE:1.0" \
+  | awk '$1 == "Digest:" {print $2; exit}')
+
+echo "$DIGEST"
+
+# Sign the immutable digest reference, not the tag string.
+cosign sign --key cosign.key "$IMAGE@$DIGEST"
+
+# Verify with the public key.
+cosign verify --key cosign.pub "$IMAGE@$DIGEST"
+
+# Inspect signature/referrer relationships exposed by Cosign.
+cosign tree "$IMAGE@$DIGEST"</code></pre>
+    <p>What to observe: the image digest is chosen <em>before</em> signing; verification requires only the public key; the signature metadata is stored separately from the image root.</p>
+  </div>
+
+  <div class="inspect"><div class="label">inspect it yourself · prove a moved tag is a different target</div>
+    <pre><code>OLD="$DIGEST"
+
+# Change the Dockerfile or app content and push a new build to the SAME tag.
+docker buildx build \
+  --attest type=provenance,mode=max,version=v1 \
+  --push -t "$IMAGE:1.0" .
+
+NEW=$(docker buildx imagetools inspect "$IMAGE:1.0" \
+  | awk '$1 == "Digest:" {print $2; exit}')
+
+printf 'old=%s\nnew=%s\n' "$OLD" "$NEW"
+
+# Old object can still have a valid old signature.
+cosign verify --key cosign.pub "$IMAGE@$OLD"
+
+# The new digest has not automatically inherited that signature.
+cosign verify --key cosign.pub "$IMAGE@$NEW"</code></pre>
+    <p>The final command should not be treated as verified merely because <code>:1.0</code> used to point at a signed digest. The new content needs its own applicable signature.</p>
+  </div>
+</section>
+
+<section>
+  <h2>16. Component ownership: who actually performs each job?</h2>
+  <p>For the mechanism taught here, keep the ownership clear:</p>
+  <table class="table"><thead><tr><th>Component</th><th>Role in this lesson</th></tr></thead><tbody>
+    <tr><td>Docker CLI / Buildx</td><td>Starts the build/export and can inspect resulting provenance.</td></tr>
+    <tr><td>BuildKit</td><td>Captures build provenance and packages it into the exported OCI image graph.</td></tr>
+    <tr><td><code>dockerd</code> / containerd</td><td>Participate in ordinary image/content management and registry flows according to the build/image-store path; they are not the Cosign private-key signer.</td></tr>
+    <tr><td>registry</td><td>Stores immutable OCI content and supports discovery of referring artifacts.</td></tr>
+    <tr><td>Cosign</td><td>External signer/verifier used here to bind a cryptographic signature to the final digest.</td></tr>
+    <tr><td>shim / runc / Linux kernel</td><td>No role in creating an image signature. They matter later when a container is actually run.</td></tr>
+  </tbody></table>
+</section>
+
+<section>
+  <h2>17. Common wrong mental models</h2>
+  <table class="table"><thead><tr><th>Wrong model</th><th>Correct mechanism</th></tr></thead><tbody>
+    <tr><td>“The tag is signed.”</td><td>The signing claim is bound to a digest. A tag may merely be used as a starting reference before resolution.</td></tr>
+    <tr><td>“Provenance is the signature.”</td><td>Provenance is build evidence/claims. A signature is cryptographic evidence from a key over a payload.</td></tr>
+    <tr><td>“If a registry returns a referrer, it is trusted.”</td><td>Referrers is discovery. The client must verify cryptography and claim target.</td></tr>
+    <tr><td>“Signing encrypts the image.”</td><td>No. Image content remains ordinary registry content. A separate signature proves a digest-bound payload.</td></tr>
+    <tr><td>“If the tag moves, the signature follows it.”</td><td>No. The old signature remains tied to the old digest.</td></tr>
+    <tr><td>“A signature proves the provenance facts are true.”</td><td>It proves the accepted signer signed those exact claims/content identity. Factual trust still depends on who/what you trust.</td></tr>
+    <tr><td>“runc verifies image signatures before start.”</td><td>Not in this pipeline. Signature verification is a distribution/policy concern before runtime execution; runc consumes a runtime bundle, not registry signing metadata.</td></tr>
+  </tbody></table>
+</section>
+
+<section>
+  <h2>18. Primary-source proof</h2>
+  <p>The Docker/BuildKit/OCI baseline stays on the course-pinned family. Cosign v3.0.6 is a lesson-specific external pin because Docker CLI 29 no longer supplies the old built-in DCT signing workflow.</p>
+  <div class="sourcechips">
+    <a href="https://docs.docker.com/engine/release-notes/29/">Docker Engine 29 release notes</a>
+    <a href="https://github.com/moby/buildkit/blob/v0.31.1/solver/llbsolver/provenance.go">BuildKit v0.31.1 · provenance.go</a>
+    <a href="https://github.com/moby/buildkit/blob/v0.31.1/exporter/containerimage/writer.go">BuildKit v0.31.1 · writer.go</a>
+    <a href="https://github.com/opencontainers/image-spec/blob/v1.1.1/manifest.md">OCI image-spec v1.1.1 · manifest.md</a>
+    <a href="https://github.com/opencontainers/distribution-spec/blob/v1.1.1/spec.md">OCI distribution-spec v1.1.1 · spec.md</a>
+    <a href="https://github.com/sigstore/cosign/blob/v3.0.6/cmd/cosign/cli/sign/sign.go">Cosign v3.0.6 · sign.go</a>
+    <a href="https://github.com/sigstore/cosign/blob/v3.0.6/cmd/cosign/cli/verify/verify.go">Cosign v3.0.6 · verify.go</a>
+  </div>
+
+  <details><summary>Exact audit anchors behind the explanation</summary>
+    <p class="small"><strong>Current CLI boundary:</strong> Docker Engine v29 release notes record removal of Docker Content Trust from the Docker CLI beginning with v29. This is why Lesson 41 does not present <code>docker trust sign</code> as the pinned current implementation.</p>
+    <p class="small"><strong>Provenance capture:</strong> BuildKit v0.31.1 <code>solver/llbsolver/provenance.go::captureProvenance</code> walks solved operations/providers and records source and execution provenance. <code>ProvenanceCreator</code> constructs the requested provenance predicate.</p>
+    <p class="small"><strong>Provenance subject:</strong> BuildKit v0.31.1 <code>exporter/containerimage/writer.go</code> creates default in-toto subjects from the platform image manifest's <code>desc.Digest</code>, then calls statement creation.</p>
+    <p class="small"><strong>Attestation bytes/content graph:</strong> <code>commitAttestationsManifest</code> serializes statement JSON, computes its content digest, stores it as a payload descriptor, creates an attestation manifest, and returns that manifest descriptor. The writer appends attestation descriptors into the exported root index alongside platform manifests.</p>
+    <p class="small"><strong>OCI attachment semantics:</strong> OCI Image Spec v1.1.1 <code>manifest.md</code> defines optional <code>subject</code> and explicitly characterizes it as a weak association to another manifest. Association is not verification.</p>
+    <p class="small"><strong>Referrers discovery:</strong> OCI Distribution Spec v1.1.1 defines <code>GET /v2/&lt;name&gt;/referrers/&lt;digest&gt;</code>, returning an image index of referring manifest descriptors, with artifact-type filtering and a compatibility fallback mechanism.</p>
+    <p class="small"><strong>Digest-bound signing:</strong> Cosign v3.0.6 <code>cmd/cosign/cli/sign/sign.go::signDigestBundle</code> splits the resolved image digest and places algorithm/value into the in-toto resource descriptor used as the signed statement subject before invoking signing/bundle logic.</p>
+    <p class="small"><strong>Verification:</strong> Cosign v3.0.6 <code>cmd/cosign/cli/verify/verify.go::VerifyCommand.Exec</code> loads trust/verifier material, installs <code>IntotoSubjectClaimVerifier</code> for the new bundle path, retrieves/verifies image attestations, and transforms verified output from the in-toto subject digest.</p>
+  </details>
+</section>
+
+<section>
+  <h2>19. Check yourself</h2>
+  <ol>
+    <li>What is the difference between provenance and a signature?</li>
+    <li>In the pinned BuildKit exporter path, what digest becomes the provenance statement's subject for one platform?</li>
+    <li>Why does attaching provenance usually create/change a root image index digest?</li>
+    <li>Why is the final published root digest a useful signing target after provenance has been attached?</li>
+    <li>Does an OCI manifest's outer <code>subject</code> field prove the artifact is trustworthy?</li>
+    <li>What does the registry referrers endpoint return?</li>
+    <li>What two checks must not be collapsed during signature verification?</li>
+    <li>If <code>:1.0</code> moves from digest <code>I</code> to digest <code>I2</code>, does a signature for <code>I</code> cover <code>I2</code>?</li>
+    <li>Why does signing one root digest indirectly bind descendants in the OCI graph?</li>
+    <li>Does runc create or verify these registry image signatures?</li>
+  </ol>
+  <details><summary>Answers</summary>
+    <ol class="small">
+      <li>Provenance is structured evidence/claims about how a build result was produced. A signature is cryptographic evidence that an accepted private key signed a particular payload.</li>
+      <li>The exact platform image manifest descriptor digest <code>M</code>.</li>
+      <li>The provenance statement has its own digest, is referenced by an attestation manifest, and that attestation-manifest descriptor is placed in the root index. Changes propagate upward through descriptor bytes.</li>
+      <li>That root digest identifies the published graph containing both the runnable platform manifest and the attached provenance object(s) in this export.</li>
+      <li>No. It supplies an association used for storage/discovery. Cryptographic verification is separate.</li>
+      <li>An OCI image index of descriptors for manifests/artifacts that refer to the requested subject digest.</li>
+      <li>Verify the cryptographic signature with accepted trust material, and verify that the signed claim's subject digest is the image digest you intended to verify.</li>
+      <li>No. The old signature remains about <code>I</code>.</li>
+      <li>Each parent contains child descriptors with child digests. Changing a descendant forces changed descriptors up the affected path, producing a different root digest.</li>
+      <li>No. runc operates at the OCI runtime-bundle/runtime stage, not the registry image-signing stage.</li>
+    </ol>
+  </details>
+</section>
+
+<section>
+  <h2>Recap: keep the two pipelines separate</h2>
+  <pre><code>PROVENANCE
+solved BuildKit graph
+      ↓ capture build facts
+statement P ──subject──► platform manifest M
+      ↓ package as content
+attestation manifest A ──descriptor──► P
+      ↓ append beside M
+root image index I
+
+SIGNING
+root image digest I
+      ↓ put I in signed claim
+private key signs payload
+      ↓
+signature artifact S ──OCI subject/referrer──► I
+
+VERIFICATION
+resolve wanted image → I
+      ↓
+discover/fetch S
+      ↓
+verify cryptographic signature
+      ↓
+verify signed subject digest == I
+      ↓
+accepted key signed a claim about exact image I</code></pre>
+  <p>If you remember only one distinction, make it this: <strong>provenance tells you what the builder claims happened; a signature tells you which accepted signing identity cryptographically vouched for a digest-bound payload.</strong></p>
+  <div class="note"><div class="label">next lesson</div><p>Lesson 42 moves out of image distribution and into <code>docker compose</code>: how one Compose model becomes multiple Engine API objects and container/network/volume operations.</p></div>
+</section>
+
+<nav class="nav"><a href="lesson-40-tags-digests-content-addressed-transfer-dedup.html">← Lesson 40</a><a href="#">Lesson 42 → planned</a></nav>
+</main></body></html>

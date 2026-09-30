@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 20 · OCI Image Layout on Disk</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.7; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:36px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); border:1px solid var(--rule); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .oneline{border:1px solid var(--teal-dim); background:linear-gradient(180deg,#0b1615,#0a1210); border-radius:10px; padding:18px 20px; margin:30px 0 8px}
+  .oneline .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); display:block; margin-bottom:8px}
+  .oneline p{margin:0; font-size:20px; line-height:1.5; color:#fff}
+
+  .concept{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:48px 0 4px; display:flex; align-items:center; gap:10px;}
+  .concept .num{width:24px;height:24px;border-radius:50%;border:1px solid var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  h2{font-family:var(--mono); font-weight:600; font-size:21px; margin:8px 0 16px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  .term{color:var(--teal); font-weight:600}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+  .plain{color:var(--dim); font-size:16px; border-left:2px solid var(--rule); padding-left:14px; margin:0 0 18px}
+  .plain b{color:var(--teal); font-weight:600}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--teal); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .tree{font-family:var(--mono); font-size:13px; background:var(--well); border:1px solid var(--rule); border-radius:8px; padding:16px 18px; margin:18px 0; line-height:1.85; overflow-x:auto}
+  .tree .d{color:var(--teal)} .tree .f{color:var(--gold)} .tree .c{color:var(--faint)} .tree .h{color:var(--bone)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:20px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  .recap{border:1px solid var(--teal-dim); border-radius:10px; background:#0a1210; padding:20px 22px; margin:30px 0}
+  .recap h3{font-family:var(--mono); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:0 0 14px}
+  .recap ul{margin:0; padding-left:20px} .recap li{margin:0 0 10px; color:var(--bone)} .recap li:last-child{margin:0}
+  .recap li b{color:#fff}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:60px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:38px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-19-multi-arch-manifest-lists.html">← Lesson 19</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-21-runtime-spec-config.html">Lesson 21 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part III — Storage &amp; images</div>
+  <div class="lesson-no">20</div>
+  <span class="pill">deep-cut · reference depth</span>
+  <h1>The OCI image layout: an image as files on disk</h1>
+  <p class="dek">Lessons 17–19 defined the documents — layers, configs, manifests, indexes. This is where they physically live: a portable directory anyone's tools can read, and it's simpler than you'd guess.</p>
+</header>
+
+<div class="oneline">
+  <span class="lbl">The idea in one sentence</span>
+  <p>An image on disk is three things: a <em>version marker</em>, an <em>index.json</em> entry point, and a <em>blobs/</em> folder where every document and layer is a file named by its own hash.</p>
+</div>
+
+<div class="concept"><span class="num">1</span> Start here</div>
+<h2>Where do all those documents actually live?</h2>
+
+<p class="plain"><b>Plain version:</b> everything you've learned about images is a JSON or a tar — this lesson is just "which files, in which folders."</p>
+
+<p>You now know the pieces of an image: layer tars (Lesson 17), a config, a manifest (Lesson 18), maybe an index (Lesson 19). The <span class="term">OCI image layout</span> is the standard <em>directory</em> that holds them as files, so any tool can read or write an image without a running daemon. It's what <code class="inl">docker save</code> (in OCI mode), <code class="inl">skopeo copy oci:…</code>, and <code class="inl">docker buildx --output type=oci</code> produce, and it's conceptually how a registry stores things too.</p>
+
+<div class="concept"><span class="num">2</span> The structure</div>
+<h2>Three things in the directory</h2>
+
+<p class="plain"><b>Plain version:</b> a marker file, one entry-point file, and a folder of hash-named blobs. That's the whole format.</p>
+
+<p>From <span class="srcref">image-layout.md</span>, a layout directory contains exactly three things: an <code class="inl">oci-layout</code> file (a tiny marker with an <code class="inl">imageLayoutVersion</code>, saying "this directory is an OCI layout"); an <code class="inl">index.json</code> file (the <strong>entry point</strong> — an image index, in the Lesson 19 sense, pointing at the top manifest or index by digest); and a <code class="inl">blobs/</code> directory holding every blob.</p>
+
+<div class="tree">
+<span class="h">myimage/</span>
+├── <span class="f">oci-layout</span>          <span class="c"># { "imageLayoutVersion": "1.0.0" } — the marker</span>
+├── <span class="f">index.json</span>          <span class="c"># the entry point: points at the top manifest by digest</span>
+└── <span class="d">blobs/sha256/</span>       <span class="c"># everything else, each file named by its digest hex</span>
+     ├── <span class="f">3588d0…</span>        <span class="c"># the manifest (a JSON blob)</span>
+     ├── <span class="f">4b0bc1…</span>        <span class="c"># the config (a JSON blob)</span>
+     ├── <span class="f">796832…</span>        <span class="c"># layer 0 tar (gzipped)</span>
+     └── <span class="f">afff39…</span>        <span class="c"># layer 1 tar (gzipped)</span>
+</div>
+
+<div class="concept"><span class="num">3</span> The trick</div>
+<h2>The digest <em>is</em> the filename</h2>
+
+<p class="plain"><b>Plain version:</b> every blob's filename is its own sha256. So you can find any blob by its digest, and verify it by re-hashing the file.</p>
+
+<p>Here's the one elegant idea that makes the whole layout work. Every blob in <code class="inl">blobs/sha256/</code> is named by its content hash — the file <code class="inl">blobs/sha256/afff39…</code> contains exactly the bytes whose sha256 is <code class="inl">afff39…</code>. The spec is explicit: the content of <code class="inl">blobs/&lt;alg&gt;/&lt;encoded&gt;</code> MUST match the digest <code class="inl">&lt;alg&gt;:&lt;encoded&gt;</code>. So a descriptor's <code class="inl">digest</code> (Lesson 18) is literally a file path into this folder, and you can verify any blob just by running <code class="inl">shasum</code> on it and checking the name matches.</p>
+
+<p>That turns "read an image" into a simple walk: open <code class="inl">index.json</code> → it gives a manifest digest → open <code class="inl">blobs/sha256/&lt;that&gt;</code> → it gives config and layer digests → open those blobs. The entry point plus content-addressed files is the entire navigation system.</p>
+
+<div class="keybox">
+  <div class="h">Why one flat blobs folder is clever</div>
+  <p>Because the filename is the content hash, a blob is stored <strong>once</strong> no matter how many manifests point at it. A base layer shared by ten images is a single file in <code class="inl">blobs/sha256/</code>. The dedup we kept mentioning is, physically, just "same content → same filename → same file." And nothing distinguishes a manifest blob from a config blob from a layer blob in the folder — they're all just hash-named files; what they <em>are</em> is determined by the <code class="inl">mediaType</code> in the descriptor that points to them.</p>
+</div>
+
+<aside class="note"><b>This is the same idea as containerd's content store — and the registry.</b> containerd keeps its own internal content store (its blobs live under <code class="inl">/var/lib/containerd/…/content</code>, addressed by digest); the OCI image layout is the <em>portable, standardized</em> version you can tar up and hand to another tool. And a registry (Lesson 39) is essentially this same content-addressed blob store exposed over HTTP. Learn the layout once and you understand all three.</p></aside>
+
+<span class="step">Inspect it yourself</span>
+<p>Export an image as an OCI layout and walk it by hand — from <code class="inl">index.json</code> down into the blobs:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> <span class="o"># produce a real OCI layout directory:</span>
+<span class="p">$</span> docker buildx build --output type=oci,dest=img.tar . &amp;&amp; mkdir img &amp;&amp; tar xf img.tar -C img
+<span class="p">$</span> ls img
+<span class="o"><span class="hl">blobs</span>  <span class="hl">index.json</span>  <span class="hl">oci-layout</span></span>
+
+<span class="p">$</span> <span class="o"># the entry point → a manifest digest:</span>
+<span class="p">$</span> jq '.manifests[0].digest' img/index.json
+<span class="o">"sha256:<span class="hl">3588d0…</span>"</span>
+
+<span class="p">$</span> <span class="o"># open that blob (it's the manifest) → find config + layer digests:</span>
+<span class="p">$</span> jq '.config.digest, .layers[].digest' img/blobs/sha256/3588d0…
+<span class="o">"sha256:4b0bc1…"   "sha256:796832…"   …</span>
+
+<span class="p">$</span> <span class="o"># prove the filename is the content hash:</span>
+<span class="p">$</span> sha256sum img/blobs/sha256/afff39…
+<span class="o"><span class="hl">afff39…</span>  img/blobs/sha256/afff39…</span>   <span class="o"># the name IS the digest</span></pre>
+</figure>
+
+<div class="recap">
+  <h3>Check yourself</h3>
+  <ul>
+    <li>The OCI image layout is a <b>portable directory</b> holding an image as files — no daemon needed.</li>
+    <li>Three parts: <code class="inl">oci-layout</code> (version marker), <code class="inl">index.json</code> (entry point), <code class="inl">blobs/&lt;alg&gt;/</code> (the blobs).</li>
+    <li>Every blob — manifest, config, layer tar — is <b>one file named by its own digest</b>; the content must hash to the filename.</li>
+    <li>Reading an image = walk from <code class="inl">index.json</code>, resolving each <b>digest to a file path</b> in <code class="inl">blobs/</code>.</li>
+    <li>Shared blobs are stored <b>once</b> (same content → same filename), and a blob's kind comes from the <code class="inl">mediaType</code> of the descriptor pointing at it.</li>
+    <li>The same content-addressed idea underlies containerd's content store and the registry (Lesson 39).</li>
+  </ul>
+</div>
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>People picture an image as an opaque bundle. On disk it's the opposite of opaque: a directory of plain, hash-named files you can <code class="inl">cat</code>, <code class="inl">jq</code>, and <code class="inl">sha256sum</code> by hand, all reachable from one <code class="inl">index.json</code>. And note what's <em>not</em> here — no tags. A tag is registry/daemon metadata, not part of the on-disk content (a layout may record a ref name in an annotation, but the blobs themselves are pure content). The image's real identity is always the digest, which here is quite literally the path to the bytes.</p>
+</aside>
+
+<div style="font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:44px 0 4px">Where we are</div>
+<h2>Summary</h2>
+<p>The OCI image layout stores an image as a portable directory of three parts: an <code class="inl">oci-layout</code> version marker, an <code class="inl">index.json</code> entry point (an image index pointing at the top manifest by digest), and a <code class="inl">blobs/&lt;alg&gt;/</code> folder where <em>every</em> document and layer is a single file <strong>named by its own content hash</strong> — the spec requires the bytes to match the filename. Reading an image is a walk from <code class="inl">index.json</code>, turning each descriptor's digest into a file path; identical blobs are naturally stored once. This same content-addressed scheme is what containerd's content store and the registry both use. That completes the "images at rest" picture. Next, Lesson 21 crosses back to running: how an image's config becomes the <strong>runtime spec</strong> — the <code class="inl">config.json</code> runc actually executes.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 18 · descriptors &amp; digests</span>
+  <span class="xref"><b>back ←</b> Lesson 19 · the index</span>
+  <span class="xref"><b>forward →</b> Lesson 21 · config → runtime spec</span>
+  <span class="xref"><b>forward →</b> Lesson 39 · registries (content store over HTTP)</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">19 · Multi-arch / manifest lists</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">21 · The runtime-spec config.json</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

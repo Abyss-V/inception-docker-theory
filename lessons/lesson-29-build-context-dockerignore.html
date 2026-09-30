@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lesson 29 · Build Context &amp; .dockerignore</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.7; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:36px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .oneline{border:1px solid var(--teal-dim); background:linear-gradient(180deg,#0b1615,#0a1210); border-radius:10px; padding:18px 20px; margin:30px 0 8px}
+  .oneline .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); display:block; margin-bottom:8px}
+  .oneline p{margin:0; font-size:20px; line-height:1.5; color:#fff}
+
+  .concept{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:48px 0 4px; display:flex; align-items:center; gap:10px;}
+  .concept .num{width:24px;height:24px;border-radius:50%;border:1px solid var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  h2{font-family:var(--mono); font-weight:600; font-size:21px; margin:8px 0 16px; color:var(--bone); letter-spacing:-.01em;}
+  h3{font-family:var(--mono); font-size:15px; color:var(--bone); margin:24px 0 10px}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  .term{color:var(--teal); font-weight:600}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+  .plain{color:var(--dim); font-size:16px; border-left:2px solid var(--rule); padding-left:14px; margin:0 0 18px}
+  .plain b{color:var(--teal); font-weight:600}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--teal); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .c{color:var(--faint)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:20px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  .flow{display:grid; grid-template-columns:1fr; gap:8px; margin:22px 0}
+  .flow .row{display:grid; grid-template-columns:42px 1fr; gap:12px; align-items:start; border:1px solid var(--rule); background:var(--panel); border-radius:8px; padding:12px 14px}
+  .flow .n{font-family:var(--mono); color:var(--teal); border:1px solid var(--teal-dim); border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:12px}
+  .flow .t{font-family:var(--mono); font-size:13px; color:#fff; margin-bottom:3px}
+  .flow .d{font-size:15px; color:var(--dim); line-height:1.5}
+
+  table{width:100%; border-collapse:collapse; margin:18px 0 26px; font-size:15.5px}
+  th{font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); text-align:left; border-bottom:1px solid var(--rule); padding:9px 10px}
+  td{vertical-align:top; border-bottom:1px solid var(--rule); padding:10px; color:var(--dim)}
+  td:first-child{font-family:var(--mono); color:var(--gold); white-space:nowrap}
+  td strong{font-family:var(--serif)}
+
+  .patterns{font-family:var(--mono); font-size:13.5px; background:var(--well); border:1px solid var(--rule); border-radius:8px; padding:16px 18px; margin:16px 0; line-height:1.85; overflow-x:auto}
+  .patterns .x{color:var(--rose)} .patterns .i{color:var(--teal)} .patterns .c{color:var(--faint)}
+
+  .compare{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:20px 0}
+  .compare .card{border:1px solid var(--rule); border-radius:8px; padding:16px; background:var(--panel)}
+  .compare .card h3{font-size:13px; margin:0 0 10px; color:var(--gold)}
+  .compare .card p{font-size:15px; color:var(--dim); margin:0}
+  @media(max-width:640px){.compare{grid-template-columns:1fr} td:first-child{white-space:normal}}
+
+  .recap{border:1px solid var(--teal-dim); border-radius:10px; background:#0a1210; padding:20px 22px; margin:30px 0}
+  .recap h3{font-family:var(--mono); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:0 0 14px}
+  .recap ul{margin:0; padding-left:20px} .recap li{margin:0 0 10px; color:var(--bone)} .recap li:last-child{margin:0}
+  .recap li b{color:#fff}
+
+  .sources{border:1px solid var(--gold-dim); border-radius:9px; background:#15130d; padding:18px 20px; margin:26px 0}
+  .sources h3{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin:0 0 12px}
+  .sources ul{margin:0; padding-left:20px}
+  .sources li{margin:0 0 9px; color:var(--dim); font-size:15px}
+  .sources li:last-child{margin-bottom:0}
+  .sources code{font-family:var(--mono); color:var(--gold); font-size:.88em}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:60px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:38px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+
+  .pill.clarity{color:var(--gold);border-color:var(--gold-dim);margin-left:6px}
+  .tree{font-family:var(--mono);font-size:13.5px;line-height:1.75;background:var(--well);border:1px solid var(--rule);border-radius:8px;padding:16px 18px;margin:18px 0;overflow-x:auto;color:var(--dim)}
+  .tree .keep{color:var(--teal)} .tree .drop{color:var(--rose)} .tree .meta{color:var(--gold)}
+  .formula{font-family:var(--mono);font-size:15px;border:1px solid var(--teal-dim);background:#081412;border-radius:8px;padding:15px 18px;margin:20px 0;color:#fff;overflow-x:auto}
+  .three-gates{display:grid;grid-template-columns:1fr;gap:10px;margin:22px 0}
+  .gate{border:1px solid var(--rule);background:var(--panel);border-radius:9px;padding:15px 17px;display:grid;grid-template-columns:38px 1fr;gap:12px;align-items:start}
+  .gate .gno{font-family:var(--mono);width:28px;height:28px;border:1px solid var(--teal-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--teal);font-size:12px}
+  .gate h3{margin:0 0 5px;font-size:13px;color:#fff}.gate p{margin:0;color:var(--dim);font-size:15.5px;line-height:1.55}
+  .result{border:1px solid var(--rule);border-radius:8px;overflow:hidden;margin:18px 0}
+  .result .rrow{display:grid;grid-template-columns:1.15fr .85fr;border-bottom:1px solid var(--rule)}
+  .result .rrow:last-child{border-bottom:0}.result .rrow>div{padding:11px 13px;font-size:15px}.result .path{font-family:var(--mono);color:var(--gold);background:var(--well)}.result .why{color:var(--dim);background:var(--panel)}
+  details.source-appendix{border:1px solid var(--gold-dim);border-radius:9px;background:#15130d;margin:28px 0}
+  details.source-appendix summary{cursor:pointer;font-family:var(--mono);font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:var(--gold);padding:14px 17px;list-style:none}
+  details.source-appendix summary::-webkit-details-marker{display:none}
+  details.source-appendix summary::before{content:'+';display:inline-block;width:18px;color:var(--gold)}
+  details.source-appendix[open] summary::before{content:'−'}
+  details.source-appendix .inside{padding:0 18px 17px;color:var(--dim);font-size:15px}
+  details.source-appendix ul{margin:0;padding-left:20px}details.source-appendix li{margin:0 0 9px}
+  .firstread{border:1px dashed var(--teal-dim);border-radius:8px;padding:16px 18px;margin:20px 0;color:var(--dim)}
+  .firstread b{color:var(--teal)}
+  @media(max-width:640px){.result .rrow{grid-template-columns:1fr}.result .path{border-bottom:1px solid var(--rule)}}
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-28-pid1-signals-zombies.html">← Lesson 28</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-30-arg-vs-env-history-leak.html">Lesson 30 →</a></span></nav>
+<div class="wrap">
+<header class="top">
+<div class="course-tag">Docker, From the Source · Part IV — Pipelines &amp; Dockerfiles</div>
+<div class="lesson-no">29</div>
+<span class="pill">core</span><span class="pill clarity">rebuilt for clarity</span>
+<h1>Build context &amp; <code style="font-size:.8em">.dockerignore</code></h1>
+<p class="dek">What the dot in <code style="font-size:.84em">docker build .</code> means, which files BuildKit may read, and why “available to the build” is not the same as “copied into the image.”</p>
+</header>
+<div class="oneline">
+<span class="lbl">The idea in one sentence</span>
+<p>The build context is the outer boundary of files the build may use; the Dockerfile asks for paths inside that boundary, and <code style="font-size:.86em">.dockerignore</code> removes paths before the local context is synchronized to BuildKit.</p>
+</div>
+<div class="concept"><span class="num">1</span> Start with one project</div>
+<h2>Four files, three different decisions</h2>
+<p>Imagine this directory:</p>
+<div class="tree"><span class="meta">shop/</span>
+├── <span class="meta">Dockerfile</span>
+├── <span class="keep">app.py</span>
+├── <span class="drop">notes.txt</span>
+└── <span class="drop">secret.env</span></div>
+<p>And this Dockerfile:</p>
+<div class="patterns"><span class="i">FROM python:3.13-slim</span>
+<span class="i">WORKDIR /app</span>
+<span class="i">COPY app.py .</span>
+<span class="i">CMD ["python", "app.py"]</span></div>
+<p>You run:</p>
+<div class="patterns"><span class="i">docker build .</span>
+<span class="c">↑ this dot selects shop/ as the context root</span></div>
+<p>Now separate three questions that are often mixed together:</p>
+<div class="three-gates">
+<div class="gate"><div class="gno">1</div><div><h3>What is inside the allowed source boundary?</h3><p>Everything under <code class="inl">shop/</code>. A path outside it, such as <code class="inl">../private.txt</code>, is not an available local source.</p></div></div>
+<div class="gate"><div class="gno">2</div><div><h3>What does this build actually ask for?</h3><p>The local <code class="inl">COPY</code> asks for <code class="inl">app.py</code>. Merely being inside the context does not put a file into the image.</p></div></div>
+<div class="gate"><div class="gno">3</div><div><h3>What does the ignore policy remove?</h3><p>If <code class="inl">.dockerignore</code> excludes <code class="inl">secret.env</code>, that path is removed from the default local context available to ordinary <code class="inl">COPY</code> and <code class="inl">ADD</code>.</p></div></div>
+</div>
+<div class="formula">files synchronized = paths requested by the reachable build ∩ context boundary − ignored paths</div>
+<aside class="note"><b>Most important distinction.</b> The context is not “the files that become the image.” It is the source filesystem from which build operations are allowed to obtain files.</aside>
+<div class="concept"><span class="num">2</span> The dot and the Dockerfile</div>
+<h2>The context and the Dockerfile are separate inputs</h2>
+<p>The command shape is:</p>
+<div class="patterns"><span class="i">docker build [OPTIONS] PATH | URL | -</span>
+<span class="c">↑ the final argument selects the context</span></div>
+<p>With <code class="inl">docker build .</code>, the current directory is the default context root. A source in local <code class="inl">COPY</code> or local <code class="inl">ADD</code> is interpreted relative to that root.</p>
+<p>The Dockerfile can live somewhere else:</p>
+<div class="patterns"><span class="i">docker build -f docker/prod.Dockerfile .</span>
+<span class="c">Dockerfile ↑                  ↑ context root</span></div>
+<p>The instructions come from <code class="inl">docker/prod.Dockerfile</code>, but <code class="inl">COPY app.py /app/</code> still reads <code class="inl">./app.py</code> from the context root—not from <code class="inl">./docker/</code>.</p>
+<div class="keybox">
+<div class="h">Keep this pair separate</div>
+<p><strong>Dockerfile:</strong> what operations to perform.<br/><strong>Context:</strong> which source filesystem those operations are allowed to address.</p>
+</div>
+<p>Parent traversal does not grant access outside the boundary. A source such as <code class="inl">COPY ../private.txt /x</code> is cleaned as a context-relative path; it does not expose the parent directory of the context.</p>
+<div class="concept"><span class="num">3</span> What BuildKit does</div>
+<h2>It reads the plan first, then requests the needed source</h2>
+<p class="plain"><b>First-read version:</b> BuildKit does not have to upload the whole directory before it understands the Dockerfile. It obtains the Dockerfile first, resolves the part of the build graph that will run, then requests a filtered view of the local context.</p>
+<div class="flow">
+<div class="row"><div class="n">1</div><div><div class="t">Obtain the Dockerfile and applicable ignore file</div><div class="d">These control files are requested separately so the frontend can understand the build before requesting the main source tree.</div></div></div>
+<div class="row"><div class="n">2</div><div><div class="t">Resolve the reachable build stages</div><div class="d">Only stages needed for the selected target contribute operations to the graph.</div></div></div>
+<div class="row"><div class="n">3</div><div><div class="t">Collect default-context paths used by local COPY and ADD</div><div class="d"><code class="inl">COPY app.py .</code> asks for a narrow path. <code class="inl">COPY . .</code> asks for the context root, which makes every nonignored path eligible.</div></div></div>
+<div class="row"><div class="n">4</div><div><div class="t">Apply .dockerignore and synchronize the filtered filesystem</div><div class="d">The client-side filesync provider combines the requested paths with exclusions before sending the source over the BuildKit session.</div></div></div>
+</div>
+<p>Return to the example. With <code class="inl">COPY app.py .</code>, BuildKit can follow the path for <code class="inl">app.py</code>. The unused <code class="inl">notes.txt</code> and <code class="inl">secret.env</code> do not need to be synchronized as requested source content. Change the instruction to <code class="inl">COPY . .</code>, and the request becomes the root of the context, so both files become eligible unless ignored.</p>
+<aside class="correction">
+<span class="lbl">Correction to the old mental model</span>
+<p>“Docker always tars the complete directory and uploads it before reading the Dockerfile” describes the legacy builder model, not the general modern BuildKit path. BuildKit uses a session-backed filesystem synchronization with path-following and exclusion filters. A broad <code class="inl">COPY . .</code> can still produce a whole-context-sized transfer, but that happens because the build requested the root.</p>
+</aside>
+<div class="firstread"><b>You can stop here on a first read.</b> The remaining sections explain the ignore file precisely, then cover the less-common context forms and source-level edge cases.</div>
+<div class="concept"><span class="num">4</span> The ignore file</div>
+<h2><code style="font-size:.86em">.dockerignore</code> removes paths from the default context</h2>
+<p>Add this file beside the context root:</p>
+<div class="patterns"><span class="x">notes.txt</span>
+<span class="x">secret.env</span></div>
+<p>Now the default context seen by local build operations no longer contains those two paths. The result for the sample tree is:</p>
+<div class="result">
+<div class="rrow"><div class="path">Dockerfile</div><div class="why">Control input. BuildKit obtains it through the entrypoint request.</div></div>
+<div class="rrow"><div class="path">app.py</div><div class="why">Not ignored; available to <code class="inl">COPY app.py .</code>.</div></div>
+<div class="rrow"><div class="path">notes.txt</div><div class="why">Excluded from the default context by <code class="inl">.dockerignore</code>.</div></div>
+<div class="rrow"><div class="path">secret.env</div><div class="why">Excluded from the default context by <code class="inl">.dockerignore</code>.</div></div>
+</div>
+<p>This matters even if the Dockerfile currently copies only <code class="inl">app.py</code>. Ignore rules protect against a later broad wildcard such as <code class="inl">COPY . .</code>, reduce source work, and remove irrelevant files from cache inputs.</p>
+<aside class="note"><b>Not a secret manager.</b> Ignoring a credential is a useful boundary, but a typo can admit it. Build credentials should use BuildKit secret mounts rather than being copied into the context and image layers.</aside>
+<div class="concept"><span class="num">5</span> Pattern rules</div>
+<h2>Read the file from top to bottom; the last matching rule wins</h2>
+<p>The most useful patterns are:</p>
+<div class="patterns"><span class="x">node_modules</span> <span class="c"># exclude a matching path or directory</span>
+<span class="x">*.log</span> <span class="c"># * matches inside one path component</span>
+<span class="x">temp?</span> <span class="c"># ? matches one non-separator character</span>
+<span class="x">**/generated/**</span> <span class="c"># ** may cross directory levels</span>
+<span class="i">!logs/keep.log</span> <span class="c"># include this path again</span></div>
+<p>Example:</p>
+<div class="patterns"><span class="x">*.log</span> <span class="c"># first: exclude every matching log</span>
+<span class="i">!logs/keep.log</span> <span class="c"># later: include this one again</span></div>
+<p><code class="inl">logs/keep.log</code> matches both lines. The second match comes later, so its final state is included. That is the practical meaning of <strong>last matching rule wins</strong>.</p>
+<div class="keybox">
+<div class="h">Small differences from .gitignore</div>
+<p>A leading <code class="inl">/</code> is removed, so <code class="inl">/foo/bar</code> and <code class="inl">foo/bar</code> are equivalent relative to the context. A line is a comment only when <code class="inl">#</code> is the first character before trimming. The special pattern <code class="inl">.</code> does not exclude the context root.</p>
+</div>
+<div class="concept"><span class="num">6</span> One Dockerfile can have its own policy</div>
+<h2>The sidecar ignore file replaces the root file for that build</h2>
+<p>Suppose the project has:</p>
+<div class="tree"><span class="meta">shop/</span>
+├── <span class="meta">.dockerignore</span>
+└── <span class="meta">docker/</span>
+    ├── <span class="meta">prod.Dockerfile</span>
+    └── <span class="meta">prod.Dockerfile.dockerignore</span></div>
+<p>When the selected Dockerfile is <code class="inl">docker/prod.Dockerfile</code>, BuildKit checks for <code class="inl">docker/prod.Dockerfile.dockerignore</code>. If that sidecar exists, it is the ignore policy for the build. The root <code class="inl">.dockerignore</code> is only the fallback; the two files are <strong>not merged</strong>.</p>
+<div class="concept"><span class="num">7</span> Two filters that solve different problems</div>
+<h2><code style="font-size:.86em">.dockerignore</code> is global; <code style="font-size:.86em">COPY --exclude</code> is local to one instruction</h2>
+<div class="compare">
+<div class="card">
+<h3>.dockerignore</h3>
+<p>Removes a path from the default context. Later local <code class="inl">COPY</code> and <code class="inl">ADD</code> operations cannot obtain that path from the default context.</p>
+</div>
+<div class="card">
+<h3>COPY / ADD --exclude</h3>
+<p>Keeps the path in the source but omits it from this one file-copy operation. Another operation may still use it.</p>
+</div>
+</div>
+<div class="patterns"><span class="c"># tests still exist in the context</span>
+<span class="i">COPY --exclude=tests src/ /app/</span>
+<span class="i">COPY tests/ /tests/</span> <span class="c"># still possible</span></div>
+<p>If <code class="inl">tests</code> were in <code class="inl">.dockerignore</code>, the second instruction could not retrieve it from the default context.</p>
+<div class="concept"><span class="num">8</span> Context is a role, not always a directory</div>
+<h2>Local paths are common, but not the only source</h2>
+<table>
+<thead><tr><th>Context form</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>local path</td><td>The client exposes a local filesystem to BuildKit over the session.</td></tr>
+<tr><td>local tar / stdin</td><td>The archive becomes the context. Plain Dockerfile text on stdin can mean no filesystem context.</td></tr>
+<tr><td>Git URL</td><td>A Git checkout becomes the source filesystem.</td></tr>
+<tr><td>remote tar URL</td><td>The BuildKit daemon host downloads the archive; with a remote builder, that may not be the CLI machine.</td></tr>
+<tr><td>named context</td><td><code class="inl">--build-context docs=./docs</code> creates another separately-addressed source.</td></tr>
+</tbody>
+</table>
+<p>Named contexts are useful when one build graph needs several sources without making one giant default boundary. A Dockerfile can address a named context with <code class="inl">COPY --from=docs</code> or a build mount.</p>
+<div class="step">Inspect it yourself</div>
+<h2>Watch one narrow request become broad, then narrow again</h2>
+<p>This experiment creates one small file and one 16 MiB file. The Dockerfile first requests only the small file, then requests the context root, then ignores the large file.</p>
+<figure class="inspect">
+<div class="tab">host shell · BuildKit enabled</div>
+<pre><span class="p">$</span> rm -rf /tmp/l29-context &amp;&amp; mkdir /tmp/l29-context &amp;&amp; cd /tmp/l29-context
+<span class="p">$</span> printf 'hello\n' &gt; app.txt
+<span class="p">$</span> dd if=/dev/zero of=junk.bin bs=1M count=16 status=none
+
+<span class="p">$</span> cat &gt; Dockerfile &lt;&lt;'EOF'
+FROM scratch
+COPY app.txt /app.txt
+EOF
+
+<span class="p">$</span> docker build --no-cache --progress=plain -t l29:narrow .
+<span class="o">... transferring context: a small value</span>
+<span class="c"># the build asks for app.txt, not the context root</span>
+
+<span class="p">$</span> sed -i 's#COPY app.txt /app.txt#COPY . /ctx#' Dockerfile
+<span class="p">$</span> docker build --no-cache --progress=plain -t l29:broad .
+<span class="o">... transferring context: about 16 MB</span>
+<span class="c"># COPY . requests the root, so junk.bin is eligible</span>
+
+<span class="p">$</span> printf 'junk.bin\n' &gt; .dockerignore
+<span class="p">$</span> docker build --no-cache --progress=plain -t l29:ignored .
+<span class="o">... transferring context: small again</span>
+<span class="c"># root requested, but junk.bin is excluded before synchronization</span>
+
+<span class="p">$</span> printf 'outside\n' &gt; /tmp/outside.txt
+<span class="p">$</span> sed -i 's#COPY . /ctx#COPY ../outside.txt /outside.txt#' Dockerfile
+<span class="p">$</span> docker build --no-cache --progress=plain .
+<span class="o">ERROR ... "/outside.txt": not found</span>
+<span class="c"># /tmp is outside the selected context boundary</span></pre>
+</figure>
+<aside class="note"><b>Observe the relationship, not an exact byte count.</b> Progress formatting and metadata reuse vary by Docker/Buildx version. The broad case should include the large file; the ignored case should not.</aside>
+<div class="recap">
+<h3>Check yourself</h3>
+<ul>
+<li>The final argument in <code class="inl">docker build .</code> selects the <b>context root</b>.</li>
+<li>The context is the builder's <b>permitted source filesystem</b>, not the set of files automatically copied into the image.</li>
+<li>The Dockerfile and context are <b>separate inputs</b>; local source paths are rooted at the context.</li>
+<li>Modern BuildKit reads the plan, derives paths used by reachable local <code class="inl">COPY</code>/<code class="inl">ADD</code>, applies ignore rules, then synchronizes the filtered source.</li>
+<li><code class="inl">COPY . .</code> requests the root and therefore makes every nonignored path eligible.</li>
+<li>A Dockerfile-specific <code class="inl">&lt;Dockerfile&gt;.dockerignore</code> <b>replaces</b> the root ignore policy for that build.</li>
+<li>Ignore rules are ordered: <b>the last matching rule wins</b>, and <code class="inl">!</code> re-includes.</li>
+<li><code class="inl">.dockerignore</code> is global to the default context; <code class="inl">COPY --exclude</code> affects one file operation.</li>
+</ul>
+</div>
+<details class="source-appendix">
+<summary>Primary-source map · second read</summary>
+<div class="inside">
+<ul>
+<li><code>moby/buildkit v0.31.1 · frontend/dockerui/config.go</code> — entrypoint loading, Dockerfile-specific ignore precedence, root fallback, and main-context options.</li>
+<li><code>moby/buildkit v0.31.1 · frontend/dockerfile/dockerfile2llb/convert.go</code> — reachable-stage dispatch, context-path collection, normalization, <code>FollowPaths</code>, and instruction-local exclusions.</li>
+<li><code>moby/buildkit v0.31.1 · session/filesync/filesync.go</code> — client-side filtered filesystem and <code>diffcopy</code> synchronization.</li>
+<li><code>moby/buildkit v0.31.1 · go.mod</code> — pins <code>github.com/moby/patternmatcher v0.6.1</code>.</li>
+<li><code>moby/patternmatcher v0.6.1 · ignorefile/ignorefile.go</code> and <code>patternmatcher.go</code> — preprocessing, ordered negation, and wildcard behavior.</li>
+<li><code>docs.docker.com/build/concepts/context/</code> and the Dockerfile reference — context forms, named contexts, remote-tar location, source-path cleaning, and control-file behavior.</li>
+</ul>
+</div>
+</details>
+<hr class="soft"/>
+<div class="concept"><span class="num">→</span> Where we are</div>
+<h2>Summary</h2>
+<p>The context answers “what source filesystem may this build use?” The Dockerfile answers “which operations should use it?” For the local BuildKit path, the frontend obtains the build definition first, resolves the reachable graph, derives the local paths requested by <code class="inl">COPY</code> and <code class="inl">ADD</code>, combines them with <code class="inl">.dockerignore</code>, and synchronizes the filtered result. Lesson 30 now separates two values that travel through that build in different ways: <code class="inl">ARG</code> and <code class="inl">ENV</code>.</p>
+<div class="xrefs">
+<span class="xref"><b>back ←</b>Lesson 25 · BuildKit &amp; LLB</span>
+<span class="xref"><b>back ←</b>Lesson 26 · COPY &amp; ADD</span>
+<span class="xref"><b>back ←</b>Lesson 27 · stage graph</span>
+<span class="xref"><b>forward →</b>Lesson 30 · ARG vs ENV</span>
+<span class="xref"><b>forward →</b>Lesson 31 · cache &amp; hygiene</span>
+</div>
+<footer class="nav">
+<div class="card"><span class="k">← Previous</span><span class="ti">28 · PID 1 in depth</span></div>
+<div class="card next"><span class="k">Next →</span><span class="ti">30 · ARG vs ENV &amp; history leak</span></div>
+</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 40 — Tags vs digests, content-addressed transfer &amp; dedup</title>
+<style>
+:root{--ink:#0e1116;--panel:#161b22;--well:#0a0d12;--bone:#e9e4d7;--dim:#9aa4b2;--faint:#6b7482;--rule:#262d38;--gold:#e0b155;--gold-dim:#7a6636;--teal:#5ac4b4;--teal-dim:#2f5f59;--rose:#d76d7f;--rose-dim:#6e3540;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--serif:"Iowan Old Style",Charter,Georgia,Cambria,serif}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--ink);color:var(--bone);font:18px/1.72 var(--serif)}.wrap{max-width:760px;margin:auto;padding:24px}
+header{padding:32px 0 20px;border-bottom:1px solid var(--rule)}.eyebrow{font:12px var(--mono);color:var(--gold);letter-spacing:.12em;text-transform:uppercase}h1{font-size:44px;line-height:1.05;margin:.35rem 0 1rem}.deck{color:#cfc8b8;max-width:52rem}.pill{display:inline-block;border:1px solid var(--teal-dim);color:var(--teal);font:12px var(--mono);padding:4px 8px;border-radius:999px}
+section{padding:28px 0;border-bottom:1px solid rgba(255,255,255,.04)}h2{font-size:30px;line-height:1.2;margin:0 0 14px}h3{font-size:22px;line-height:1.3;margin:24px 0 10px}p,li{color:var(--bone)}.dim{color:var(--dim)}strong{color:#f4f0e6}code,pre{font-family:var(--mono)}code{background:#11161d;border:1px solid #2b3440;border-radius:6px;padding:1px 5px;color:#f2d493}pre{background:var(--well);border:1px solid var(--rule);border-radius:12px;padding:14px;overflow:auto;color:#d8e0e7;line-height:1.55;white-space:pre-wrap}
+.note,.warn,.idea,.inspect{padding:16px 18px;border-radius:14px;border:1px solid var(--rule);margin:16px 0}.idea{border-left:4px solid var(--teal);background:#101a1a}.note{border-left:4px solid var(--gold);background:#17140e}.warn{border-left:4px solid var(--rose);background:#1a1013}.inspect{border-left:4px solid var(--teal);background:#0f1717}.label{font:12px var(--mono);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}.idea .label,.inspect .label{color:var(--teal)}.note .label{color:var(--gold)}.warn .label{color:var(--rose)}
+.table{width:100%;border-collapse:collapse;margin:14px 0}.table th,.table td{border-bottom:1px solid var(--rule);padding:10px;vertical-align:top}.table th{font:12px var(--mono);color:var(--gold);text-align:left}.figure{background:var(--panel);border:1px solid var(--rule);border-radius:16px;padding:18px;margin:18px 0;overflow:hidden}.caption{color:var(--dim);font-size:15px;margin-top:10px}.small{font-size:15px;color:var(--dim)}.src{color:var(--gold);font:13px/1.55 var(--mono)}details{background:#12171e;border:1px solid var(--rule);border-radius:12px;padding:12px 14px;margin-top:10px}summary{cursor:pointer;color:var(--gold);font-family:var(--mono)}a{color:var(--teal);text-decoration-color:var(--teal-dim)}
+.kicker{font:13px var(--mono);color:var(--teal);letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px}.hop{display:grid;grid-template-columns:38px 1fr;gap:12px;margin:18px 0}.hopn{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--teal-dim);color:var(--teal);font:13px var(--mono)}.hop h3{margin:1px 0 6px}.nav{display:flex;justify-content:space-between;gap:12px;padding-top:22px}.nav a{display:block;border:1px solid var(--teal-dim);border-radius:12px;padding:10px 12px;text-decoration:none;font:13px var(--mono)}.sourcechips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.sourcechips a{font:12px var(--mono);border:1px solid var(--gold-dim);color:var(--gold);text-decoration:none;border-radius:999px;padding:5px 8px}.callout{font:600 21px/1.5 var(--serif);padding:4px 0}.state{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin:14px 0}.state>div{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:12px}.arrow{font:18px var(--mono);color:var(--teal)}
+@media(max-width:650px){h1{font-size:36px}.wrap{padding:18px}.table{font-size:15px}.figure{padding:10px}.nav{flex-direction:column}.state{grid-template-columns:1fr}.arrow{text-align:center;transform:rotate(90deg)}}
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-39-registries-oci-distribution-http-api.html">← Lesson 39</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-41-image-signing-provenance.html">Lesson 41 →</a></span></nav><main class="wrap">
+<header>
+  <div class="eyebrow">Part 6 · Distribution · Lesson 40</div>
+  <h1>Tags vs digests, content-addressed transfer &amp; dedup</h1>
+  <p class="deck">The important transition is simple: Docker starts with a human name such as <code>course/app:stable</code>. The registry turns that mutable name into a descriptor for exact bytes. From that moment onward, the digest in the descriptor is the key used to find, verify, store, reuse, and push those bytes.</p>
+  <span class="pill">CORE</span>
+</header>
+
+<section>
+  <div class="idea"><div class="label">governing idea</div><p><strong>A tag answers “which object do you mean right now?” A digest answers “which exact bytes do you mean?”</strong></p></div>
+  <p>This lesson needs only one relationship to stay in your head:</p>
+  <pre><code>mutable name
+course/app:stable
+        │ registry resolves the name
+        ▼
+root descriptor
+{ digest: sha256:7f3a…, size: ..., mediaType: ... }
+        │ digest now names exact root bytes
+        ▼
+content graph
+manifest → config + layer descriptors</code></pre>
+  <p>Lessons 18 and 19 already taught descriptors, manifests, and indexes. Lesson 22 taught containerd's content store. Lesson 39 taught the registry HTTP endpoints. We are not repeating those lessons. We are connecting them around one question: <strong>when does an object's byte body actually need to move?</strong></p>
+</section>
+
+<section>
+  <div class="kicker">whole movement first</div>
+  <h2>1. The entire pull, with only one root manifest</h2>
+  <p>We will first use a single-platform image so there is no image index to distract from the core mechanism.</p>
+  <p>Assume the registry currently has this relationship:</p>
+  <pre><code>repository:  registry.example.com/course/app
+
+tag:         stable
+              │
+              └── points to root manifest bytes
+                     digest sha256:7f3a…
+
+root manifest sha256:7f3a… contains descriptors for:
+  config      sha256:19bc…
+  layer A     sha256:52de…
+  layer B     sha256:8a41…</code></pre>
+
+  <div class="figure">
+    <svg viewBox="0 0 720 650" width="100%" role="img" aria-labelledby="t d">
+      <title id="t">Tag resolution, local content check, and verified fetch</title>
+      <desc id="d">A tag is resolved by the registry to a descriptor. Containerd checks the descriptor digest in its local content store before requesting the object's body. Missing bytes are fetched, hashed, verified, committed, then the process repeats for child descriptors.</desc>
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#5ac4b4"/></marker></defs>
+      <style>.b{fill:#111820;stroke:#34404d;stroke-width:1.4}.g{fill:#101a1a;stroke:#2f5f59;stroke-width:1.4}.y{fill:#17140e;stroke:#7a6636;stroke-width:1.4}.tx{fill:#e9e4d7;font:600 15px ui-monospace,monospace}.sm{fill:#9aa4b2;font:12px ui-monospace,monospace}.a{stroke:#5ac4b4;stroke-width:2;fill:none;marker-end:url(#arr)}</style>
+      <rect x="20" y="30" width="210" height="82" rx="12" class="b"/><text x="36" y="60" class="tx">course/app:stable</text><text x="36" y="86" class="sm">tag: mutable lookup name</text>
+      <rect x="255" y="30" width="205" height="82" rx="12" class="b"/><text x="272" y="60" class="tx">registry</text><text x="272" y="86" class="sm">HEAD /manifests/stable</text>
+      <rect x="485" y="30" width="215" height="82" rx="12" class="g"/><text x="502" y="58" class="tx">root descriptor</text><text x="502" y="84" class="sm">digest = sha256:7f3a…</text><text x="502" y="102" class="sm">size + mediaType too</text>
+      <path d="M230 71H250" class="a"/><path d="M460 71H480" class="a"/>
+
+      <rect x="235" y="160" width="250" height="90" rx="12" class="b"/><text x="252" y="190" class="tx">containerd asks local store</text><text x="252" y="216" class="sm">do I already have 7f3a…?</text>
+      <path d="M590 112C590 142 420 137 395 156" class="a"/>
+
+      <rect x="38" y="310" width="278" height="100" rx="12" class="g"/><text x="56" y="340" class="tx">YES: digest path exists</text><text x="56" y="366" class="sm">reuse local object</text><text x="56" y="388" class="sm">no manifest body is fetched</text>
+      <rect x="404" y="310" width="278" height="100" rx="12" class="y"/><text x="422" y="340" class="tx">NO: digest path missing</text><text x="422" y="366" class="sm">GET exact object bytes</text><text x="422" y="388" class="sm">hash while writing ingest file</text>
+      <path d="M360 250C360 284 177 281 177 305" class="a"/><path d="M360 250C360 284 543 281 543 305" class="a"/>
+
+      <rect x="404" y="463" width="278" height="105" rx="12" class="b"/><text x="422" y="493" class="tx">Commit(expected=7f3a…)</text><text x="422" y="519" class="sm">calculated digest must match</text><text x="422" y="541" class="sm">then store at digest path</text>
+      <path d="M543 410V458" class="a"/>
+
+      <rect x="126" y="592" width="468" height="45" rx="12" class="b"/><text x="146" y="621" class="tx">parse local manifest → obtain child descriptors → repeat</text>
+      <path d="M177 410C177 520 270 555 319 587" class="a"/><path d="M543 568C520 584 491 588 465 591" class="a"/>
+    </svg>
+    <p class="caption">The important split is before the body transfer: the descriptor arrives first; its digest lets containerd decide whether the body is needed.</p>
+  </div>
+
+  <div class="callout">Resolution gives containerd an <em>expected identity</em> before the content body is transferred.</div>
+</section>
+
+<section>
+  <h2>2. Tag resolution: what exactly happens to <code>:stable</code>?</h2>
+  <p>Start with:</p>
+  <pre><code>docker pull registry.example.com/course/app:stable</code></pre>
+  <p>The Docker CLI sends that image reference to <code>dockerd</code>. <code>dockerd</code> starts the image pull through containerd. The important work for this lesson begins in containerd's registry resolver.</p>
+
+  <div class="hop"><div class="hopn">1</div><div><h3>containerd sees a tag, not a digest</h3><p>The reference has an object name <code>stable</code>, but no <code>@sha256:...</code> digest. In containerd v2.2.6, <code>dockerResolver.Resolve</code> therefore builds a manifests path using the tag:</p><pre><code>/v2/course/app/manifests/stable</code></pre></div></div>
+
+  <div class="hop"><div class="hopn">2</div><div><h3>containerd asks the registry what object that tag selects now</h3><p>The normal request is a <code>HEAD</code>. No image layer bytes are involved. This is a name-resolution request.</p><pre><code>HEAD /v2/course/app/manifests/stable</code></pre></div></div>
+
+  <div class="hop"><div class="hopn">3</div><div><h3>the registry returns metadata for the selected root bytes</h3><p>The useful response metadata includes the content digest, content length, and media type. containerd turns those values into an OCI descriptor:</p><pre><code>Descriptor {
+    Digest:    sha256:7f3a…
+    Size:      742
+    MediaType: application/vnd.oci.image.manifest.v1+json
+}</code></pre><p><strong>This descriptor is the result of resolving the tag.</strong> The tag text itself is not hashed to produce <code>7f3a…</code>. The digest identifies the manifest bytes that the registry says <code>stable</code> currently selects.</p></div></div>
+
+  <div class="warn"><div class="label">important correction</div><p>Do not imagine a tag as another OCI blob sitting above the manifest. In this lesson, the tag is a registry-level name used at the manifests endpoint. Resolution produces a descriptor for the root content. After that, the content graph is followed through descriptors and digests.</p></div>
+
+  <p>If the registry does not provide enough metadata for containerd to build the descriptor—specifically the digest or usable size—containerd falls back to <code>GET</code> and hashes the returned manifest bytes to establish the digest. That fallback does not change the model: <strong>the end product of resolution is still a descriptor for exact root bytes.</strong></p>
+  <p class="src">Source anchor: containerd v2.2.6 · core/remotes/docker/resolver.go · dockerResolver.Resolve</p>
+</section>
+
+<section>
+  <h2>3. Why a tag can move but the digest cannot keep identifying changed bytes</h2>
+  <p>Suppose today the registry has:</p>
+  <pre><code>stable → manifest bytes A → sha256:7f3a…</code></pre>
+  <p>Tomorrow you push a new release under the same tag:</p>
+  <pre><code>stable → manifest bytes B → sha256:c901…</code></pre>
+  <p>The name <code>stable</code> stayed the same. The selected bytes changed, so the digest changed.</p>
+
+  <div class="state"><div><strong>Tag</strong><br><code>stable</code><br><span class="small">registry-controlled mapping; can be changed to another root object</span></div><div class="arrow">→</div><div><strong>Digest</strong><br><code>sha256:7f3a…</code><br><span class="small">calculated from one byte sequence</span></div></div>
+
+  <p>If even one byte of that manifest changes, recalculating its hash produces a different digest. That is what gives the digest its role as a content identifier.</p>
+  <div class="note"><div class="label">what “immutable digest” really means</div><p>It does not mean somebody placed a lock bit on a digest string. It means the digest is derived from the bytes. Changed bytes no longer match the old digest. The old digest continues to identify the old byte sequence.</p></div>
+  <p class="src">Source anchor: OCI Image Spec v1.1.1 · descriptor.md · Digests / Verification</p>
+</section>
+
+<section>
+  <h2>4. Pull dedup: the digest is checked <em>before</em> the registry body is opened</h2>
+  <p>Now containerd has the root descriptor:</p>
+  <pre><code>expected digest = sha256:7f3a…</code></pre>
+  <p>The next question is not “download the manifest.” The next question is:</p>
+  <pre><code>Does the local content store already contain sha256:7f3a… ?</code></pre>
+
+  <div class="hop"><div class="hopn">1</div><div><h3><code>Fetch</code> opens the destination first</h3><p>containerd's <code>remotes.Fetch</code> calls <code>content.OpenWriter(..., content.WithDescriptor(desc))</code> before it calls <code>fetcher.Fetch</code>. The expected descriptor therefore reaches the content store before any registry response body is requested.</p></div></div>
+
+  <div class="hop"><div class="hopn">2</div><div><h3>the local store converts the digest to its content path</h3><p>For the expected digest, the local store derives a path of this form:</p><pre><code>&lt;content-root&gt;/blobs/sha256/&lt;encoded digest&gt;
+
+for our example:
+&lt;content-root&gt;/blobs/sha256/7f3a…</code></pre><p>If that final blob path already exists, <code>store.writer</code> returns <code>ErrAlreadyExists</code>.</p></div></div>
+
+  <div class="hop"><div class="hopn">3</div><div><h3><code>ErrAlreadyExists</code> short-circuits the fetch</h3><p><code>FetchHandler</code> treats that result as success. Because <code>OpenWriter</code> failed with “already exists,” execution never reaches <code>fetcher.Fetch</code> for that object.</p></div></div>
+
+  <div class="idea"><div class="label">dedup point</div><p><strong>This is the exact pull-side dedup decision:</strong> expected descriptor digest → digest-derived local path → path exists → do not request that object's body.</p></div>
+
+  <p>A tag lookup may still have crossed the network. Dedup here means the object body is not transferred again; it does not mean the entire pull operation becomes network-silent.</p>
+  <p class="src">Source anchors: containerd v2.2.6 · core/remotes/handlers.go · FetchHandler / Fetch; plugins/content/local/store.go · writer / blobPath</p>
+</section>
+
+<section>
+  <h2>5. If the object is missing: the same digest becomes the verification target</h2>
+  <p>Assume <code>sha256:7f3a…</code> is not local. Only now does containerd need the body.</p>
+  <pre><code>expected descriptor digest: sha256:7f3a…
+            │
+            ▼
+registry sends manifest bytes
+            │
+            ▼
+containerd writes bytes into an ingest file
+and updates a SHA-256 digester as bytes arrive
+            │
+            ▼
+Commit(expected = sha256:7f3a…)
+            │
+      calculated digest?
+       /            \
+  7f3a…              anything else
+   │                      │
+ accept                  reject
+   │
+   ▼
+move ingest data to final digest-derived blob path</code></pre>
+
+  <p>There are two different uses of the digest here, and keeping them separate matters:</p>
+  <table class="table"><thead><tr><th>Moment</th><th>What the digest does</th></tr></thead><tbody>
+    <tr><td>Before transfer</td><td>It is the <strong>expected identity</strong>: “I need exactly <code>7f3a…</code>.”</td></tr>
+    <tr><td>After bytes arrive</td><td>containerd independently hashes the received bytes and checks that the calculated digest equals the expected one.</td></tr>
+  </tbody></table>
+
+  <p>In the local writer, <code>Write</code> writes the bytes and feeds the same bytes to the digester. At <code>Commit</code>, containerd compares the calculated digest with the expected descriptor digest. A mismatch is rejected. Only verified content is moved to the final path derived from its digest.</p>
+  <div class="warn"><div class="label">not one vague “hash step”</div><p>The digest participates in <strong>lookup</strong> before transfer and in <strong>verification</strong> after transfer. Those are different decisions at different times.</p></div>
+  <p class="src">Source anchor: containerd v2.2.6 · plugins/content/local/writer.go · Write / Commit</p>
+</section>
+
+<section>
+  <h2>6. How the same decision walks the whole image graph</h2>
+  <p>Once the root manifest bytes are local—either reused or freshly fetched—containerd can read that JSON. The manifest contains child descriptors, for example:</p>
+  <pre><code>root manifest sha256:7f3a…
+
+config descriptor
+  digest = sha256:19bc…
+
+layer descriptor A
+  digest = sha256:52de…
+
+layer descriptor B
+  digest = sha256:8a41…</code></pre>
+  <p>Now the exact same per-object loop repeats for each child:</p>
+  <pre><code>descriptor arrives
+      ↓
+use desc.Digest as expected identity
+      ↓
+check local content store
+      ├─ present → reuse → no body transfer
+      └─ missing → fetch body → hash → verify → commit</code></pre>
+
+  <p>This is why saying “Docker deduplicates layers” is incomplete. The mechanism is not special to layers. The content store and transfer handlers operate on descriptors. A manifest, config blob, or layer blob can all be reused when the exact descriptor digest is already present.</p>
+  <div class="note"><div class="label">where an image index fits</div><p>If the tag resolves to an <strong>image index</strong> instead of directly to an image manifest, nothing fundamental changes. The root descriptor identifies the index bytes. containerd obtains the index, selects the platform manifest descriptor as taught in Lesson 19, then runs the same digest-driven loop for that manifest and its children. The index adds one graph hop; it does not add a different dedup mechanism.</p></div>
+</section>
+
+<section>
+  <h2>7. Four jobs performed by the same descriptor digest</h2>
+  <p>At this point the phrase “content-addressed” should be concrete. For a descriptor such as <code>sha256:52de…</code>, that digest participates in four distinct operations:</p>
+  <table class="table"><thead><tr><th>Job</th><th>Question answered</th><th>Where</th></tr></thead><tbody>
+    <tr><td><strong>Identity</strong></td><td>Which exact layer/config/manifest bytes does this descriptor refer to?</td><td>OCI descriptor</td></tr>
+    <tr><td><strong>Local lookup</strong></td><td>Do I already have those exact bytes?</td><td>containerd content store, digest-derived blob path</td></tr>
+    <tr><td><strong>Verification</strong></td><td>Did the bytes I received actually hash to the expected identity?</td><td>containerd ingest + <code>Commit</code></td></tr>
+    <tr><td><strong>Remote existence</strong></td><td>Does the destination registry already expose this exact content?</td><td>registry <code>HEAD</code> during push</td></tr>
+  </tbody></table>
+  <p>One digest value can serve all four jobs because all four are asking about the same byte identity.</p>
+</section>
+
+<section>
+  <h2>8. Dedup cases on pull: exactly what is compared, and what moves?</h2>
+
+  <h3>Case A — two tags point to the same root manifest</h3>
+  <pre><code>stable ─┐
+        ├──→ sha256:7f3a…
+prod   ─┘</code></pre>
+  <p>Pulling <code>:stable</code> first stores the graph. Later, pulling <code>:prod</code> still requires resolving <code>prod</code>, because a tag is mutable. Suppose that resolution also returns root digest <code>7f3a…</code>.</p>
+  <p>containerd checks its local path for <code>7f3a…</code>. It is already present, so the root manifest body need not move again. When the graph is walked, the same is true for the existing child digests.</p>
+
+  <h3>Case B — two different manifests share one config blob</h3>
+  <pre><code>manifest A → config sha256:19bc…
+manifest B → config sha256:19bc…</code></pre>
+  <p>The manifests themselves may have different digests. When traversal reaches the config descriptor in manifest B, its expected digest is exactly the same <code>19bc…</code>. The local content-store lookup finds that object and skips a second config-body transfer.</p>
+
+  <h3>Case C — two images share a layer</h3>
+  <pre><code>image A manifest → layer sha256:52de…
+image B manifest → layer sha256:52de…</code></pre>
+  <p>Same mechanism. The compared identifier is the layer descriptor's digest. If it matches an already-local blob path, those layer bytes do not move again.</p>
+
+  <h3>Case D — “same files” but different blob bytes</h3>
+  <p>Suppose two compressed layer archives would unpack to equivalent files, but their stored archive bytes differ. Then their descriptor digests differ.</p>
+  <pre><code>layer archive bytes A → sha256:52de…
+layer archive bytes B → sha256:aa90…</code></pre>
+  <p>For this transfer/content-store mechanism, they are two different objects. There is no semantic filesystem comparison that says “these unpack to the same thing, so merge them.”</p>
+  <div class="warn"><div class="label">precise rule</div><p><strong>Transfer dedup happens at exact content identity.</strong> Same descriptor digest → same referenced bytes → reusable object. Different descriptor digest → distinct object for this mechanism.</p></div>
+</section>
+
+<section>
+  <h2>9. Push dedup: ask the registry before opening the local payload</h2>
+  <p>Lesson 39 showed that child blobs are made available before their parent manifest. Zoom in on one layer descriptor:</p>
+  <pre><code>layer descriptor
+Digest = sha256:52de…</code></pre>
+  <p>containerd's registry pusher first checks the destination repository:</p>
+  <pre><code>HEAD /v2/course/app/blobs/sha256:52de…</code></pre>
+
+  <div class="hop"><div class="hopn">1</div><div><h3>registry returns <code>200 OK</code></h3><p>The pusher marks that exact descriptor as already present and returns <code>ErrAlreadyExists</code>.</p></div></div>
+  <div class="hop"><div class="hopn">2</div><div><h3>the higher push handler stops before reading the payload</h3><p>In <code>remotes.push</code>, <code>pusher.Push(desc)</code> occurs before <code>provider.ReaderAt(desc)</code>. If the pusher reports “already exists,” the function returns success before opening the local content body.</p></div></div>
+
+  <pre><code>descriptor sha256:52de…
+        ↓
+registry HEAD by exact digest
+        ├─ 200 → already exists → STOP
+        │                       payload bytes read: 0
+        │
+        └─ 404 → destination lacks it
+                 → mount or upload path</code></pre>
+
+  <p>Again, dedup does not mean zero traffic. The <code>HEAD</code> request and response are network traffic. What is avoided is retransmitting the blob payload.</p>
+  <p class="src">Source anchors: containerd v2.2.6 · core/remotes/docker/pusher.go · push; core/remotes/handlers.go · push</p>
+</section>
+
+<section>
+  <h2>10. Pushing a second tag: why a manifest may still move</h2>
+  <p>Suppose the registry already has:</p>
+  <pre><code>stable → sha256:7f3a…</code></pre>
+  <p>You push the same local root under a new tag:</p>
+  <pre><code>prod → sha256:7f3a…</code></pre>
+  <p>All child blobs may already be present, so their <code>HEAD</code> checks can skip every child payload. But the registry still needs the new name <code>prod</code> to select the root object.</p>
+  <p>For a tagged manifest/index push, containerd checks the manifests path for that target object. If the tag does not already resolve to the desired digest, it sends the root manifest/index bytes with a <code>PUT</code> to establish that tag mapping.</p>
+  <div class="idea"><div class="label">important distinction</div><p><strong>Content dedup and name creation are different jobs.</strong> “The registry already has every blob” does not automatically mean “the registry already has this new tag pointing to the desired root.”</p></div>
+</section>
+
+<section>
+  <h2>11. Cross-repository blob mount: reuse when the blob exists elsewhere on the same registry</h2>
+  <p>This is the one dedup case that is different from “the target repository already has it.”</p>
+  <p>Assume you are pushing to:</p>
+  <pre><code>registry.example.com/course/app</code></pre>
+  <p>The target repository does not expose layer <code>sha256:52de…</code>, but Docker knows that the same registry previously had that exact blob through another repository:</p>
+  <pre><code>registry.example.com/course/base</code></pre>
+
+  <p>The OCI Distribution Spec allows the client to ask the registry to reuse it:</p>
+  <pre><code>POST /v2/course/app/blobs/uploads/
+     ?mount=sha256:52de…
+     &from=course/base</code></pre>
+
+  <table class="table"><thead><tr><th>Result</th><th>Meaning</th><th>Blob payload from this client?</th></tr></thead><tbody>
+    <tr><td><code>201 Created</code></td><td>The registry mounted/reused that exact blob for the target repository.</td><td><strong>No.</strong></td></tr>
+    <tr><td>mount not completed; upload session continues</td><td>The client must use the normal upload path.</td><td><strong>Yes</strong>, if the upload proceeds.</td></tr>
+  </tbody></table>
+
+  <p>The split of responsibility on the pinned Docker Engine path matters:</p>
+  <ol>
+    <li><code>dockerd</code> looks at previously recorded distribution-source metadata and identifies missing non-manifest content that may be mountable from another repository on the same registry.</li>
+    <li>containerd's registry pusher receives that source-repository candidate and sends the actual mount request containing <strong>the exact descriptor digest</strong> and the source repository.</li>
+    <li>The registry decides whether the mount succeeds. If not, normal upload remains the fallback.</li>
+  </ol>
+
+  <div class="warn"><div class="label">do not overgeneralize</div><p>Docker is not asking the registry, “search all repositories for similar layers.” It has a specific source-repository candidate and a specific blob digest. The registry is asked to reuse exactly that content.</p></div>
+  <p class="src">Source anchors: OCI Distribution Spec v1.1.1 · Mounting a blob from another repository; Docker Engine docker-v29.6.2 · daemon/containerd/image_push.go · findMissingMountable / canBeMounted; containerd v2.2.6 · core/remotes/docker/pusher.go · mount branch</p>
+</section>
+
+<section>
+  <h2>12. All dedup situations in one table</h2>
+  <table class="table"><thead><tr><th>Situation</th><th>Exact identifier/check</th><th>Who performs the decisive check?</th><th>Do payload bytes move?</th></tr></thead><tbody>
+    <tr><td>Two tags resolve to same root</td><td>Both resolutions produce the same root descriptor digest.</td><td>Registry resolves name; containerd checks local content by digest.</td><td>Tag metadata still moves. Already-local root/child bodies do not.</td></tr>
+    <tr><td>Two images share same config</td><td>Same config descriptor digest.</td><td>containerd content store on pull; registry pusher on push.</td><td>No second config payload when already present at the relevant side.</td></tr>
+    <tr><td>Two images share a layer</td><td>Same layer descriptor digest.</td><td>containerd content store on pull; registry pusher on push.</td><td>No second layer payload when already present.</td></tr>
+    <tr><td>Object already in local content store</td><td>Digest-derived final blob path exists.</td><td>containerd local content store.</td><td>No registry body fetch for that descriptor.</td></tr>
+    <tr><td>Object already exists in target repository</td><td>Registry <code>HEAD</code> for exact blob digest; manifest checks also verify desired root identity where a tag path is used.</td><td>containerd registry pusher + registry.</td><td>No payload body after successful existence check.</td></tr>
+    <tr><td>Blob exists in another repository on same registry</td><td>Exact blob digest + explicit source repository candidate.</td><td><code>dockerd</code> prepares candidate; containerd sends mount; registry decides.</td><td>Successful mount: no blob upload payload. Failed/incomplete mount: upload may follow.</td></tr>
+  </tbody></table>
+</section>
+
+<section>
+  <h2>13. Pulling by digest: what changes compared with pulling by tag?</h2>
+  <p>Compare:</p>
+  <pre><code>registry.example.com/course/app:stable
+
+registry.example.com/course/app@sha256:7f3a…</code></pre>
+  <p>With <code>:stable</code>, containerd must ask the registry which root digest that mutable tag selects now.</p>
+  <p>With <code>@sha256:7f3a…</code>, the desired root identity is already in the reference. containerd validates the digest and requests that identity. There is no mutable tag-to-root choice to resolve.</p>
+  <p>The content may still need to be fetched if it is not local. A digest reference removes the mutable name-selection step; it does not magically make missing bytes local.</p>
+  <div class="note"><div class="label">mental model</div><p><code>:stable</code> means “tell me which root object this name selects now.” <code>@sha256:7f3a…</code> means “the selected root object must be this exact content identity.”</p></div>
+</section>
+
+<section>
+  <h2>14. Inspect it yourself</h2>
+  <p>The cleanest experiment is a local registry because its logs let you separate name-resolution/existence traffic from payload transfer.</p>
+
+  <div class="inspect"><div class="label">terminal 1 — run a local registry and watch requests</div><pre><code>docker run -d --rm --name lesson40-registry -p 5000:5000 registry:2
+docker logs -f lesson40-registry</code></pre></div>
+
+  <div class="inspect"><div class="label">terminal 2 — push one image under two tags</div><pre><code>docker pull alpine:latest
+
+docker tag alpine:latest localhost:5000/course/app:stable
+docker push localhost:5000/course/app:stable
+
+docker tag alpine:latest localhost:5000/course/app:prod
+docker push localhost:5000/course/app:prod</code></pre></div>
+
+  <p>On the second push, look for existence checks for content already in the repository. The child blobs should not need a second payload upload. The new tag may still require a manifest/index <code>PUT</code>.</p>
+
+  <h3>Prove the two tags currently resolve to the same root digest</h3>
+  <pre><code>curl -sI \
+  -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json' \
+  http://127.0.0.1:5000/v2/course/app/manifests/stable \
+  | grep -i docker-content-digest
+
+curl -sI \
+  -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json' \
+  http://127.0.0.1:5000/v2/course/app/manifests/prod \
+  | grep -i docker-content-digest</code></pre>
+  <p>If the headers match, you have directly observed two different tag names selecting the same root content identity.</p>
+
+  <h3>Observe containerd's local content identities</h3>
+  <pre><code>sudo ctr namespaces list
+sudo ctr -n moby content ls | head -30</code></pre>
+  <p>On a typical Docker Engine installation the containerd namespace is <code>moby</code>. The exact content-store root is installation dependent, but the implementation's final blob-path suffix is digest-derived:</p>
+  <pre><code>blobs/&lt;algorithm&gt;/&lt;encoded-digest&gt;</code></pre>
+
+  <h3>Pull both tags and compare the registry log</h3>
+  <pre><code>docker pull localhost:5000/course/app:stable
+docker pull localhost:5000/course/app:prod</code></pre>
+  <p>The second pull can still contain tag-resolution metadata traffic. Objects already present in the local content store can skip their body transfer because containerd already knows their expected digests.</p>
+
+  <div class="inspect"><div class="label">cleanup</div><pre><code>docker rm -f lesson40-registry</code></pre></div>
+</section>
+
+<section>
+  <h2>15. Primary-source proof</h2>
+  <p>This rebuild keeps the course's pinned source family unchanged: Docker CLI/Engine 29.6.2, containerd 2.2.6, OCI Image Spec 1.1.1, OCI Distribution Spec 1.1.1.</p>
+  <div class="sourcechips">
+    <a href="https://github.com/opencontainers/image-spec/blob/v1.1.1/descriptor.md">OCI image-spec v1.1.1 · descriptor.md</a>
+    <a href="https://github.com/opencontainers/distribution-spec/blob/v1.1.1/spec.md">OCI distribution-spec v1.1.1 · spec.md</a>
+    <a href="https://github.com/containerd/containerd/blob/v2.2.6/core/remotes/docker/resolver.go">containerd v2.2.6 · resolver.go</a>
+    <a href="https://github.com/containerd/containerd/blob/v2.2.6/core/remotes/handlers.go">containerd v2.2.6 · handlers.go</a>
+    <a href="https://github.com/containerd/containerd/blob/v2.2.6/core/remotes/docker/pusher.go">containerd v2.2.6 · pusher.go</a>
+    <a href="https://github.com/containerd/containerd/blob/v2.2.6/plugins/content/local/store.go">containerd v2.2.6 · local store.go</a>
+    <a href="https://github.com/containerd/containerd/blob/v2.2.6/plugins/content/local/writer.go">containerd v2.2.6 · local writer.go</a>
+    <a href="https://github.com/moby/moby/blob/docker-v29.6.2/daemon/containerd/image_push.go">Engine 29.6.2 · image_push.go</a>
+  </div>
+
+  <details><summary>Exact audit anchors behind the explanation</summary>
+    <p class="small"><strong>Tag definition:</strong> OCI Distribution Spec v1.1.1, Definitions: a tag is a custom human-readable pointer to a manifest; a manifest digest may have zero, one, or many tags.</p>
+    <p class="small"><strong>Digest meaning:</strong> OCI Image Spec v1.1.1, <code>descriptor.md</code>, Digests: descriptor digest acts as the content identifier, and untrusted bytes are verified by independently recalculating the digest.</p>
+    <p class="small"><strong>Tag → root descriptor:</strong> containerd v2.2.6 <code>core/remotes/docker/resolver.go::dockerResolver.Resolve</code>. For a tag, the resolver uses the manifests path and normally issues HEAD. It uses <code>Docker-Content-Digest</code>, response size, and media type to assemble the descriptor; if digest/size metadata is insufficient, it falls back to GET and derives the digest from the body.</p>
+    <p class="small"><strong>Local dedup before fetch:</strong> containerd v2.2.6 <code>core/remotes/handlers.go::Fetch</code> calls <code>content.OpenWriter</code> before <code>fetcher.Fetch</code>. <code>plugins/content/local/store.go::writer</code> maps the expected digest through <code>blobPath</code> and returns <code>ErrAlreadyExists</code> when that target already exists.</p>
+    <p class="small"><strong>Verification:</strong> containerd v2.2.6 <code>plugins/content/local/writer.go::Write</code> feeds incoming bytes into the digester; <code>Commit</code> compares the computed digest with <code>expected</code> before targeting the digest-derived final blob path.</p>
+    <p class="small"><strong>Push-side skip:</strong> containerd v2.2.6 <code>core/remotes/docker/pusher.go::push</code> sends a remote HEAD for the descriptor. <code>core/remotes/handlers.go::push</code> returns on <code>ErrAlreadyExists</code> before <code>provider.ReaderAt</code>, proving the local payload is not opened on that path.</p>
+    <p class="small"><strong>Tagged manifest existence:</strong> containerd v2.2.6 <code>pusher.go::getManifestPath</code> uses the tag path when pushing to a tag. When a HEAD succeeds on a tag path, the pusher only considers the desired manifest already present when <code>Docker-Content-Digest</code> equals the descriptor digest being pushed.</p>
+    <p class="small"><strong>Cross-repository mount:</strong> OCI Distribution Spec v1.1.1 defines <code>POST /v2/&lt;name&gt;/blobs/uploads/?mount=&lt;digest&gt;&amp;from=&lt;other_name&gt;</code>. Docker Engine <code>docker-v29.6.2</code> <code>daemon/containerd/image_push.go::findMissingMountable</code> and <code>canBeMounted</code> prepare eligible same-registry non-manifest candidates; containerd's pusher sends the mount request and falls back to upload when needed.</p>
+  </details>
+</section>
+
+<section>
+  <h2>16. Check yourself</h2>
+  <ol>
+    <li>When you pull <code>course/app:stable</code>, is <code>stable</code> itself a content digest?</li>
+    <li>What concrete object does tag resolution produce for containerd?</li>
+    <li>Does containerd hash the string <code>stable</code> to obtain the root digest?</li>
+    <li>Why can containerd decide not to fetch a body before it has that body?</li>
+    <li>On a local content-store hit, what exact event prevents <code>fetcher.Fetch</code> from being reached?</li>
+    <li>After missing bytes arrive, what is compared at commit time?</li>
+    <li>If two images share a layer, what must be equal for this transfer dedup mechanism to reuse it?</li>
+    <li>Why can two tags share every image byte yet still require two separate tag-resolution requests?</li>
+    <li>On push, why does a successful remote existence check avoid even opening the local payload?</li>
+    <li>How is cross-repository mount different from “the target repository already has the blob”?</li>
+    <li>Why may pushing a new tag still send root manifest/index bytes even when all child blobs are present?</li>
+  </ol>
+  <details><summary>Answers</summary>
+    <ol class="small">
+      <li>No. It is a mutable repository-level lookup name.</li>
+      <li>A root OCI descriptor containing the selected content's digest, size, and media type.</li>
+      <li>No. The digest identifies the selected root bytes. In the normal HEAD path it comes from registry metadata; the GET fallback can derive it from the returned content.</li>
+      <li>Because the descriptor arrives first and already contains the expected digest. The local store can check the digest-derived final path before requesting the body.</li>
+      <li><code>store.writer</code> finds the expected digest path and returns <code>ErrAlreadyExists</code>; <code>FetchHandler</code> treats that as success.</li>
+      <li>The digest calculated from the received bytes is compared with the expected descriptor digest.</li>
+      <li>The layer descriptor digest must be exactly the same.</li>
+      <li>Because each tag is mutable; containerd must ask what each name selects now. Dedup skips repeated content bodies, not mutable-name resolution.</li>
+      <li>The pusher returns <code>ErrAlreadyExists</code> from the existence check, and the higher push function returns before <code>provider.ReaderAt</code>.</li>
+      <li>Target-repository existence is proven directly with HEAD. A mount asks the registry to make an exact blob known from a different repository available to the target without client re-upload.</li>
+      <li>The content may already exist, but the new tag mapping may not. The root manifest/index PUT can establish that mapping.</li>
+    </ol>
+  </details>
+</section>
+
+<section>
+  <h2>Recap: follow one digest</h2>
+  <pre><code>course/app:stable
+    │
+    │ registry resolves mutable name
+    ▼
+Descriptor{Digest: sha256:7f3a…}
+    │
+    ├─ identity: these exact root bytes
+    │
+    ├─ local lookup: already stored at digest path?
+    │      ├─ yes → reuse, no body fetch
+    │      └─ no  → fetch body
+    │
+    ├─ verification: hash received bytes
+    │                 actual == expected?
+    │
+    ├─ storage: commit under digest-derived path
+    │
+    └─ push: does destination already expose this exact digest?
+           ├─ yes → skip payload
+           └─ no  → mount or upload</code></pre>
+  <p>If you remember only one sentence, remember this: <strong>the tag is used to select the first content identity; the digest then becomes the reusable key for the content itself.</strong></p>
+  <div class="note"><div class="label">next lesson</div><p>Lesson 41 adds signing and provenance. A digest tells you which exact bytes are being discussed. Signing/provenance asks who vouches for that digest and what claims are attached to it.</p></div>
+</section>
+
+<nav class="nav"><a href="lesson-39-registries-oci-distribution-http-api.html">← Lesson 39</a><a href="#">Lesson 41 → planned</a></nav>
+</main></body></html>

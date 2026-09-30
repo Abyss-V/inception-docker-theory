@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 16 · Snapshotters &amp; Storage Drivers</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.68; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:44px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); border:1px solid var(--rule); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--teal); margin:52px 0 4px; display:flex; align-items:center; gap:10px;}
+  .eyebrow::before{content:""; width:16px; height:1px; background:var(--teal); opacity:.6}
+  h2{font-family:var(--mono); font-weight:600; font-size:22px; margin:6px 0 18px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--gold); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+  .step.verify{background:var(--teal)}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:16px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  figure.fig{margin:26px 0; border:1px solid var(--rule); border-radius:10px; background:var(--panel); padding:18px; overflow:hidden}
+  figure.fig figcaption{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin:2px 2px 16px}
+  figure.fig svg{display:block; width:100%; height:auto}
+
+  table.land{width:100%; border-collapse:collapse; margin:20px 0; font-size:14px}
+  table.land th,table.land td{text-align:left; padding:10px 11px; border-bottom:1px solid var(--rule); vertical-align:top}
+  table.land th{font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint)}
+  table.land td.n{font-family:var(--mono); font-size:12.5px; color:var(--gold); white-space:nowrap}
+  table.land td.m{font-family:var(--mono); font-size:11.5px; color:var(--teal); white-space:nowrap}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:70px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  .lead{font-size:20px; line-height:1.6; color:var(--bone)}
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:40px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-15-overlayfs-cow.html">← Lesson 15</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-17-what-a-layer-is.html">Lesson 17 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part III — Storage &amp; images</div>
+  <div class="lesson-no">16</div>
+  <span class="pill">deep-cut · reference depth</span>
+  <h1>Snapshotters &amp; the storage-driver landscape</h1>
+  <p class="dek">Something has to manage the stack of layers — unpack them, track parent-child chains, and hand a rootfs to each container. Docker has done this two ways: the old graphdriver model, and containerd's newer snapshotter model. This is the map of both.</p>
+</header>
+
+<p class="lead">Lesson 15 showed the kernel mechanism (OverlayFS) that unions layers. But something above the kernel has to <em>drive</em> it: decide where each layer's directory lives, remember which layer is the parent of which, produce the writable top layer for a new container, and clean it all up. That management job has had two designs in Docker's history — the original <strong>graphdriver</strong> and containerd's <strong>snapshotter</strong> — and the difference between them explains everything from why <code class="inl">overlay2</code> is the name you usually see to how modern registries can start a container before the image finishes downloading.</p>
+
+<div class="eyebrow">The intuition</div>
+<h2>Two eras of the same job</h2>
+
+<p>In Docker's original architecture, the daemon owned an image/layer store and delegated the filesystem work to a <strong>graphdriver</strong>. The driver's contract was coarse: "given this stack of layers, mount it and give me back a root filesystem." The daemon managed layer identity and metadata itself; the driver just materialized directories. <code class="inl">overlay2</code>, <code class="inl">aufs</code>, <code class="inl">btrfs</code>, <code class="inl">devicemapper</code>, and <code class="inl">vfs</code> are all graphdrivers.</p>
+
+<p>containerd redesigned this as the <strong>snapshotter</strong>. Instead of returning a mounted rootfs, a snapshotter deals only in <em>snapshots</em> and their parent relationships, and its job is to return <em>mount descriptors</em> — the exact <code class="inl">lowerdir</code>/<code class="inl">upperdir</code>/<code class="inl">workdir</code> recipe from Lesson 15 — which containerd then applies. That sounds like a small change, but moving from "hand me a rootfs" to "hand me a description of how to mount one" is what makes remote and lazy-loading backends possible, as we'll see at the end.</p>
+
+<div class="eyebrow">Mechanism 1</div>
+<h2>The snapshotter model: Prepare, Commit, and a parent chain</h2>
+
+<p>The whole model lives in one interface (<span class="srcref">core/snapshots/snapshotter.go</span>). A snapshot represents a filesystem state, and every snapshot has a parent — and, as the source puts it, "a diff between a parent and its snapshot generates a classic layer." Snapshots come in three <strong>kinds</strong> (<span class="srcref">KindView</span>, <span class="srcref">KindActive</span>, <span class="srcref">KindCommitted</span>), and two verbs move between them:</p>
+
+<p><strong><code class="inl">Prepare</code></strong> creates an <em>active</em> snapshot on top of a committed parent — a writable layer you can mount and change. <strong><code class="inl">Commit</code></strong> freezes an active snapshot into a <em>committed</em> one, which is immutable and can itself serve as a parent for the next layer. The rules are strict and clarifying: active snapshots can never be a parent, committed snapshots can never be written, and one never turns into the other — <code class="inl">Commit</code> always produces a fresh committed snapshot. (A <em>view</em> is just a read-only mount of an existing snapshot.)</p>
+
+<figure class="fig">
+  <figcaption>Diagram · an image is a chain of committed snapshots; a container is an active one on top</figcaption>
+  <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,Consolas,monospace">
+    <!-- committed chain -->
+    <rect x="30" y="150" width="150" height="52" rx="7" fill="#12100a" stroke="#7a6636"/>
+    <text x="105" y="172" text-anchor="middle" fill="#e0b155" font-size="12">committed</text>
+    <text x="105" y="190" text-anchor="middle" fill="#9aa4b2" font-size="10.5">base layer</text>
+
+    <rect x="220" y="150" width="150" height="52" rx="7" fill="#12100a" stroke="#7a6636"/>
+    <text x="295" y="172" text-anchor="middle" fill="#e0b155" font-size="12">committed</text>
+    <text x="295" y="190" text-anchor="middle" fill="#9aa4b2" font-size="10.5">layer A</text>
+
+    <rect x="410" y="150" width="150" height="52" rx="7" fill="#12100a" stroke="#7a6636"/>
+    <text x="485" y="172" text-anchor="middle" fill="#e0b155" font-size="12">committed</text>
+    <text x="485" y="190" text-anchor="middle" fill="#9aa4b2" font-size="10.5">layer B</text>
+
+    <!-- parent arrows -->
+    <line x1="180" y1="176" x2="220" y2="176" stroke="#6b7482" stroke-width="1.5"/>
+    <line x1="370" y1="176" x2="410" y2="176" stroke="#6b7482" stroke-width="1.5"/>
+    <text x="200" y="168" text-anchor="middle" fill="#6b7482" font-size="9">parent</text>
+    <text x="390" y="168" text-anchor="middle" fill="#6b7482" font-size="9">parent</text>
+    <text x="295" y="228" text-anchor="middle" fill="#6b7482" font-size="10.5">the image = this chain of committed snapshots (immutable, shareable)</text>
+
+    <!-- active on top -->
+    <rect x="410" y="60" width="200" height="52" rx="7" fill="#0a1614" stroke="#5ac4b4"/>
+    <text x="510" y="82" text-anchor="middle" fill="#5ac4b4" font-size="12" font-weight="600">active snapshot</text>
+    <text x="510" y="100" text-anchor="middle" fill="#bfe6df" font-size="10.5">container's writable layer</text>
+    <line x1="485" y1="150" x2="485" y2="112" stroke="#5ac4b4" stroke-width="1.5"/>
+    <text x="600" y="130" fill="#5ac4b4" font-size="9.5">Prepare</text>
+    <text x="600" y="142" fill="#5ac4b4" font-size="9.5">(on layer B)</text>
+
+    <text x="30" y="40" fill="#9aa4b2" font-size="11.5">build an image → Prepare, write, <tspan fill="#e0b155">Commit</tspan> (repeat) · run a container → <tspan fill="#5ac4b4">Prepare</tspan> an active layer, never commit</text>
+  </svg>
+</figure>
+
+<div class="keybox">
+  <div class="h">Why this framing is the whole game</div>
+  <p>Both of Docker's core storage activities are the same two verbs. <strong>Building an image</strong> is <code class="inl">Prepare</code> → run a build step → <code class="inl">Commit</code>, repeated once per layer, growing the committed chain. <strong>Running a container</strong> is a single <code class="inl">Prepare</code> that creates an active snapshot on top of the image's committed chain — the writable layer — which is simply discarded (never committed) when the container is removed. Image layers and container scratch space are the same object in two states.</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 2</div>
+<h2>The graphdriver model, and how it differs</h2>
+
+<p>Docker's classic image store still uses a graphdriver, selected by a priority list. On Linux that list is, verbatim from the source (<span class="srcref">daemon/graphdriver/driver_linux.go</span>), <span class="srcref">overlay2,fuse-overlayfs,btrfs,zfs,vfs</span> — the daemon walks it and picks the first supported, non-deprecated driver, which on almost every modern host is <code class="inl">overlay2</code>. The functional difference from a snapshotter is that a graphdriver exposes operations like <code class="inl">Get</code>/<code class="inl">Put</code>/<code class="inl">Diff</code>/<code class="inl">ApplyDiff</code> that <em>materialize and mount</em> a layer's rootfs, with the daemon holding all the layer metadata. The snapshotter instead returns a mount recipe and owns the parent-chain metadata itself. That's why the snapshotter model is more modular and pluggable — and why containerd could grow backends a graphdriver could never support.</p>
+
+<aside class="note"><b>Which one is running on your machine?</b> Historically Docker used graphdrivers directly. Modern Docker increasingly runs on <em>containerd</em> with the containerd image store, which uses <em>snapshotters</em>. During the transition both exist: classic mode shows a graphdriver like <code class="inl">overlay2</code>; the containerd image store shows a snapshotter like <code class="inl">overlayfs</code>. Same OverlayFS underneath — different manager above it.</aside>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 3</div>
+<h2>The landscape: who uses what CoW, and when</h2>
+
+<p>All of these do the same job — stack layers, isolate a writable top — but they get their copy-on-write from different places. containerd ships <code class="inl">overlay</code>, <code class="inl">native</code>, <code class="inl">btrfs</code>, <code class="inl">devmapper</code>, <code class="inl">blockfile</code>, and <code class="inl">erofs</code> snapshotters (<span class="srcref">plugins/snapshots/</span>); the graphdriver names differ slightly but map to the same technologies.</p>
+
+<table class="land">
+  <tr><th>Name</th><th>CoW comes from</th><th>Use / status</th></tr>
+  <tr><td class="n">overlay2<br>/ overlayfs</td><td class="m">kernel OverlayFS</td><td>The default nearly everywhere. Fast, layer dirs on any normal filesystem. What Lesson 15 described.</td></tr>
+  <tr><td class="n">fuse-overlayfs</td><td class="m">OverlayFS via FUSE</td><td>OverlayFS in userspace, for <strong>rootless</strong> Docker (Lesson 44) where you can't mount kernel overlay.</td></tr>
+  <tr><td class="n">native / vfs</td><td class="m">none — full copy</td><td>No copy-on-write at all; every layer is a complete copy. Slow, huge disk — a correctness fallback for testing or unusual filesystems.</td></tr>
+  <tr><td class="n">btrfs / zfs</td><td class="m">the filesystem itself</td><td>CoW and snapshots come from the underlying FS's native features (quotas, send/recv). Powerful, but requires that filesystem.</td></tr>
+  <tr><td class="n">devmapper</td><td class="m">block-level thin-pool</td><td>Block-device CoW with thin provisioning. Was the old RHEL default; complex, now deprecated in Docker (survives as containerd <code class="inl">devmapper</code>).</td></tr>
+  <tr><td class="n">stargz / nydus</td><td class="m">remote, lazy</td><td>External snapshotters — the payoff below. Only possible under the snapshotter model.</td></tr>
+</table>
+
+<div class="keybox">
+  <div class="h">The payoff: lazy pulling</div>
+  <p>Normally a container can't start until <em>every</em> layer is downloaded and unpacked — for a multi-gigabyte image that's a long wait, most of it spent on files the container never reads. The <code class="inl">stargz</code> and <code class="inl">nydus</code> snapshotters change this: they let the container start after fetching only the image's <em>metadata</em>, then stream individual file contents from the registry on demand as the running program actually opens them. This is impossible with a graphdriver, which must hand back a fully-materialized rootfs — but natural for a snapshotter, whose job is only to return a <em>mount recipe</em>, which can point at a remote-backed filesystem. It's the clearest illustration of why the "return a description, not a rootfs" redesign mattered.</p>
+</div>
+
+<span class="step verify">Inspect it yourself</span>
+<p>Find out which manager and backend your Docker is using, and list the snapshots/layers directly:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> docker info | grep -iE 'storage|driver'
+<span class="o">Storage Driver: <span class="hl">overlay2</span></span>              <span class="o"># classic graphdriver mode</span>
+<span class="o"># or, with the containerd image store:</span>
+<span class="o">driver-type: io.containerd.snapshotter.v1</span>
+<span class="o">Storage Driver: <span class="hl">overlayfs</span></span>              <span class="o"># snapshotter mode</span>
+
+<span class="p">$</span> <span class="o"># with containerd: list snapshots and their parent chain directly</span>
+<span class="p">$</span> sudo ctr snapshots ls
+<span class="o">KEY                    PARENT                 KIND</span>
+<span class="o">sha256:abc… (layer B)  sha256:def… (layer A)  <span class="hl">Committed</span></span>
+<span class="o">my-running-container   sha256:abc… (layer B)  <span class="hl">Active</span></span>     <span class="o"># the writable layer</span>
+
+<span class="p">$</span> <span class="o"># the snapshotter is a containerd plugin (Lesson 4):</span>
+<span class="p">$</span> sudo ctr plugins ls | grep snapshotter
+<span class="o">io.containerd.snapshotter.v1    overlayfs    ok</span></pre>
+</figure>
+
+<hr class="soft">
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>"The storage driver <em>is</em> OverlayFS" conflates two layers: OverlayFS is the kernel mechanism (Lesson 15); the storage driver/snapshotter is the <em>manager</em> above it that decides where layers live and how they chain. That's why the same OverlayFS can be driven by an <code class="inl">overlay2</code> graphdriver or an <code class="inl">overlayfs</code> snapshotter — different managers, one kernel feature. And the reason to care about the distinction isn't academic: only the snapshotter model's "return a mount recipe" contract enables lazy/remote pulling (<code class="inl">stargz</code>/<code class="inl">nydus</code>), which is where large-image startup is heading. The other drivers (<code class="inl">vfs</code>, <code class="inl">btrfs</code>, <code class="inl">zfs</code>, <code class="inl">devmapper</code>) are situational — you reach for them only when overlay isn't an option.</p>
+</aside>
+
+<div class="eyebrow">Where we are</div>
+<h2>Summary</h2>
+<p>Above the kernel's OverlayFS sits a manager that tracks layers and produces rootfs. Docker has two: the legacy <strong>graphdriver</strong> (daemon-owned metadata; the driver materializes and mounts a rootfs; priority list <code class="inl">overlay2,fuse-overlayfs,btrfs,zfs,vfs</code>) and containerd's <strong>snapshotter</strong> (owns its own parent-chain metadata; returns a mount recipe). The snapshotter model reduces to two verbs — <code class="inl">Prepare</code> makes an <em>active</em> writable snapshot from a committed parent, <code class="inl">Commit</code> freezes it into an immutable, parent-able <em>committed</em> one — so an image is a chain of committed snapshots and a running container is an active snapshot on top. The various backends (<code class="inl">overlay</code>, <code class="inl">native</code>/<code class="inl">vfs</code>, <code class="inl">btrfs</code>/<code class="inl">zfs</code>, <code class="inl">devmapper</code>, <code class="inl">fuse-overlayfs</code>) differ only in where their copy-on-write comes from, and the snapshotter's mount-recipe contract is what unlocks lazy pulling with <code class="inl">stargz</code>/<code class="inl">nydus</code>. We've now seen how layers are managed. Next, Lesson 17: what a layer physically <em>is</em> — the actual tar bytes on disk, the sha256 that names it, and the whiteout entries from Lesson 15 reappearing in the archive.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 04 · containerd plugin model</span>
+  <span class="xref"><b>back ←</b> Lesson 15 · OverlayFS &amp; CoW</span>
+  <span class="xref"><b>forward →</b> Lesson 17 · What a layer physically is</span>
+  <span class="xref"><b>forward →</b> Lesson 44 · Rootless Docker</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">15 · OverlayFS &amp; copy-on-write</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">17 · What a layer physically is</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

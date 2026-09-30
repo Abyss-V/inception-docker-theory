@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 38 — Checkpoint/restore (CRIU)</title>
+<style>
+:root{--ink:#0e1116;--panel:#161b22;--well:#0a0d12;--bone:#e9e4d7;--dim:#9aa4b2;--faint:#6b7482;--rule:#262d38;--gold:#e0b155;--gold-dim:#7a6636;--teal:#5ac4b4;--teal-dim:#2f5f59;--rose:#d76d7f;--rose-dim:#6e3540;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--serif:"Iowan Old Style",Charter,Georgia,Cambria,serif}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--ink);color:var(--bone);font:18px/1.72 var(--serif)}.wrap{max-width:760px;margin:auto;padding:24px}header{padding:32px 0 20px;border-bottom:1px solid var(--rule)}.eyebrow{font:12px var(--mono);color:var(--gold);letter-spacing:.12em;text-transform:uppercase}h1{font-size:44px;line-height:1.05;margin:.35rem 0 1rem}.deck{color:#cfc8b8;max-width:52rem}.pill{display:inline-block;border:1px solid var(--teal-dim);color:var(--teal);font:12px var(--mono);padding:4px 8px;border-radius:999px}section{padding:28px 0;border-bottom:1px solid rgba(255,255,255,.04)}h2{font-size:30px;line-height:1.2;margin:0 0 14px}h3{font-size:22px;line-height:1.3;margin:24px 0 10px}p,li{color:var(--bone)}.dim{color:var(--dim)}strong{color:#f4f0e6}code,pre{font-family:var(--mono)}code{background:#11161d;border:1px solid #2b3440;border-radius:6px;padding:1px 5px;color:#f2d493}pre{background:var(--well);border:1px solid var(--rule);border-radius:12px;padding:14px;overflow:auto;color:#d8e0e7;line-height:1.55}.idea,.note,.warn,.inspect{padding:16px 18px;border-radius:14px;border:1px solid var(--rule);margin:16px 0}.idea{border-left:4px solid var(--teal);background:#101a1a}.note{border-left:4px solid var(--gold);background:#17140e}.warn{border-left:4px solid var(--rose);background:#1a1013}.inspect{border-left:4px solid var(--teal);background:#0f1717}.label{font:12px var(--mono);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}.idea .label,.inspect .label{color:var(--teal)}.note .label{color:var(--gold)}.warn .label{color:var(--rose)}.figure{background:var(--panel);border:1px solid var(--rule);border-radius:16px;padding:18px;margin:18px 0}.caption{color:var(--dim);font-size:15px;margin-top:10px}.small{font-size:15px;color:var(--dim)}.src{display:inline-block;color:var(--gold);font:12px/1.5 var(--mono);border:1px solid var(--gold-dim);border-radius:999px;padding:3px 7px;margin:3px 0}.hop{display:grid;grid-template-columns:38px 1fr;gap:12px;margin:18px 0}.hopn{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--teal-dim);color:var(--teal);font:13px var(--mono)}.hop h3{margin:1px 0 6px}.flowline{display:grid;grid-template-columns:130px 1fr;gap:12px;padding:10px 0;border-bottom:1px dashed var(--rule)}.flowline:last-child{border-bottom:0}.flowkey{font:12px var(--mono);color:var(--teal);text-transform:uppercase;letter-spacing:.06em}.flowval{margin:0}.table{width:100%;border-collapse:collapse;margin:14px 0}.table th,.table td{border-bottom:1px solid var(--rule);padding:10px;vertical-align:top}.table th{font:12px var(--mono);color:var(--gold);text-align:left}.term{border-top:1px dashed var(--rule);padding:12px 0}.term:first-child{border-top:0}.term b{color:var(--teal);font-family:var(--mono);font-size:15px}details{background:#12171e;border:1px solid var(--rule);border-radius:12px;padding:12px 14px;margin-top:10px}summary{cursor:pointer;color:var(--gold);font-family:var(--mono)}a{color:var(--teal);text-decoration-color:var(--teal-dim)}.nav{display:flex;justify-content:space-between;gap:12px;padding-top:22px}.nav a{display:block;border:1px solid var(--teal-dim);border-radius:12px;padding:10px 12px;text-decoration:none;font:13px var(--mono)}.check li{margin:8px 0}
+@media(max-width:650px){h1{font-size:36px}.wrap{padding:18px}.table{font-size:15px}.figure{padding:10px}.flowline{grid-template-columns:1fr;gap:3px}}
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-37-health-restart-resources-non-root.html">← Lesson 37</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-39-registries-oci-distribution-http-api.html">Lesson 39 →</a></span></nav>
+<div class="wrap">
+<header>
+  <div class="eyebrow">Part 5 · Runtime concerns · Lesson 38 of 46</div>
+  <h1>Checkpoint/restore with CRIU</h1>
+  <div class="pill">DEEP-CUT</div>
+  <p class="deck">How can a container process stop existing, then later continue from the middle of its execution instead of starting from the beginning? This lesson follows that exact state movement.</p>
+</header>
+
+<section>
+  <div class="idea"><div class="label">governing idea</div><p><strong>Checkpoint copies the process's live execution state into CRIU files. Restore creates new live kernel objects from those files, inside Docker's existing container environment, then gives the CPU back the saved register state so the program continues.</strong></p></div>
+  <div class="note"><div class="label">pinned source baseline</div><p>Docker Engine / Docker CLI <strong>29.6.2</strong> · containerd <strong>2.2.6</strong> · runc <strong>1.3.6</strong> · OCI runtime-spec <strong>1.3.0</strong> · Linux <strong>6.18</strong>. CRIU is external to Docker's pinned runtime dependency family, so CRIU internals are pinned separately to <strong>v4.2.1</strong>.</p></div>
+
+  <h2>1. First make the problem concrete</h2>
+  <p>Imagine the container's main process is roughly this C program:</p>
+  <pre><code>int n = 0;
+int fd = open("/data/count.log", O_WRONLY | O_APPEND);
+
+for (;;) {
+    n++;
+    dprintf(fd, "%d\n", n);
+    sleep(1);
+}</code></pre>
+  <p>Suppose we checkpoint it when <code>n == 812</code>. At that instant, several different kinds of state exist:</p>
+  <table class="table">
+    <thead><tr><th>State</th><th>Concrete example</th><th>Where it exists now</th></tr></thead>
+    <tbody>
+      <tr><td>filesystem state</td><td>the executable and <code>/data/count.log</code></td><td>container root filesystem / mounts</td></tr>
+      <tr><td>memory state</td><td><code>n == 812</code>, stack frames, heap data</td><td>the process address space, backed by kernel-managed memory</td></tr>
+      <tr><td>CPU state</td><td>the instruction pointer says which instruction should execute next; the stack pointer points into the current stack</td><td>register state associated with the task</td></tr>
+      <tr><td>kernel-resource state</td><td>FD 3 refers to an open file description, with flags and a current file position</td><td>Linux kernel objects referenced by the process</td></tr>
+    </tbody>
+  </table>
+  <p>If you keep only the filesystem and later launch the executable again, the new process starts with <code>n = 0</code>. It does <strong>not</strong> know that the old process was at 812, which instruction was next, which descriptors were open, or what the old stack contained.</p>
+  <div class="warn"><div class="label">the misunderstanding to remove</div><p>A Docker checkpoint is therefore <strong>not an image snapshot</strong>. The rootfs is only one input. CRIU saves the missing <em>live execution state</em>.</p></div>
+</section>
+
+<section>
+  <h2>2. Four terms, defined before we use them</h2>
+  <div class="term"><b>live execution state</b><p>The information that makes the process be at its <em>current instant</em> rather than at program startup: memory contents, registers, open descriptors, task relationships, signals, timers, credentials, and other supported kernel-visible state.</p></div>
+  <div class="term"><b>checkpoint</b><p>A point-in-time serialization of supported live execution state into files.</p></div>
+  <div class="term"><b>CRIU image files</b><p>CRIU's name for its checkpoint files. Here, <em>image</em> does <strong>not</strong> mean Docker/OCI image. These files describe saved process state.</p></div>
+  <div class="term"><b>restore</b><p>Reconstruction of live processes and resources from those saved files. The old kernel task objects do not have to survive; compatible new kernel objects are created.</p></div>
+</section>
+
+<section>
+  <h2>3. The entire pipeline before any internals</h2>
+  <div class="figure">
+    <svg viewBox="0 0 1000 560" role="img" aria-label="Docker checkpoint and restore pipeline" style="width:100%;height:auto">
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#5ac4b4"/></marker></defs>
+      <style>.bx{fill:#101820;stroke:#2f5f59;stroke-width:2}.gold{fill:#17140e;stroke:#7a6636;stroke-width:2}.kernel{fill:#171116;stroke:#6e3540;stroke-width:2}.t{fill:#e9e4d7;font:600 18px ui-monospace,monospace}.s{fill:#9aa4b2;font:14px ui-monospace,monospace}.h{fill:#5ac4b4;font:700 16px ui-monospace,monospace}.a{stroke:#5ac4b4;stroke-width:3;marker-end:url(#arr)}.g{stroke:#e0b155;stroke-width:3;marker-end:url(#arr)}</style>
+      <text class="h" x="20" y="32">CHECKPOINT</text>
+      <rect class="bx" x="20" y="55" width="120" height="70" rx="12"/><text class="t" x="80" y="85" text-anchor="middle">Docker CLI</text><text class="s" x="80" y="108" text-anchor="middle">request</text>
+      <line class="a" x1="140" y1="90" x2="175" y2="90"/>
+      <rect class="bx" x="175" y="55" width="120" height="70" rx="12"/><text class="t" x="235" y="85" text-anchor="middle">dockerd</text><text class="s" x="235" y="108" text-anchor="middle">checkpoint dir</text>
+      <line class="a" x1="295" y1="90" x2="330" y2="90"/>
+      <rect class="bx" x="330" y="55" width="120" height="70" rx="12"/><text class="t" x="390" y="85" text-anchor="middle">containerd</text><text class="s" x="390" y="108" text-anchor="middle">task request</text>
+      <line class="a" x1="450" y1="90" x2="485" y2="90"/>
+      <rect class="bx" x="485" y="55" width="95" height="70" rx="12"/><text class="t" x="532" y="85" text-anchor="middle">shim</text><text class="s" x="532" y="108" text-anchor="middle">opts</text>
+      <line class="a" x1="580" y1="90" x2="615" y2="90"/>
+      <rect class="bx" x="615" y="55" width="95" height="70" rx="12"/><text class="t" x="662" y="85" text-anchor="middle">runc</text><text class="s" x="662" y="108" text-anchor="middle">orchestrate</text>
+      <line class="a" x1="710" y1="90" x2="745" y2="90"/>
+      <rect class="bx" x="745" y="55" width="95" height="70" rx="12"/><text class="t" x="792" y="85" text-anchor="middle">CRIU</text><text class="s" x="792" y="108" text-anchor="middle">dump</text>
+      <line class="a" x1="840" y1="90" x2="875" y2="90"/>
+      <rect class="kernel" x="875" y="45" width="105" height="90" rx="12"/><text class="t" x="927" y="79" text-anchor="middle">Linux</text><text class="t" x="927" y="101" text-anchor="middle">kernel</text><text class="s" x="927" y="122" text-anchor="middle">live state</text>
+      <path class="g" d="M 927 135 C 927 180 810 180 810 210"/>
+      <rect class="gold" x="665" y="210" width="290" height="82" rx="14"/><text class="t" x="810" y="241" text-anchor="middle">CRIU checkpoint files</text><text class="s" x="810" y="265" text-anchor="middle">saved memory + task/resource state</text>
+      <rect class="gold" x="45" y="210" width="360" height="82" rx="14"/><text class="t" x="225" y="241" text-anchor="middle">existing container environment</text><text class="s" x="225" y="265" text-anchor="middle">rootfs · config · mounts · networking setup</text>
+      <text class="s" x="225" y="286" text-anchor="middle">stays separate from CRIU files</text>
+
+      <line x1="20" y1="325" x2="980" y2="325" stroke="#262d38" stroke-width="2"/>
+      <text class="h" x="20" y="360">RESTORE</text>
+      <rect class="gold" x="40" y="390" width="190" height="70" rx="12"/><text class="t" x="135" y="420" text-anchor="middle">existing container</text><text class="s" x="135" y="444" text-anchor="middle">rootfs + runtime setup</text>
+      <rect class="gold" x="40" y="475" width="190" height="70" rx="12"/><text class="t" x="135" y="505" text-anchor="middle">checkpoint files</text><text class="s" x="135" y="529" text-anchor="middle">saved live state</text>
+      <path class="a" d="M230 425 C280 425 280 452 315 452"/><path class="a" d="M230 510 C280 510 280 470 315 470"/>
+      <rect class="bx" x="315" y="420" width="145" height="80" rx="12"/><text class="t" x="387" y="452" text-anchor="middle">containerd</text><text class="t" x="387" y="475" text-anchor="middle">+ shim</text>
+      <line class="a" x1="460" y1="460" x2="505" y2="460"/>
+      <rect class="bx" x="505" y="420" width="95" height="80" rx="12"/><text class="t" x="552" y="452" text-anchor="middle">runc</text><text class="s" x="552" y="477" text-anchor="middle">restore</text>
+      <line class="a" x1="600" y1="460" x2="645" y2="460"/>
+      <rect class="bx" x="645" y="420" width="95" height="80" rx="12"/><text class="t" x="692" y="452" text-anchor="middle">CRIU</text><text class="s" x="692" y="477" text-anchor="middle">rebuild</text>
+      <line class="a" x1="740" y1="460" x2="785" y2="460"/>
+      <rect class="kernel" x="785" y="405" width="190" height="110" rx="14"/><text class="t" x="880" y="438" text-anchor="middle">Linux kernel</text><text class="s" x="880" y="466" text-anchor="middle">new live tasks/resources</text><text class="h" x="880" y="493" text-anchor="middle">continue saved execution</text>
+    </svg>
+    <p class="caption"><strong>Checkpoint destination:</strong> files on disk. <strong>Restore destination:</strong> new live tasks and resources in the Linux kernel. The Docker container's rootfs/configuration is not replaced by the checkpoint; it is the environment CRIU restores into.</p>
+  </div>
+  <div class="idea"><div class="label">movement summary</div>
+    <div class="flowline"><div class="flowkey">what starts</div><p class="flowval">a CLI request naming a running container and checkpoint ID</p></div>
+    <div class="flowline"><div class="flowkey">what moves</div><p class="flowval">first control requests move downward; then CRIU copies descriptions/content of live state into checkpoint files</p></div>
+    <div class="flowline"><div class="flowkey">what changes</div><p class="flowval">live kernel/process state becomes serialized files; on restore, serialized state becomes live kernel/process state again</p></div>
+    <div class="flowline"><div class="flowkey">final result</div><p class="flowval">the application continues from the checkpointed execution state instead of starting from its executable entry point</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>4. Checkpoint: follow one command all the way down</h2>
+  <pre><code>docker checkpoint create mycontainer cp1</code></pre>
+
+  <div class="hop"><div class="hopn">1</div><div><h3>Docker CLI sends the checkpoint request</h3><p>The CLI sends the container name, checkpoint ID, optional checkpoint directory, and an <code>Exit</code> boolean. By default <code>Exit=true</code>. Passing <code>--leave-running</code> flips it to <code>false</code>.</p><span class="src">Docker CLI 29.6.2 · cli/command/checkpoint/create.go · Exit: !leaveRunning</span></div></div>
+
+  <div class="hop"><div class="hopn">2</div><div><h3><code>dockerd</code> finds the live task and creates the destination directory</h3><p><code>dockerd</code> resolves the container, obtains its running task, creates the checkpoint directory, and calls the task's checkpoint operation with that path and the <code>Exit</code> value. If checkpointing fails, it removes the directory it just created.</p><p>At this hop, <strong>no process memory has moved yet</strong>. Only control information and a filesystem destination have been prepared.</p><span class="src">Engine 29.6.2 · daemon/checkpoint.go · CheckpointCreate → tsk.CreateCheckpoint(...)</span></div></div>
+
+  <div class="hop"><div class="hopn">3</div><div><h3>containerd sends the request to the shim that already owns the task</h3><p>The running container already has a runtime-v2 shim. containerd does not itself read the process's memory. It forwards the checkpoint operation to that shim.</p><span class="src">containerd 2.2.6 · runtime-v2 task checkpoint path</span></div></div>
+
+  <div class="hop"><div class="hopn">4</div><div><h3>The shim translates the request into runc checkpoint options</h3><p>The shim turns Docker/containerd's <code>Exit</code> choice into runc behavior. If <code>Exit</code> is false, it adds runc's <code>LeaveRunning</code> action. Then it invokes runc's checkpoint path.</p><span class="src">containerd 2.2.6 · cmd/containerd-shim-runc-v2/process/init.go · Init.checkpoint</span></div></div>
+
+  <div class="hop"><div class="hopn">5</div><div><h3>runc supplies container-specific runtime context to CRIU</h3><p>runc is the adapter between the container runtime world and CRIU. It knows the container's rootfs, namespaces, cgroups, mounts, external descriptors, and other runtime details. runc builds a CRIU RPC request and launches CRIU's service-worker path.</p><p><strong>Responsibility split:</strong> runc prepares the container-specific restore/dump context; CRIU performs the actual process-state dump and restore.</p><span class="src">runc 1.3.6 · libcontainer/criu_linux.go · Container.Checkpoint · criuSwrk</span></div></div>
+
+  <div class="hop"><div class="hopn">6</div><div><h3>CRIU finally touches the live process state</h3><p>This is the first point where the mechanism becomes about the actual running process. CRIU freezes/stabilizes the task tree, inspects its state, obtains memory/register/resource information, and writes CRIU checkpoint files into the directory runc was given.</p><span class="src">CRIU 4.2.1 · authoritative Checkpoint/Restore design · cr-dump.c</span></div></div>
+</section>
+
+<section>
+  <h2>5. What CRIU actually does during checkpoint</h2>
+  <p>Use our example process again: <code>n == 812</code>, FD 3 is open, and the CPU is somewhere inside the loop. CRIU needs a consistent picture of that instant.</p>
+
+  <h3>A. Stop the state from changing</h3>
+  <p>If the process kept running while CRIU copied it, CRIU could read the stack at one instant, the descriptor table at another, and the memory pages after the program had already changed them. The result would not describe one coherent process state.</p>
+  <p>CRIU therefore first <strong>immobilizes the task tree</strong>. Its documented normal mechanism walks the process/thread tree and seizes tasks with <code>ptrace(PTRACE_SEIZE, ...)</code>; CRIU can also use a freezer cgroup path in suitable setups.</p>
+  <p>After this point, think: <strong>the process is held still while CRIU measures it.</strong></p>
+
+  <h3>B. Read the shape of the process</h3>
+  <p>CRIU reads Linux process interfaces such as <code>/proc/&lt;pid&gt;/maps</code>/<code>smaps</code> for virtual-memory areas and <code>/proc/&lt;pid&gt;/fd</code>/<code>fdinfo</code> for descriptor information. It also uses <code>ptrace</code> for task/register information.</p>
+  <p>This tells CRIU facts such as: “this process has this address range mapped,” “FD 3 refers to this resource,” and “these are the saved registers.”</p>
+
+  <h3>C. Copy memory contents</h3>
+  <p>Knowing that a memory mapping exists is not enough. For our counter, CRIU also needs the page bytes containing <code>n == 812</code>. CRIU's memory-dump path determines which pages need saving and transfers their contents into checkpoint files.</p>
+  <p>CRIU uses small helper code inside the seized process for operations that are easiest from the process's own address-space context. CRIU calls that helper code the <strong>parasite</strong>.</p>
+  <div class="note"><div class="label">parasite — only what you need</div><p>Do not treat “parasite” as another Docker component. It is CRIU's internal helper code temporarily executed inside the process being dumped. Its purpose is to help CRIU obtain state such as memory contents and credentials from the target's own context. CRIU removes it before completing the dump.</p></div>
+
+  <h3>D. Write state to disk</h3>
+  <p>CRIU serializes the collected state into multiple checkpoint files. Conceptually, the files now contain enough information to reconstruct things such as memory mappings/pages, register state, task relationships, descriptors, signals, timers, credentials, and other supported resources.</p>
+  <div class="warn"><div class="label">do not make this substitution</div><p><strong>checkpoint files ≠ container rootfs.</strong> The executable and ordinary filesystem still belong to the existing Docker container. CRIU's files contain the live-state side of the equation.</p></div>
+</section>
+
+<section>
+  <h2>6. What happens to the original process?</h2>
+  <p>There are two different modes, and the distinction is simple:</p>
+  <table class="table">
+    <thead><tr><th>Command</th><th>After successful checkpoint</th></tr></thead>
+    <tbody>
+      <tr><td><code>docker checkpoint create c cp1</code></td><td>Docker CLI sends <code>Exit=true</code>. The original runtime task is not kept running.</td></tr>
+      <tr><td><code>docker checkpoint create --leave-running c cp1</code></td><td>Docker CLI sends <code>Exit=false</code>; lower layers request leave-running behavior and the original task continues.</td></tr>
+    </tbody>
+  </table>
+  <p>With <code>--leave-running</code>, the checkpoint remains a snapshot of one earlier instant. If the live process goes from <code>n=812</code> to <code>n=900</code> afterward, the checkpoint still describes the saved 812-era state.</p>
+</section>
+
+<section>
+  <h2>7. Restore: two inputs meet</h2>
+  <p>Restore becomes much easier once you stop imagining the checkpoint as self-contained. Docker needs <strong>two inputs</strong>:</p>
+  <ol>
+    <li><strong>the existing container environment</strong> — rootfs, container configuration, mounts, network/runtime setup;</li>
+    <li><strong>the CRIU checkpoint files</strong> — the saved live execution state.</li>
+  </ol>
+  <pre><code>docker start --checkpoint cp1 mycontainer</code></pre>
+
+  <div class="hop"><div class="hopn">1</div><div><h3><code>dockerd</code> prepares the container as if it is going to run again</h3><p>The pinned Engine start path mounts/prepares storage, initializes networking, sets up mounts, and creates a fresh OCI runtime configuration. If a checkpoint name is supplied, it also resolves that existing checkpoint directory.</p><p>This matters: CRIU is <strong>not</strong> asked to manufacture Docker's container environment from nothing. <code>dockerd</code> prepares that environment first.</p><span class="src">Engine 29.6.2 · daemon/start.go · containerStart</span></div></div>
+
+  <div class="hop"><div class="hopn">2</div><div><h3><code>dockerd</code> creates a new containerd task with a checkpoint path</h3><p>The old live task is gone in the normal checkpoint case. So restore creates a new runtime task instance. <code>dockerd</code> calls containerd's task-creation path and passes the checkpoint directory.</p><span class="src">Engine 29.6.2 · daemon/start.go · ctr.NewTask(checkpointDir, ...)</span></div></div>
+
+  <div class="hop"><div class="hopn">3</div><div><h3>The shim enters a special “created from checkpoint” state</h3><p>When the shim sees a checkpoint path during creation, it does not perform a normal runc create. It builds <code>runc.RestoreOpts</code> containing the checkpoint image path and moves into <code>createdCheckpointState</code>.</p><p>So at this moment the task is prepared for restore, but the restored application is not live yet.</p><span class="src">containerd 2.2.6 · process/init.go · createCheckpointedState</span></div></div>
+
+  <div class="hop"><div class="hopn">4</div><div><h3>Task Start triggers runc restore</h3><p>The key source-level detail is in <code>createdCheckpointState.Start</code>: instead of calling normal <code>runc start</code>, the shim calls <code>runtime.Restore(...)</code>. After runc/CRIU successfully restore the process, the shim reads the restored PID and transitions the task to <code>running</code>.</p><span class="src">containerd 2.2.6 · process/init_state.go · createdCheckpointState.Start</span></div></div>
+
+  <div class="hop"><div class="hopn">5</div><div><h3>runc gives CRIU both sides of the restore</h3><p>runc passes CRIU the checkpoint directory plus the container/runtime information needed to place the restored tasks into the correct environment. This is where the saved state and the prepared runtime context meet.</p><span class="src">runc 1.3.6 · libcontainer/criu_linux.go · Container.Restore</span></div></div>
+
+  <div class="hop"><div class="hopn">6</div><div><h3>CRIU rebuilds live processes and resources</h3><p>CRIU reads the checkpoint files, reconstructs the process tree, recreates/restores supported files, memory mappings, namespaces/resources, memory contents, timers, credentials, threads and other saved state. The Linux kernel now contains <strong>new live task/resource objects</strong> corresponding to the saved execution state.</p><span class="src">CRIU 4.2.1 · restore design · cr-restore.c</span></div></div>
+</section>
+
+<section>
+  <h2>8. The hardest part: why execution continues at 812</h2>
+  <p>Suppose CRIU has already rebuilt the process's memory. The memory page containing <code>n</code> again contains <code>812</code>. That still is not enough.</p>
+  <p>The CPU also needs to know <strong>where to continue executing</strong>. On x86-64, for example, the saved instruction pointer is in <code>RIP</code>, the saved stack pointer is in <code>RSP</code>, and many other registers hold the process's current machine state.</p>
+  <p>Starting the executable normally would initialize a fresh register context and run the program's startup path. CRIU instead needs the kernel to install the <strong>saved</strong> register context.</p>
+
+  <h3>How CRIU gets the saved registers back into the CPU context</h3>
+  <p>Linux already has a mechanism for restoring a complete userspace register context: returning from a signal handler. When a signal handler finishes, the <code>rt_sigreturn</code> system call tells the kernel to restore register state from a signal frame.</p>
+  <p>CRIU uses that machinery deliberately. Near the end of restore it runs a small <strong>restorer blob</strong>—temporary code placed where it will not collide with either CRIU's mappings or the target process's final mappings. The restorer finishes putting the target memory layout and late resources into place and arranges a signal frame containing the saved CPU state.</p>
+  <p>Then <code>rt_sigreturn</code> makes the kernel load the saved registers. If the saved instruction pointer says “continue at the instruction after this point in the loop,” that becomes the task's instruction pointer again.</p>
+  <div class="idea"><div class="label">this is the moment to understand</div><p>After <code>rt_sigreturn</code>, the CPU is not told “start this executable.” It is given the register state of the checkpointed process. Combined with the restored memory, that is why the program can continue with <code>n == 812</code> rather than start again with <code>n == 0</code>.</p></div>
+  <span class="src">CRIU 4.2.1 · cr-restore.c · sigreturn_restore · pie/restorer</span>
+</section>
+
+<section>
+  <h2>9. Same logical process, not the same old kernel objects</h2>
+  <p>After a default checkpoint, the original task may be gone. Restore therefore cannot literally awaken the old <code>task_struct</code> from memory.</p>
+  <p>Instead, CRIU creates new tasks/resources and reconstructs their userspace-visible state to match the checkpoint as closely as supported. Think of this as:</p>
+  <pre><code>old live kernel objects
+        ↓ checkpoint
+serialized CRIU state
+        ↓ restore
+new live kernel objects with reconstructed saved state</code></pre>
+  <p>The continuity is the <strong>logical execution state</strong>, not physical survival of the old kernel objects.</p>
+</section>
+
+<section>
+  <h2>10. Why checkpoint/restore is harder than restart</h2>
+  <table class="table">
+    <thead><tr><th>Operation</th><th>What survives?</th><th>What happens next?</th></tr></thead>
+    <tbody>
+      <tr><td>restart</td><td>container filesystem/configuration; not the old process memory/registers</td><td>a fresh process begins through normal program startup</td></tr>
+      <tr><td>pause/unpause</td><td>the same live tasks remain present; execution is temporarily stopped</td><td>the same kernel tasks continue</td></tr>
+      <tr><td>checkpoint/restore</td><td>supported live execution state is serialized to disk</td><td>new live tasks/resources are reconstructed and continue from saved state</td></tr>
+    </tbody>
+  </table>
+  <p>Because checkpoint/restore reconstructs kernel-visible state, compatibility matters. Open files must still make sense; mounts and namespaces must be compatible; sockets and network peers can require special handling; kernel and CPU features can matter. CRIU cannot promise that arbitrary external resources can always be recreated.</p>
+</section>
+
+<section>
+  <h2>11. Where OCI stops, and Docker's pinned limitations</h2>
+  <p>The OCI Runtime Specification 1.3.0 standardizes the normal runtime lifecycle such as <code>create</code>, <code>start</code>, <code>state</code>, <code>kill</code>, and <code>delete</code>. It does <strong>not</strong> standardize checkpoint/restore as an OCI runtime lifecycle operation.</p>
+  <p>So this is an extension implemented by the real stack:</p>
+  <pre><code>Docker CLI → dockerd → containerd → shim → runc → CRIU → Linux kernel</code></pre>
+  <div class="warn"><div class="label">pinned Engine 29.6.2</div><p>Restore with a checkpoint is allowed only when daemon experimental mode is enabled. The same start path explicitly rejects a non-empty custom checkpoint directory with <code>custom checkpointdir is not supported</code>. These are properties of the pinned Engine implementation, not universal CRIU laws.</p></div>
+  <div class="note"><div class="label">rootless boundary</div><p>runc 1.3.6 warns in its checkpoint/restore paths that this is unlikely to work cleanly in a user namespace; its source still treats unprivileged restore as an unresolved area. Do not assume Lesson 44's rootless path automatically supports CRIU restore.</p></div>
+</section>
+
+<section>
+  <h2>12. Inspect it yourself: prove that memory state continued</h2>
+  <p class="small">Run this only on a disposable Linux host where CRIU is installed and Docker checkpoint/restore is supported. Restore on the pinned Engine line requires experimental mode.</p>
+
+  <div class="inspect"><div class="label">host checks</div><pre><code>docker version
+criu --version
+sudo criu check
+docker info | grep -i experimental || true</code></pre></div>
+
+  <p>The experiment below deliberately keeps the counter <code>i</code> only in the shell process's memory. A signal handler writes its current value to a file only when we ask for an observation.</p>
+  <div class="inspect"><div class="label">start a process with in-memory state</div><pre><code>docker rm -f l38 2&gt;/dev/null || true
+
+docker run -d --name l38 alpine \
+  sh -c 'i=0; trap '\''echo "$i" &gt;/tmp/seen'\'' USR1; \
+  while :; do i=$((i+1)); sleep 1; done'
+
+sleep 5
+docker kill --signal=USR1 l38
+sleep 1
+echo -n 'before checkpoint: '
+docker exec l38 cat /tmp/seen</code></pre><p>If the output is around 5 or 6, that value came from the shell variable <code>i</code> that exists in the running process.</p></div>
+
+  <div class="inspect"><div class="label">checkpoint the task</div><pre><code>docker checkpoint create l38 cp1
+
+docker inspect l38 \
+  --format 'running={{.State.Running}} status={{.State.Status}} pid={{.State.Pid}}'
+
+docker checkpoint ls l38</code></pre><p>With default <code>Exit=true</code>, the old task should not remain running after a successful checkpoint.</p></div>
+
+  <div class="inspect"><div class="label">restore and observe the same counter continuing</div><pre><code>docker start --checkpoint cp1 l38
+sleep 3
+
+docker kill --signal=USR1 l38
+sleep 1
+echo -n 'after restore: '
+docker exec l38 cat /tmp/seen</code></pre><p>If the checkpoint observation was around 5, the post-restore observation should continue from that neighborhood and then advance—not restart from zero. The exact numbers vary because timing varies.</p></div>
+
+  <div class="inspect"><div class="label">find the CRIU checkpoint files</div><pre><code>cid=$(docker inspect -f '{{.Id}}' l38)
+root=$(docker info -f '{{.DockerRootDir}}')
+
+sudo find "$root" -type d -path '*/checkpoints/cp1' -print 2&gt;/dev/null</code></pre><p>List the directory you find. The contents are checkpoint-state files/logs, not an OCI image manifest/config/layer graph.</p></div>
+</section>
+
+<section>
+  <h2>13. Check yourself before moving on</h2>
+  <ol class="check">
+    <li><strong>Why is the container rootfs insufficient for checkpoint/restore?</strong><br><span class="dim">Because it does not contain the current memory, register context, FD table/resource state, timers, task relationships, and other live execution state.</span></li>
+    <li><strong>Who actually serializes process state?</strong><br><span class="dim">CRIU. runc supplies container-specific runtime context and orchestrates CRIU.</span></li>
+    <li><strong>What are the two restore inputs?</strong><br><span class="dim">The existing Docker container environment/rootfs plus the CRIU checkpoint files.</span></li>
+    <li><strong>Why does the program continue rather than restart?</strong><br><span class="dim">CRIU restores memory and ultimately uses signal-return machinery to install the saved register context, including the saved instruction/stack pointers.</span></li>
+    <li><strong>Are the restored tasks literally the old kernel task objects?</strong><br><span class="dim">No. Restore creates new live kernel objects whose supported visible state is reconstructed from the checkpoint.</span></li>
+  </ol>
+  <div class="idea"><div class="label">60-second model</div><p><strong>Checkpoint:</strong> hold the process still → inspect memory/registers/resources → write CRIU files. <strong>Restore:</strong> dockerd rebuilds the container runtime environment → containerd/shim select the restore path → runc gives CRIU the runtime context → CRIU rebuilds tasks/memory/resources → <code>rt_sigreturn</code> installs the saved CPU state → execution continues.</p></div>
+</section>
+
+<section>
+  <h2>Primary-source appendix</h2>
+  <p>The explanation above is built from the pinned implementation/specification chain, not from generic checkpoint folklore.</p>
+  <details><summary>Docker CLI 29.6.2 — checkpoint options</summary><p><code>cli/command/checkpoint/create.go</code>: <code>runCreate</code> sends <code>CheckpointID</code>, <code>CheckpointDir</code>, and <code>Exit: !opts.leaveRunning</code>.</p></details>
+  <details><summary>Docker Engine 29.6.2 — checkpoint create</summary><p><code>daemon/checkpoint.go</code>: <code>CheckpointCreate</code> resolves the running task, creates/resolves the checkpoint directory, and calls <code>tsk.CreateCheckpoint(context.Background(), checkpointDir, config.Exit)</code>.</p></details>
+  <details><summary>Docker Engine 29.6.2 — restore start preparation</summary><p><code>daemon/start.go</code>: <code>ContainerStart</code> requires experimental mode when a checkpoint is supplied. <code>containerStart</code> rejects a custom checkpoint directory, prepares mounts/networking/spec, resolves the checkpoint, creates a new containerd task with the checkpoint directory, then starts that task.</p></details>
+  <details><summary>containerd 2.2.6 — checkpoint/restore state path</summary><p><code>cmd/containerd-shim-runc-v2/process/init.go</code>: <code>Init.checkpoint</code> maps <code>Exit=false</code> to runc's <code>LeaveRunning</code>. <code>createCheckpointedState</code> builds <code>runc.RestoreOpts</code>. <code>process/init_state.go</code>: <code>createdCheckpointState.Start</code> calls <code>runtime.Restore(...)</code>, reads the restored PID, and transitions to running.</p></details>
+  <details><summary>runc 1.3.6 — CRIU adapter</summary><p><code>libcontainer/criu_linux.go</code>: <code>Container.Checkpoint</code> and <code>Container.Restore</code> construct CRIU RPC options for the container environment; <code>criuSwrk</code> runs the CRIU service-worker RPC path. The same source warns about rootless/user-namespace limitations.</p></details>
+  <details><summary>CRIU 4.2.1 — checkpoint internals</summary><p>CRIU's authoritative Checkpoint/Restore design describes collecting/freezing the process tree, reading state from <code>/proc</code>, using <code>ptrace</code>, injecting parasite helper code for target-context operations, and writing task/resource/memory state to dump files. Its memory documentation describes mapping/page discovery and page transfer.</p></details>
+  <details><summary>CRIU 4.2.1 — restore and sigreturn</summary><p>CRIU's restore design describes resolving shared resources, forking the process tree, restoring basic resources, switching into a restorer code blob, restoring final memory/timers/credentials/threads, and returning to the saved execution context. In <code>criu/cr-restore.c</code>, the path reaches <code>sigreturn_restore</code>.</p></details>
+  <details><summary>OCI runtime-spec 1.3.0 — boundary</summary><p><code>runtime.md</code> defines the ordinary <code>create</code>, <code>start</code>, <code>state</code>, <code>kill</code>, and <code>delete</code> operations. Checkpoint/restore is not standardized there.</p></details>
+</section>
+
+<div class="nav">
+  <a href="lesson-37-health-restart-resources-non-root.html">← Lesson 37</a>
+  <a href="lesson-39-registries-oci-distribution-http-api.html">Lesson 39 →</a>
+</div>
+</div>
+</body>
+</html>

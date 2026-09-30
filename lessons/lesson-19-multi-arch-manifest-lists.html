@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 19 · Multi-arch &amp; Manifest Lists</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.7; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:36px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); border:1px solid var(--rule); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .oneline{border:1px solid var(--teal-dim); background:linear-gradient(180deg,#0b1615,#0a1210); border-radius:10px; padding:18px 20px; margin:30px 0 8px}
+  .oneline .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); display:block; margin-bottom:8px}
+  .oneline p{margin:0; font-size:20px; line-height:1.5; color:#fff}
+
+  .concept{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:48px 0 4px; display:flex; align-items:center; gap:10px;}
+  .concept .num{width:24px;height:24px;border-radius:50%;border:1px solid var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  h2{font-family:var(--mono); font-weight:600; font-size:21px; margin:8px 0 16px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  .term{color:var(--teal); font-weight:600}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+  .plain{color:var(--dim); font-size:16px; border-left:2px solid var(--rule); padding-left:14px; margin:0 0 18px}
+  .plain b{color:var(--teal); font-weight:600}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--teal); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:20px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  figure.fig{margin:24px 0; border:1px solid var(--rule); border-radius:10px; background:var(--panel); padding:18px; overflow:hidden}
+  figure.fig figcaption{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin:2px 2px 16px}
+  figure.fig svg{display:block; width:100%; height:auto}
+
+  .recap{border:1px solid var(--teal-dim); border-radius:10px; background:#0a1210; padding:20px 22px; margin:30px 0}
+  .recap h3{font-family:var(--mono); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:0 0 14px}
+  .recap ul{margin:0; padding-left:20px} .recap li{margin:0 0 10px; color:var(--bone)} .recap li:last-child{margin:0}
+  .recap li b{color:#fff}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:60px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:38px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-18-manifest-config-digests.html">← Lesson 18</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-20-oci-image-layout.html">Lesson 20 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part III — Storage &amp; images</div>
+  <div class="lesson-no">19</div>
+  <span class="pill">deep-cut · reference depth</span>
+  <h1>Multi-arch: one tag, every CPU</h1>
+  <p class="dek">How <code class="inl">docker pull nginx</code> gives you an arm64 image on your Mac and an amd64 image on your server — with the same command. There's one more document sitting above everything in Lesson 18.</p>
+</header>
+
+<div class="oneline">
+  <span class="lbl">The idea in one sentence</span>
+  <p>An <em>image index</em> is a document above the manifest that lists one manifest per platform, so a single tag can carry an amd64 build, an arm64 build, and more — and your machine automatically picks the right one.</p>
+</div>
+
+<div class="concept"><span class="num">1</span> Start here</div>
+<h2>Why one manifest isn't enough</h2>
+
+<p class="plain"><b>Plain version:</b> a manifest is built for one CPU. But one tag has to work on many CPUs. So something above the manifest has to choose.</p>
+
+<p>Remember from Lesson 18 that an image's config pins an <code class="inl">architecture</code> and <code class="inl">os</code> — a manifest is built for <em>one</em> platform, say <code class="inl">linux/amd64</code>. But <code class="inl">nginx:1.25</code> has to run on Intel servers <em>and</em> Apple Silicon laptops <em>and</em> Raspberry Pis. A single manifest can't do that. So there needs to be a document one level up that holds <em>several</em> manifests — one per platform — and lets the puller choose the one that matches its machine. That document is the <span class="term">image index</span>.</p>
+
+<div class="concept"><span class="num">2</span> The document</div>
+<h2>The image index: manifests labeled by platform</h2>
+
+<p class="plain"><b>Plain version:</b> the index is a list where each entry is "a manifest + which platform it's for."</p>
+
+<p>The <span class="term">image index</span> (media type <span class="srcref">application/vnd.oci.image.index.v1+json</span>, from <span class="srcref">image-index.md</span>) has a <code class="inl">manifests</code> array, and each entry is a familiar <span class="term">descriptor</span> from Lesson 18 (<code class="inl">mediaType</code>, <code class="inl">digest</code>, <code class="inl">size</code>) with one thing added: a <code class="inl">platform</code> object holding <code class="inl">architecture</code> (amd64, arm64, ppc64le…), <code class="inl">os</code> (linux, windows), and optionally <code class="inl">variant</code> (e.g. <code class="inl">v7</code>/<code class="inl">v8</code> for ARM). So the index is really a lookup table: <em>platform → manifest digest</em>.</p>
+
+<aside class="note"><b>Two names, one thing.</b> Docker's older schema called this a <em>manifest list</em>; OCI calls it an <em>image index</em>. Same document, same job. You'll see both terms; they're interchangeable.</aside>
+
+<div class="concept"><span class="num">3</span> Resolution</div>
+<h2>How your machine picks the right build</h2>
+
+<p class="plain"><b>Plain version:</b> pull the index, match your own CPU/OS to a platform entry, follow that manifest — then it's exactly Lesson 18.</p>
+
+<p>When you pull a multi-arch tag, your daemon fetches the index, reads its own platform (its <code class="inl">GOOS</code>/<code class="inl">GOARCH</code>), finds the matching entry, and takes that entry's manifest digest. From there it's the Lesson 18 flow unchanged: manifest → config + layers. So multi-arch adds exactly one hop on top of what you already know:</p>
+
+<figure class="fig">
+  <figcaption>Diagram · the index sits above Lesson 18's tree and selects one manifest by platform</figcaption>
+  <svg viewBox="0 0 680 340" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,Consolas,monospace">
+    <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#6b7482" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+    <rect x="30" y="40" width="140" height="44" rx="8" fill="#0a0d12" stroke="#262d38"/>
+    <text x="100" y="66" text-anchor="middle" fill="#e9e4d7" font-size="12">nginx:1.25</text>
+    <line x1="170" y1="62" x2="238" y2="62" stroke="#6b7482" stroke-width="1.4" marker-end="url(#arrow)"/>
+
+    <rect x="240" y="38" width="210" height="48" rx="8" fill="#161326" stroke="#7a6bc2"/>
+    <text x="345" y="58" text-anchor="middle" fill="#b3a6ec" font-size="12.5" font-weight="600">image index</text>
+    <text x="345" y="75" text-anchor="middle" fill="#9aa4b2" font-size="10.5">one manifest per platform</text>
+
+    <line x1="300" y1="86" x2="130" y2="150" stroke="#6b7482" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <line x1="345" y1="86" x2="345" y2="150" stroke="#5ac4b4" stroke-width="1.6" marker-end="url(#arrow)"/>
+    <line x1="390" y1="86" x2="560" y2="150" stroke="#6b7482" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+    <rect x="40" y="152" width="180" height="52" rx="8" fill="#12100a" stroke="#7a6636" opacity="0.55"/>
+    <text x="130" y="173" text-anchor="middle" fill="#e0b155" font-size="12">manifest</text>
+    <text x="130" y="191" text-anchor="middle" fill="#9aa4b2" font-size="10.5">linux/amd64</text>
+
+    <rect x="255" y="152" width="180" height="52" rx="8" fill="#0a1614" stroke="#5ac4b4"/>
+    <text x="345" y="173" text-anchor="middle" fill="#5ac4b4" font-size="12" font-weight="600">manifest ✓</text>
+    <text x="345" y="191" text-anchor="middle" fill="#bfe6df" font-size="10.5">linux/arm64 — your machine</text>
+
+    <rect x="470" y="152" width="180" height="52" rx="8" fill="#12100a" stroke="#7a6636" opacity="0.55"/>
+    <text x="560" y="173" text-anchor="middle" fill="#e0b155" font-size="12">manifest</text>
+    <text x="560" y="191" text-anchor="middle" fill="#9aa4b2" font-size="10.5">linux/ppc64le</text>
+
+    <line x1="345" y1="204" x2="345" y2="244" stroke="#5ac4b4" stroke-width="1.6" marker-end="url(#arrow)"/>
+    <rect x="200" y="246" width="290" height="52" rx="8" fill="#0d1117" stroke="#2f5f59"/>
+    <text x="345" y="267" text-anchor="middle" fill="#bfe6df" font-size="12">→ config + layers (Lesson 18)</text>
+    <text x="345" y="285" text-anchor="middle" fill="#9aa4b2" font-size="10.5">the rest is unchanged</text>
+
+    <text x="40" y="326" fill="#6b7482" font-size="10.5">your daemon matches its GOOS/GOARCH to a platform entry, then follows that manifest</text>
+  </svg>
+</figure>
+
+<div class="concept"><span class="num">4</span> A caveat</div>
+<h2>Not every tag has an index</h2>
+
+<p class="plain"><b>Plain version:</b> single-architecture images skip the index entirely — the tag points straight at a bare manifest.</p>
+
+<p>An index only exists when an image was built for multiple platforms. A single-arch image is just a bare manifest (Lesson 18), and its tag points directly at that manifest — no index in sight. This is why <code class="inl">docker manifest inspect</code> sometimes shows a list of platforms and sometimes shows one plain manifest: it depends on whether that image was published multi-arch. You create an index by building for several platforms at once — <code class="inl">docker buildx build --platform linux/amd64,linux/arm64</code> — which produces the per-platform manifests and the index tying them together.</p>
+
+<div class="concept"><span class="num">5</span> Pinning</div>
+<h2>Pin the index, not a single manifest</h2>
+
+<p class="plain"><b>Plain version:</b> pinning the index digest stays multi-arch; pinning one manifest digest locks you to a single CPU.</p>
+
+<p>You can pin either level by digest. Pinning the <em>index</em> digest (<code class="inl">nginx@sha256:&lt;index&gt;</code>) is reproducible <em>and</em> still resolves per-platform — the right choice for a deployment that runs on mixed hardware. Pinning a specific <em>manifest</em> digest locks you to exactly one architecture, which is occasionally what you want (a single-arch node) but usually not. So the rule of thumb: pin the index unless you have a reason to nail down one platform.</p>
+
+<span class="step">Inspect it yourself</span>
+<p>See an index list its platforms, and watch your machine pick one:</p>
+<figure class="inspect">
+  <div class="tab">host shell</div>
+<pre><span class="p">$</span> <span class="o"># a multi-arch tag: the index lists a manifest per platform</span>
+<span class="p">$</span> docker manifest inspect nginx:1.25
+<span class="o">"mediaType": "application/vnd.oci.image.index.v1+json",</span>
+<span class="o">"manifests": [</span>
+<span class="o">  { "digest": "sha256:<span class="hl">…amd64…</span>", "platform": { "architecture": "amd64", "os": "linux" } },</span>
+<span class="o">  { "digest": "sha256:<span class="hl">…arm64…</span>", "platform": { "architecture": "arm64", "os": "linux" } }, … ]</span>
+
+<span class="p">$</span> <span class="o"># what did YOUR machine actually pull? the arch-matched manifest's config:</span>
+<span class="p">$</span> docker image inspect nginx:1.25 -f '{{.Architecture}} / {{.Os}}'
+<span class="o"><span class="hl">arm64 / linux</span></span>                 <span class="o"># it silently chose the arm64 entry</span>
+
+<span class="p">$</span> <span class="o"># force a different platform on purpose:</span>
+<span class="p">$</span> docker pull --platform linux/amd64 nginx:1.25</pre>
+</figure>
+
+<div class="recap">
+  <h3>Check yourself</h3>
+  <ul>
+    <li>A manifest is built for <b>one</b> platform; a tag must serve <b>many</b> — so an <b>image index</b> sits above manifests.</li>
+    <li>The index's <code class="inl">manifests</code> array is <b>descriptors + a <code class="inl">platform</code></b> (<code class="inl">architecture</code>, <code class="inl">os</code>, <code class="inl">variant</code>) — a platform → manifest lookup.</li>
+    <li>Resolution adds one hop: <b>tag → index → (match your platform) → manifest → config + layers</b>.</li>
+    <li>"Manifest list" (Docker) and "image index" (OCI) are the <b>same thing</b>.</li>
+    <li>Single-arch images have <b>no index</b> — the tag points straight at a manifest.</li>
+    <li>Pin the <b>index</b> digest to stay multi-arch; pinning a manifest digest locks one CPU.</li>
+  </ul>
+</div>
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>People assume "the image" is always the manifest — but for the images you use daily, the tag usually points at an <em>index</em>, and the manifest you actually run is chosen for your CPU behind the scenes. That's why the same <code class="inl">nginx:1.25</code> "just works" everywhere. It also explains a common confusion: an <code class="inl">arm64</code> laptop and an <code class="inl">amd64</code> server pulling the identical tag end up with <em>different</em> manifest digests and different layer bytes — because they resolved to different entries in the same index.</p>
+</aside>
+
+<div style="font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:44px 0 4px">Where we are</div>
+<h2>Summary</h2>
+<p>Multi-arch works by adding one document above the manifest: an <strong>image index</strong> (a.k.a. manifest list). Its <code class="inl">manifests</code> array holds one descriptor per platform, each tagged with <code class="inl">{architecture, os, variant}</code>, so it's a platform → manifest-digest table. Pulling a multi-arch tag resolves <strong>tag → index → your-platform manifest → config + layers</strong> — one extra hop on top of Lesson 18, with the rest unchanged. Not every tag has an index (single-arch images are bare manifests), and for reproducibility you pin the <em>index</em> digest to stay portable across CPUs. Next, Lesson 20: how all of this — index, manifests, configs, layer blobs — is actually laid out as files on disk, the OCI image layout.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 01 · architecture/os</span>
+  <span class="xref"><b>back ←</b> Lesson 18 · manifest &amp; descriptors</span>
+  <span class="xref"><b>forward →</b> Lesson 20 · OCI image layout on disk</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">18 · Manifest, config &amp; digests</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">20 · OCI image layout on disk</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

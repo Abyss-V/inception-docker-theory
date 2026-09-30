@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 15 · OverlayFS &amp; Copy-on-Write</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.68; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:44px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:3px 10px; margin-bottom:14px}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--teal); margin:52px 0 4px; display:flex; align-items:center; gap:10px;}
+  .eyebrow::before{content:""; width:16px; height:1px; background:var(--teal); opacity:.6}
+  h2{font-family:var(--mono); font-weight:600; font-size:22px; margin:6px 0 18px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+  .srcref{font-family:var(--mono); font-size:.8em; color:var(--gold); background:rgba(224,177,81,.08); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px;}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--gold); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+  .step.verify{background:var(--teal)}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{margin:0; padding:14px 16px; color:#bfe6df; font-size:13px; font-family:var(--mono); overflow-x:auto; line-height:1.6}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:16px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  figure.fig{margin:26px 0; border:1px solid var(--rule); border-radius:10px; background:var(--panel); padding:18px; overflow:hidden}
+  figure.fig figcaption{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin:2px 2px 16px}
+  figure.fig svg{display:block; width:100%; height:auto}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:70px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  .lead{font-size:20px; line-height:1.6; color:var(--bone)}
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:40px 0}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-14-oci-lifecycle-hooks.html">← Lesson 14</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-16-snapshotters-storage-drivers.html">Lesson 16 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part III — Storage &amp; images</div>
+  <div class="lesson-no">15</div>
+  <span class="pill">core</span>
+  <h1>OverlayFS &amp; copy-on-write: how a container gets a filesystem</h1>
+  <p class="dek">An image is a stack of read-only layers. This is the filesystem trick that lets fifty containers share those layers instantly, each writing to its own thin top layer — and it's the substrate every image concept in this part sits on.</p>
+</header>
+
+<p class="lead">Start with the problem. You run fifty containers from the same <code class="inl">nginx</code> image. Its root filesystem is a couple hundred megabytes. Copying that fifty times would waste gigabytes of disk and make every <code class="inl">docker run</code> slow. What you actually want: all fifty containers <em>share</em> the same read-only image files, and each gets a private, thin writable layer on top for whatever it changes. That's a <strong>union filesystem</strong> — stack several directories and present them as one — and OverlayFS is the one built into the Linux kernel that Docker uses by default. Two ideas do all the work: <strong>stacking</strong> (many layers appear as one) and <strong>copy-on-write</strong> (nothing is copied until it's changed).</p>
+
+<aside class="note"><b>Where we are on the map.</b> OverlayFS is a kernel filesystem — right at the boundary where "Docker" ends and "the kernel" begins. We stop at how the kernel behaves and don't go inside its implementation, but you must understand this behavior, because Docker's storage driver is built entirely on top of it and every image layer in the next lessons is defined by it.</aside>
+
+<div class="eyebrow">Mechanism 1</div>
+<h2>Four directories: lower, upper, work, merged</h2>
+
+<p>An overlay mount is assembled from a small set of directories, and containerd's overlay snapshotter (<span class="srcref">plugins/snapshots/overlay/overlay.go</span>) builds it by handing the kernel a mount of type <span class="srcref">overlay</span> with three options — <span class="srcref">lowerdir=</span>, <span class="srcref">upperdir=</span>, <span class="srcref">workdir=</span> — producing a fourth directory, the merged view:</p>
+
+<p>The <strong>lowerdir</strong> is the read-only stack — the image's layers, listed bottom-to-top and separated by colons. Every container started from that image points its lowerdir at the <em>same</em> layer directories, which is how sharing happens. The <strong>upperdir</strong> is a single writable directory, unique to this container; every change the container makes lands here. The <strong>workdir</strong> is an empty directory the kernel uses internally for atomic operations (it must sit on the same filesystem as upperdir) — you never touch it. And <strong>merged</strong> is the unified result: the directory the container actually sees as its root filesystem.</p>
+
+<figure class="fig">
+  <figcaption>Diagram · the layers stack; the merged view is what the container sees as /</figcaption>
+  <svg viewBox="0 0 720 350" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,Consolas,monospace">
+    <!-- left: physical layers -->
+    <text x="30" y="28" fill="#9aa4b2" font-size="12">physical directories on the host</text>
+
+    <!-- upperdir -->
+    <rect x="30" y="42" width="300" height="52" rx="7" fill="#0a1614" stroke="#5ac4b4"/>
+    <text x="44" y="64" fill="#5ac4b4" font-size="12.5" font-weight="600">upperdir · writable (this container)</text>
+    <text x="44" y="83" fill="#bfe6df" font-size="11">/etc/hostname &nbsp; (its own changes)</text>
+
+    <!-- lower 2 -->
+    <rect x="30" y="104" width="300" height="52" rx="7" fill="#12100a" stroke="#7a6636"/>
+    <text x="44" y="126" fill="#e0b155" font-size="12.5">lower layer 2 · read-only (image)</text>
+    <text x="44" y="145" fill="#d7d2c4" font-size="11">/app &nbsp; /etc/nginx/nginx.conf</text>
+
+    <!-- lower 1 -->
+    <rect x="30" y="166" width="300" height="52" rx="7" fill="#12100a" stroke="#7a6636"/>
+    <text x="44" y="188" fill="#e0b155" font-size="12.5">lower layer 1 · read-only (base)</text>
+    <text x="44" y="207" fill="#d7d2c4" font-size="11">/bin/sh &nbsp; /etc/os-release</text>
+
+    <text x="30" y="246" fill="#6b7482" font-size="10.5">lowerdir = layer2 : layer1 &nbsp; (top-to-bottom search order)</text>
+    <text x="30" y="264" fill="#6b7482" font-size="10.5">workdir = kernel scratch (same fs as upper, hidden)</text>
+
+    <!-- arrow to merged -->
+    <line x1="340" y1="130" x2="400" y2="130" stroke="#6b7482" stroke-width="1.5"/>
+    <text x="370" y="122" text-anchor="middle" fill="#6b7482" font-size="10">union</text>
+
+    <!-- merged view -->
+    <rect x="410" y="42" width="280" height="230" rx="8" fill="#0d1117" stroke="#5ac4b4" stroke-width="1.5"/>
+    <text x="424" y="66" fill="#5ac4b4" font-size="13" font-weight="600">merged · the container's /</text>
+    <line x1="424" y1="76" x2="676" y2="76" stroke="#262d38"/>
+    <text x="424" y="100" fill="#bfe6df" font-size="11.5">/etc/hostname</text>
+    <text x="600" y="100" fill="#5ac4b4" font-size="10">↑ upper</text>
+    <text x="424" y="126" fill="#bfe6df" font-size="11.5">/app</text>
+    <text x="600" y="126" fill="#e0b155" font-size="10">↑ layer2</text>
+    <text x="424" y="152" fill="#bfe6df" font-size="11.5">/etc/nginx/nginx.conf</text>
+    <text x="600" y="152" fill="#e0b155" font-size="10">↑ layer2</text>
+    <text x="424" y="178" fill="#bfe6df" font-size="11.5">/bin/sh</text>
+    <text x="600" y="178" fill="#e0b155" font-size="10">↑ layer1</text>
+    <text x="424" y="204" fill="#bfe6df" font-size="11.5">/etc/os-release</text>
+    <text x="600" y="204" fill="#e0b155" font-size="10">↑ layer1</text>
+    <text x="424" y="246" fill="#6b7482" font-size="10.5">each path resolved to the</text>
+    <text x="424" y="261" fill="#6b7482" font-size="10.5">first layer that has it, top-down</text>
+  </svg>
+</figure>
+
+<p>Reads follow a simple rule: to resolve a path, overlay looks in the upperdir first, then each lowerdir from top to bottom, and the <strong>first layer that has the file wins</strong>. A file in an upper layer therefore <em>shadows</em> the same path in a lower one — which is exactly how a later image layer can replace a file baked into an earlier layer.</p>
+
+<aside class="note"><b>One-layer edge case, from the source.</b> Overlay needs at least two directories to union, so when a snapshot has no parent layers, containerd doesn't build an overlay mount at all — it returns a plain <code class="inl">bind</code> mount instead (the <code class="inl">len(ParentIDs) == 0</code> branch). A tidy reminder that the overlay only exists once there's something to stack.</aside>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 2</div>
+<h2>Copy-on-write: the first write copies the whole file up</h2>
+
+<p>The upperdir is writable and the lowerdirs are not — so what happens when the container modifies a file that only exists in a read-only lower layer? Overlay can't write to the lower layer, so it performs a <strong>copy_up</strong>: it copies the entire file up into the upperdir, then applies your change to that copy. From then on, the upper copy shadows the lower original, and all further reads and writes hit the upper copy. The lower layer is never touched — which is precisely what makes it safe for many containers to share.</p>
+
+<figure class="fig">
+  <figcaption>Diagram · modifying a lower-layer file copies it up first (copy_up)</figcaption>
+  <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,Consolas,monospace">
+    <!-- before -->
+    <text x="30" y="26" fill="#9aa4b2" font-size="12">① container reads app.log — it lives only in the image layer</text>
+    <rect x="30" y="38" width="200" height="40" rx="6" fill="#0a1614" stroke="#2f5f59" opacity="0.4"/>
+    <text x="130" y="62" text-anchor="middle" fill="#6b7482" font-size="11">upperdir (empty)</text>
+    <rect x="30" y="84" width="200" height="40" rx="6" fill="#12100a" stroke="#7a6636"/>
+    <text x="130" y="108" text-anchor="middle" fill="#e0b155" font-size="11">layer: app.log (read-only)</text>
+
+    <!-- arrow -->
+    <line x1="245" y1="80" x2="300" y2="80" stroke="#d76d7f" stroke-width="1.5"/>
+    <text x="272" y="72" text-anchor="middle" fill="#d76d7f" font-size="10">write!</text>
+
+    <!-- after -->
+    <text x="320" y="26" fill="#9aa4b2" font-size="12">② the WHOLE file is copied up, then written</text>
+    <rect x="320" y="38" width="230" height="40" rx="6" fill="#0a1614" stroke="#5ac4b4"/>
+    <text x="435" y="62" text-anchor="middle" fill="#5ac4b4" font-size="11">upperdir: app.log (copy, edited)</text>
+    <rect x="320" y="84" width="230" height="40" rx="6" fill="#12100a" stroke="#7a6636"/>
+    <text x="435" y="108" text-anchor="middle" fill="#e0b155" font-size="11">layer: app.log — untouched</text>
+
+    <line x1="435" y1="84" x2="435" y2="78" stroke="#5ac4b4" stroke-width="1.5"/>
+    <path d="M435 84 L431 92 L439 92 Z" fill="#5ac4b4"/>
+    <text x="565" y="66" fill="#5ac4b4" font-size="10">now shadows</text>
+    <text x="565" y="80" fill="#5ac4b4" font-size="10">the original</text>
+
+    <!-- gotcha -->
+    <rect x="30" y="150" width="660" height="70" rx="8" fill="#160f11" stroke="#6e3540"/>
+    <text x="46" y="176" fill="#d76d7f" font-size="12" font-weight="600">The performance gotcha</text>
+    <text x="46" y="197" fill="#e9e4d7" font-size="11.5">Changing ONE byte of a 2 GB file baked into a layer copies all 2 GB up on first write.</text>
+    <text x="46" y="214" fill="#9aa4b2" font-size="11">→ keep large mutable data in volumes (Lesson 32), not inside image layers.</text>
+  </svg>
+</figure>
+
+<div class="keybox">
+  <div class="h">The consequence to remember</div>
+  <p>Copy-on-write is why containers start instantly and share disk — but it means the <em>first</em> modification of any lower-layer file pays the cost of copying the whole file, no matter how small the edit. For a large file baked into an image, that first write is expensive. The same is true for a <code class="inl">chmod</code>, a <code class="inl">chown</code>, or creating a hard link — all of them trigger a copy_up. This is the concrete reason big, frequently-written data belongs in a volume, not in the image.</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 3</div>
+<h2>Deletes you can't really do: whiteouts</h2>
+
+<p>Now the strangest case. The container deletes <code class="inl">/etc/nginx/nginx.conf</code>, but that file lives in a read-only lower layer — overlay can't remove it from there. So instead of deleting anything, it creates a <strong>whiteout</strong> in the upperdir: per the kernel's OverlayFS documentation, a whiteout is a <em>character device with device number 0/0</em> placed at the deleted path. When overlay sees a whiteout in the upper level, it hides any matching name in the lower levels — the container sees the file as gone, even though it still physically exists in the layer below. Deleting an entire directory that came from a lower layer uses a related trick: an "opaque directory," marked with the xattr <code class="inl">trusted.overlay.opaque</code>, which hides the whole lower directory of that name.</p>
+
+<div class="keybox">
+  <div class="h">Why this matters more than it looks</div>
+  <p>Because a delete is really an <em>addition</em> (a whiteout marker on top), removing a file never reclaims the space it occupied in a lower layer. This is the seed of two facts you'll meet soon: a <code class="inl">RUN rm -rf ...</code> in a Dockerfile <strong>doesn't shrink the image</strong> — the data still sits in the earlier layer (Lesson 31), and a secret written and then deleted in a later layer is <strong>still recoverable</strong> from the layer that added it (Lesson 30). The whiteout hides; it doesn't erase.</p>
+</div>
+
+<span class="step verify">Inspect it yourself</span>
+<p>Look at the actual overlay mount behind a running container, watch a copy-up happen, and find a whiteout device:</p>
+<figure class="inspect">
+  <div class="tab">host shell &nbsp;(paths abbreviated)</div>
+<pre><span class="p">$</span> docker run -d --name web nginx
+<span class="p">$</span> docker inspect -f '{{json .GraphDriver.Data}}' web | jq
+<span class="o">{</span>
+<span class="o">  "LowerDir": "<span class="hl">/var/lib/docker/overlay2/…/diff:…/diff</span>",   # read-only image layers</span>
+<span class="o">  "UpperDir": "<span class="hl">/var/lib/docker/overlay2/abc/diff</span>",        # this container's writable layer</span>
+<span class="o">  "WorkDir":  "/var/lib/docker/overlay2/abc/work",</span>
+<span class="o">  "MergedDir":"/var/lib/docker/overlay2/abc/merged"       # what the container sees as /</span>
+<span class="o">}</span>
+
+<span class="p">$</span> <span class="o"># edit a file that came from the image → it gets copied UP into UpperDir:</span>
+<span class="p">$</span> docker exec web sh -c 'echo "# hi" >> /etc/nginx/nginx.conf'
+<span class="p">$</span> sudo ls /var/lib/docker/overlay2/abc/diff/etc/nginx/
+<span class="o"><span class="hl">nginx.conf</span></span>                    <span class="o"># now present in upper (copy_up); the image layer is unchanged</span>
+
+<span class="p">$</span> <span class="o"># delete a file from the image → a whiteout char device 0,0 appears:</span>
+<span class="p">$</span> docker exec web rm /etc/nginx/conf.d/default.conf
+<span class="p">$</span> sudo ls -l /var/lib/docker/overlay2/abc/diff/etc/nginx/conf.d/
+<span class="o">c--------- 1 root root <span class="hl">0, 0</span> … default.conf</span>   <span class="o"># 'c' = character device, 0/0 = whiteout</span></pre>
+</figure>
+
+<hr class="soft">
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>The everyday phrase "each container gets its own copy of the filesystem" is exactly backwards: containers get their own <em>writable layer</em> and <em>share</em> everything else read-only, copying individual files up only on first write. Two practical corrections fall out. First, deleting files inside a container (or in a Dockerfile layer) doesn't free the underlying space — it writes a whiteout on top. Second, the "first write is cheap" intuition is wrong for large files: the entire file is copied up before your edit lands, which is why write-heavy big data belongs in a volume. Overlay makes containers cheap by <em>not</em> copying — right up until you force it to.</p>
+</aside>
+
+<div class="eyebrow">Where we are</div>
+<h2>Summary</h2>
+<p>A container's filesystem is a union: OverlayFS stacks the image's read-only layers (<code class="inl">lowerdir</code>, colon-separated, searched top-down) under a single writable <code class="inl">upperdir</code>, with a hidden <code class="inl">workdir</code> for atomic operations, and presents the result as <code class="inl">merged</code> — the container's root. containerd's overlay snapshotter builds exactly this mount. Reads resolve to the first layer that has the file, so upper shadows lower; writes to a lower-layer file trigger <strong>copy_up</strong>, duplicating the whole file into the upperdir before editing (cheap sharing, but an expensive first write on large files); and deletes are <strong>whiteouts</strong> — character devices numbered 0/0 that hide a lower file without erasing it. Those three behaviors — union reads, copy-up writes, whiteout deletes — are the entire physics of container storage, and they set up everything ahead: next, the landscape of snapshotters and storage drivers that manage these layers, and then, in Lesson 17, what an image layer physically <em>is</em> as bytes on disk — where whiteouts reappear as tar entries.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>forward →</b> Lesson 16 · Snapshotters &amp; storage drivers</span>
+  <span class="xref"><b>forward →</b> Lesson 17 · What a layer physically is</span>
+  <span class="xref"><b>forward →</b> Lesson 31 · Layer caching &amp; hygiene</span>
+  <span class="xref"><b>forward →</b> Lesson 32 · Volumes &amp; bind mounts</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">14 · OCI lifecycle &amp; hooks</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">16 · Snapshotters &amp; storage drivers</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

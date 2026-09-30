@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 10 · cgroups v2</title>
+<style>
+  :root{
+    --ink:#0e1116; --panel:#161b22; --well:#0a0d12;
+    --bone:#e9e4d7; --dim:#9aa4b2; --faint:#6b7482;
+    --rule:#262d38;
+    --gold:#e0b155; --gold-dim:#7a6636;
+    --teal:#5ac4b4; --teal-dim:#2f5f59;
+    --rose:#d76d7f; --rose-dim:#6e3540;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter",Georgia,Cambria,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--ink); color:var(--bone); font-family:var(--serif); font-size:18px; line-height:1.68; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px 120px}
+
+  header.top{border-bottom:1px solid var(--rule); margin-bottom:44px; padding:34px 0 26px;}
+  .course-tag{font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);}
+  .lesson-no{font-family:var(--mono); font-size:64px; line-height:1; font-weight:600; color:var(--gold); margin:14px 0 6px; letter-spacing:-.02em;}
+  h1{font-family:var(--mono); font-weight:600; font-size:26px; line-height:1.2; margin:0 0 14px; color:var(--bone); letter-spacing:-.01em;}
+  .dek{color:var(--dim); font-size:18px; margin:0; max-width:62ch}
+
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--teal); margin:52px 0 4px; display:flex; align-items:center; gap:10px;}
+  .eyebrow::before{content:""; width:16px; height:1px; background:var(--teal); opacity:.6}
+  h2{font-family:var(--mono); font-weight:600; font-size:22px; margin:6px 0 18px; color:var(--bone); letter-spacing:-.01em;}
+  p{margin:0 0 18px}
+  strong{color:#fff; font-weight:600}
+  em{color:var(--bone)}
+  code.inl{font-family:var(--mono); font-size:.86em; background:var(--well); border:1px solid var(--rule); border-radius:4px; padding:1px 6px; color:var(--gold);}
+
+  .step{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); background:var(--gold); display:inline-block; padding:3px 9px; border-radius:3px; margin:38px 0 10px; font-weight:600;}
+  .step.verify{background:var(--teal)}
+
+  figure.src{margin:14px 0 8px; border:1px solid var(--gold-dim); border-radius:8px; overflow:hidden; background:var(--well)}
+  figure.src .tab{font-family:var(--mono); font-size:12px; color:var(--gold); background:linear-gradient(180deg,#1c1a12,#141109); border-bottom:1px solid var(--gold-dim); padding:8px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  figure.src .tab .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none}
+  figure.src .tab .path{overflow-wrap:anywhere}
+  figure.src .tab .repo{color:var(--faint); margin-left:auto; font-size:11px}
+  figure.src pre{margin:0; padding:16px 16px; overflow-x:auto}
+  pre,code{font-family:var(--mono)}
+  pre{font-size:13px; line-height:1.6; color:#d7d2c4}
+  pre .kw{color:var(--rose)} pre .fn{color:var(--teal)} pre .cmt{color:var(--faint); font-style:italic}
+  pre .str{color:var(--gold)} pre .field{color:var(--gold)}
+  .keyline{background:rgba(224,177,81,.10); border-left:2px solid var(--gold); display:block; padding-left:8px; margin-left:-10px}
+
+  figure.inspect{margin:14px 0; border:1px solid var(--teal-dim); border-radius:8px; overflow:hidden; background:#07110f}
+  figure.inspect .tab{font-family:var(--mono); font-size:12px; color:var(--teal); background:#0a1614; border-bottom:1px solid var(--teal-dim); padding:8px 14px;}
+  figure.inspect pre{padding:14px 16px; color:#bfe6df; font-size:13px}
+  figure.inspect pre .p{color:var(--teal); user-select:none}
+  figure.inspect pre .o{color:var(--dim)}
+  figure.inspect pre .hl{color:#fff;background:rgba(90,196,180,.18)}
+
+  .keybox{border-left:2px solid var(--gold); padding:2px 0 2px 16px; margin:16px 0}
+  .keybox .h{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:6px}
+  .keybox p{margin:0 0 10px}.keybox p:last-child{margin:0}
+
+  aside.correction{border:1px solid var(--rose-dim); background:linear-gradient(180deg,#1a1013,#140c0f); border-radius:8px; padding:18px 20px; margin:26px 0;}
+  aside.correction .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--rose); display:block; margin-bottom:8px;}
+  aside.correction p:last-child{margin-bottom:0}
+
+  aside.note{border-left:3px solid var(--teal); background:var(--panel); border-radius:0 8px 8px 0; padding:14px 18px; margin:22px 0; color:var(--dim); font-size:16.5px;}
+  aside.note b{color:var(--teal); font-weight:600}
+
+  table.rn{width:100%; border-collapse:collapse; margin:20px 0; font-size:14.5px}
+  table.rn th,table.rn td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--rule); vertical-align:top}
+  table.rn th{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint)}
+  table.rn td{font-family:var(--mono); font-size:12.5px}
+  table.rn td.v1{color:var(--dim)} table.rn td.v2{color:var(--gold)} table.rn td.note2{font-family:var(--serif); color:var(--dim); font-size:15px}
+
+  .xrefs{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0}
+  .xref{font-family:var(--mono); font-size:12px; color:var(--teal); border:1px solid var(--teal-dim); border-radius:20px; padding:4px 12px; background:#0a1614;}
+  .xref b{color:var(--faint); font-weight:400; margin-right:6px}
+
+  footer.nav{border-top:1px solid var(--rule); margin-top:70px; padding-top:26px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  footer.nav .card{font-family:var(--mono); font-size:13px}
+  footer.nav .card .k{color:var(--faint); font-size:11px; letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:5px}
+  footer.nav .card.next{text-align:right; margin-left:auto}
+  footer.nav .card .ti{color:var(--bone)}
+
+  .lead{font-size:20px; line-height:1.6; color:var(--bone)}
+  hr.soft{border:0; border-top:1px solid var(--rule); margin:40px 0}
+
+  .tree{font-family:var(--mono); font-size:12.5px; line-height:1.7; color:var(--dim); background:var(--panel); border:1px solid var(--rule); border-radius:8px; padding:18px 20px; margin:22px 0; overflow-x:auto}
+  .tree .h{color:var(--gold)} .tree .c{color:var(--faint)} .tree .f{color:var(--teal)}
+
+  @media(prefers-reduced-motion:no-preference){
+    .wrap>*{animation:rise .5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-09-cgroups-v1.html">← Lesson 09</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-11-capabilities.html">Lesson 11 →</a></span></nav>
+<div class="wrap">
+
+<header class="top">
+  <div class="course-tag">Docker, From the Source · Part II — Kernel primitives</div>
+  <div class="lesson-no">10</div>
+  <h1>cgroups v2: one tree to rule them all</h1>
+  <p class="dek">v1 gave each controller its own separate tree, and that fragmentation caused real problems. v2 collapses them into a single unified hierarchy — which forces two new rules (explicit controller enabling, no processes in inner nodes) and renames the files. Same enforcement, cleaner design.</p>
+</header>
+
+<p class="lead">Lesson 9 ended on v1's defining awkwardness: every controller is its own tree, so a process is enrolled into each one separately and there's no single "the container's cgroup." cgroups v2 is the redesign that fixes this by merging everything into <strong>one</strong> hierarchy. That one change ripples out into everything else about v2 — how you turn controllers on, where processes are allowed to live, and even the file names. We'll take those in order, then look at the practical question of <em>who</em> owns the tree: the cgroupfs-vs-systemd driver choice.</p>
+
+<aside class="note"><b>Same source, same enforcement.</b> The controllers and their behavior (memory kills, cpu throttles, pids refuses) are exactly as in Lesson 9 — v2 doesn't change <em>what</em> a limit does, only the interface. So this lesson focuses on the structural changes. Source is again the <code class="inl">opencontainers/cgroups</code> module's <code class="inl">fs2/</code> package (the "2" is v2).</p></aside>
+
+<div class="eyebrow">The intuition</div>
+<h2>Why merge the trees?</h2>
+
+<p>v1's separate-tree design let a process sit in the <code class="inl">cpu</code> controller's "group A" but the <code class="inl">memory</code> controller's "group B" — the groupings didn't have to agree. Three problems followed. There was no coherent notion of "this container's cgroup," only a scattered set of memberships. Controllers couldn't <em>cooperate</em> — memory pressure logic and I/O throttling live in different trees and can't easily coordinate. And safely handing a subtree to an unprivileged user (delegation) was basically impossible to reason about across N independent hierarchies.</p>
+
+<p>v2's answer is blunt and effective: there is <strong>one</strong> tree. Every controller operates on the same set of cgroups. A cgroup is a single directory that carries <em>all</em> of its controllers' files side by side — <code class="inl">memory.max</code>, <code class="inl">cpu.max</code>, and <code class="inl">pids.max</code> in the same folder — and a process belongs to exactly one cgroup, period. That coherence is the whole point; the new rules below exist to make a single shared tree behave sanely.</p>
+
+<div class="eyebrow">Mechanism 1</div>
+<h2>One mount, one <code style="font-size:.85em">cgroup.procs</code> for all controllers</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>v2 is a single filesystem mounted once at <code class="inl">/sys/fs/cgroup</code> — no per-controller subdirectories at the top. Placement still works by writing a PID into <code class="inl">cgroup.procs</code>, but now that <em>one</em> write enrolls the process under every controller enabled for that cgroup at once. Contrast v1, where the same PID had to be written into the <code class="inl">cgroup.procs</code> of the cpu tree, the memory tree, the pids tree, separately.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">fs2/defaultpath.go</span><span class="repo">opencontainers/cgroups</span></div>
+<pre><span class="keyline">const UnifiedMountpoint = <span class="str">"/sys/fs/cgroup"</span>   // the ONE mount — no /cpu, /memory subdirs</span></pre>
+</figure>
+
+<div class="tree">
+<span class="c"># v1 was: /sys/fs/cgroup/{cpu,memory,pids,...}/docker/&lt;id&gt;/  (N trees)</span>
+<span class="c"># v2 is one tree; a single cgroup dir holds every controller's files:</span>
+/sys/fs/cgroup/  …/docker-&lt;id&gt;.scope/
+   ├── <span class="f">cgroup.procs</span>        <span class="c"># one write enrolls in ALL enabled controllers</span>
+   ├── <span class="h">memory.max</span>          <span class="c"># memory limit</span>
+   ├── <span class="h">cpu.max</span>             <span class="c"># cpu limit (quota + period, together)</span>
+   ├── <span class="h">pids.max</span>            <span class="c"># pid limit</span>
+   └── <span class="h">io.max  cpu.weight  …</span>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 2</div>
+<h2>Turning controllers on: <code style="font-size:.8em">cgroup.subtree_control</code></h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>With a single tree, a new question appears: at any given cgroup, which controllers are even active for its children? v2 answers with two files. <code class="inl">cgroup.controllers</code> (read-only) lists the controllers <em>available</em> in this cgroup. <code class="inl">cgroup.subtree_control</code> (writable) lists the controllers <em>enabled for child cgroups</em> — you turn one on by writing <code class="inl">+cpu</code>, off by writing <code class="inl">-cpu</code>. A controller is only usable in a child if every ancestor down to it has enabled that controller in its <code class="inl">subtree_control</code>. So creating a container's cgroup means walking down from the root, enabling the controllers you need at each level.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">fs2/create.go — enabling controllers down the path</span><span class="repo">opencontainers/cgroups</span></div>
+<pre>content, _ := cgroups.ReadFile(..., <span class="str">"cgroup.controllers"</span>)   <span class="cmt">// what's available here</span>
+ctrs := strings.Fields(content)
+<span class="keyline">res := <span class="str">"+"</span> + strings.Join(ctrs, <span class="str">" +"</span>)                       // build "+cpu +memory +pids +io"</span>
+...
+<span class="keyline">cgroups.WriteFile(current, <span class="str">"cgroup.subtree_control"</span>, res)      // enable them for children</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p><code class="inl">res</code> becomes the string <code class="inl">"+cpu +memory +pids +io"</code>, and writing it into <code class="inl">cgroup.subtree_control</code> is what "lights up" those controllers one level down. This explicit propagation is the price of a single tree: in v1 a controller was globally on because it had its own hierarchy; in v2 you must switch it on along the path. It's also the foundation of <em>delegation</em> — a parent grants a child exactly the controllers it wrote into <code class="inl">subtree_control</code>, and no more.</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 3</div>
+<h2>The rule that surprises everyone: no processes in inner nodes</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>Here's a constraint v1 never had. In v2, a cgroup that has controllers enabled for its children <em>may not itself directly contain processes</em> — only the root cgroup is exempt. Processes live only in <strong>leaf</strong> cgroups. Why? Imagine a cgroup that holds some loose processes <em>and</em> several child cgroups, all under the memory controller. The controller would have to decide how to split memory between the loose processes and the child groups — an ambiguous, policy-laden question. v2 removes the ambiguity by fiat: a cgroup is either a place processes live <em>or</em> a place that distributes resources to children, never both. This is the "no internal processes" rule, and it's exactly why runc's creation code has to fuss over cgroup "types" (domain/threaded):</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">fs2/create.go — handling an inner cgroup with processes in it</span><span class="repo">opencontainers/cgroups</span></div>
+<pre><span class="cmt">// If the cgroup is in an invalid mode (usually this means there's an internal
+// process in the cgroup tree, because we created a cgroup under an
+// already-populated-by-other-processes cgroup) ...</span>
+case <span class="str">"domain invalid"</span>:
+<span class="keyline">    if containsDomainController(c.Resources) {</span>
+<span class="keyline">        return fmt.Errorf("cannot enter cgroupv2 %q with domain controllers -- invalid state", current)</span>
+    }</pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>The <code class="inl">"domain invalid"</code> state is the kernel telling runc "this cgroup has a process directly in it, so I won't let you enable resource controllers on its children." The whole switch exists to detect and cope with that. The practical takeaway for you: in v2, your container's processes sit in a leaf cgroup (e.g. <code class="inl">docker-&lt;id&gt;.scope</code>), and the parent slices above it hold no processes of their own — they only apportion resources downward.</p>
+</div>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 4</div>
+<h2>The files got renamed (and cpu got simpler)</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>The controllers do the same things as Lesson 9, but v2 cleaned up their interface. Most notable: the two CPU throttle files became <em>one</em>. In v1 you wrote quota and period into separate files; in v2 you write both into a single file <code class="inl">cpu.max</code> as <code class="inl">"quota period"</code> — for example <code class="inl">"50000 100000"</code> for half a CPU, or <code class="inl">"max 100000"</code> for uncapped.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">fs2/cpu.go — cpu.max = "quota period"</span><span class="repo">opencontainers/cgroups</span></div>
+<pre>str := <span class="str">"max"</span>                              <span class="cmt">// quota, or "max" if uncapped</span>
+if r.CpuQuota &gt; 0 { str = strconv.FormatInt(r.CpuQuota, 10) }
+period := r.CpuPeriod; if period == 0 { period = 100000 }
+<span class="keyline">str += <span class="str">" "</span> + strconv.FormatUint(period, 10)   // "50000 100000"</span>
+<span class="keyline">cgroups.WriteFile(dirPath, <span class="str">"cpu.max"</span>, str)      // one file, both numbers</span></pre>
+</figure>
+
+<table class="rn">
+  <tr><th>v1 file</th><th>v2 file</th><th>meaning (enforcement unchanged)</th></tr>
+  <tr><td class="v1">memory.limit_in_bytes</td><td class="v2">memory.max</td><td class="note2">hard memory cap → cgroup OOM kill</td></tr>
+  <tr><td class="v1">— (soft)</td><td class="v2">memory.low</td><td class="note2">soft/protected memory (reservation)</td></tr>
+  <tr><td class="v1">cpu.cfs_quota_us + cpu.cfs_period_us</td><td class="v2">cpu.max</td><td class="note2"><code class="inl">"quota period"</code> in one file → throttle</td></tr>
+  <tr><td class="v1">cpu.shares</td><td class="v2">cpu.weight</td><td class="note2">proportional weight under contention</td></tr>
+  <tr><td class="v1">pids.max</td><td class="v2">pids.max</td><td class="note2">unchanged → fork refused with EAGAIN</td></tr>
+</table>
+
+<hr class="soft">
+
+<div class="eyebrow">Mechanism 5</div>
+<h2>Who owns the tree: <code style="font-size:.8em">cgroupfs</code> vs <code style="font-size:.8em">systemd</code> driver</h2>
+
+<span class="step">Step 1 · Explain</span>
+<p>One more decision, and it's a source of real-world breakage if you get it wrong. Something has to actually create the container's cgroup directory and write its limits. There are two "drivers" for doing that. The <strong>cgroupfs</strong> driver: runc writes the cgroup files directly — <code class="inl">mkdir</code> the directory, <code class="inl">echo</code> the limits, as we've seen. Simple. But on a host running systemd, systemd <em>also</em> considers itself the manager of the cgroup tree, and will periodically reorganize or clean up cgroups it doesn't know about — potentially yanking the rug from under Docker. Two managers, one tree, conflict.</p>
+<p>The <strong>systemd</strong> driver avoids the fight by not touching the files at all. Instead, runc asks systemd — over its D-Bus API — to create a <em>transient unit</em> (a "scope") for the container. systemd creates and owns the cgroup, and translates unit properties like <code class="inl">MemoryMax</code> and <code class="inl">CPUQuota</code> into the very same cgroup files. systemd stays the single source of truth for the tree.</p>
+
+<span class="step">Step 2 · The source</span>
+<figure class="src">
+  <div class="tab"><span class="dot"></span><span class="path">systemd/common.go &nbsp;+&nbsp; systemd/v2.go</span><span class="repo">opencontainers/cgroups</span></div>
+<pre><span class="cmt">// systemd driver: ask systemd (via D-Bus) to make the cgroup, don't write files</span>
+<span class="keyline">c.StartTransientUnitContext(ctx, unitName, "replace", properties, statusChan)</span>
+...
+<span class="cmt">// runc's limits become systemd unit properties, which systemd maps back to v2 files:</span>
+<span class="keyline">"memory.max": "MemoryMax"     newProp("TasksMax", num)     newProp("CPUWeight", num)</span></pre>
+</figure>
+
+<div class="keybox">
+  <div class="h">The part that does the job</div>
+  <p>Both drivers end at the same cgroup files — the difference is <em>who writes them</em>. <code class="inl">cgroupfs</code>: runc, directly. <code class="inl">systemd</code>: systemd, on runc's request via <code class="inl">StartTransientUnit</code>, so there's one owner. Docker's setting is <code class="inl">native.cgroupdriver=systemd</code> (vs <code class="inl">cgroupfs</code>) in <code class="inl">/etc/docker/daemon.json</code>. The rule of thumb: on a systemd host, use the systemd driver — and in Kubernetes it <em>must</em> match the kubelet's driver, or the two disagree about the tree and containers fail to start. This is why <code class="inl">docker-&lt;id&gt;.scope</code> and <code class="inl">system.slice</code> appear in the v2 paths: those are systemd unit names.</p>
+</div>
+
+<span class="step verify">Step 4 · Inspect it yourself</span>
+<p>Confirm you're on v2, find your driver, and read a container's unified cgroup — one directory with every limit in it:</p>
+<figure class="inspect">
+  <div class="tab">host shell &nbsp;(v2 host)</div>
+<pre><span class="p">$</span> stat -fc %T /sys/fs/cgroup
+<span class="o"><span class="hl">cgroup2fs</span></span>                       <span class="o"># v2 (a v1 host says "tmpfs")</span>
+
+<span class="p">$</span> docker info | grep -i cgroup
+<span class="o">Cgroup Driver: <span class="hl">systemd</span></span>
+<span class="o">Cgroup Version: <span class="hl">2</span></span>
+
+<span class="p">$</span> cat /sys/fs/cgroup/cgroup.subtree_control
+<span class="o">cpuset cpu io memory pids</span>       <span class="o"># controllers enabled for children (Mechanism 2)</span>
+
+<span class="p">$</span> docker run -d --name c --cpus 0.5 -m 64m alpine sleep 999
+<span class="p">$</span> cg=/sys/fs/cgroup/system.slice/docker-$(docker inspect -f '{{.Id}}' c).scope
+<span class="p">$</span> cat $cg/cpu.max $cg/memory.max
+<span class="o"><span class="hl">50000 100000</span></span>                    <span class="o"># quota + period in ONE file → 0.5 CPU</span>
+<span class="o"><span class="hl">67108864</span></span>                        <span class="o"># 64 MiB → memory.max, same directory</span></pre>
+</figure>
+
+<hr class="soft">
+
+<aside class="correction">
+  <span class="lbl">Where this corrects the familiar version</span>
+  <p>People often think "cgroups v2 is just v1 with renamed files." The renames are the least of it. The substance is structural: <em>one</em> hierarchy instead of many, controllers that must be <em>explicitly enabled</em> down the tree via <code class="inl">subtree_control</code>, and the hard <em>no-internal-processes</em> rule that forces your processes into leaf cgroups. Those constraints are why v2 can do coherent, delegatable resource control that v1 couldn't. And the driver choice is not cosmetic: mismatching <code class="inl">cgroupfs</code>/<code class="inl">systemd</code> between Docker and systemd (or kubelet) is a classic cause of containers that won't start or limits that silently don't stick.</p>
+</aside>
+
+<div class="eyebrow">Where we are</div>
+<h2>Summary</h2>
+<p>cgroups v2 replaces v1's many per-controller trees with a <strong>single unified hierarchy</strong> mounted at <code class="inl">/sys/fs/cgroup</code>, where each cgroup directory carries all its controllers' files and one write to <code class="inl">cgroup.procs</code> enrolls a process everywhere at once. The single tree brings two new rules: controllers must be turned on for children by writing <code class="inl">+cpu +memory …</code> into <code class="inl">cgroup.subtree_control</code>, and only <strong>leaf</strong> cgroups may hold processes (the "no internal processes" rule, visible in runc's domain/threaded handling). The controllers behave exactly as in Lesson 9; only the files changed — most notably <code class="inl">cpu.max</code> now holds <code class="inl">"quota period"</code> together, and <code class="inl">memory.limit_in_bytes</code> became <code class="inl">memory.max</code>. Finally, the <code class="inl">cgroupfs</code>-vs-<code class="inl">systemd</code> driver decides <em>who</em> writes those files — runc directly, or systemd via a transient unit over D-Bus — and on systemd hosts the systemd driver keeps a single owner of the tree. That completes the resource-limit primitives. Next, Part II's last strand: the security primitives — starting with capabilities.</p>
+
+<div class="xrefs">
+  <span class="xref"><b>back ←</b> Lesson 09 · cgroups v1 &amp; enforcement styles</span>
+  <span class="xref"><b>forward →</b> Lesson 11 · Capabilities</span>
+  <span class="xref"><b>forward →</b> Lesson 37 · Resource limits in production</span>
+</div>
+
+<footer class="nav">
+  <div class="card prev">
+    <span class="k">← Previous</span>
+    <span class="ti">09 · cgroups v1</span>
+  </div>
+  <div class="card next">
+    <span class="k">Next →</span>
+    <span class="ti">11 · Capabilities</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

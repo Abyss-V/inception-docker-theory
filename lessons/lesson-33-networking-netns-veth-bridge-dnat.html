@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lesson 33 · Networking I: depth + diagrams rebuild</title>
+<style>
+:root{
+  --ink:#0e1116;--panel:#161b22;--well:#0a0d12;--bone:#e9e4d7;
+  --dim:#9aa4b2;--faint:#6b7482;--rule:#262d38;
+  --gold:#e0b155;--gold-dim:#7a6636;--teal:#5ac4b4;--teal-dim:#2f5f59;
+  --rose:#d76d7f;--rose-dim:#6e3540;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  --serif:"Iowan Old Style",Charter,Georgia,Cambria,serif;
+}
+*{box-sizing:border-box} html{scroll-behavior:smooth}
+body{margin:0;background:var(--ink);color:var(--bone);font-family:var(--serif);font-size:18px;line-height:1.72;-webkit-font-smoothing:antialiased}
+.wrap{max-width:790px;margin:0 auto;padding:0 24px 120px}
+header.top{border-bottom:1px solid var(--rule);margin-bottom:36px;padding:34px 0 27px}
+.course-tag{font-family:var(--mono);font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--faint)}
+.lesson-no{font-family:var(--mono);font-size:64px;line-height:1;font-weight:600;color:var(--gold);margin:14px 0 6px}
+.pill{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);border:1px solid var(--teal-dim);border-radius:20px;padding:3px 10px;margin-bottom:14px}
+.pill.clarity{color:var(--gold);border-color:var(--gold-dim);margin-left:6px}
+h1{font-family:var(--mono);font-size:27px;line-height:1.2;margin:0 0 14px;color:var(--bone)}
+.dek{color:var(--dim);font-size:18px;margin:0;max-width:68ch}
+p{margin:0 0 18px} strong{color:#fff;font-weight:600}
+code.inl{font-family:var(--mono);font-size:.86em;background:var(--well);border:1px solid var(--rule);border-radius:4px;padding:1px 6px;color:var(--gold)}
+.srcref{font-family:var(--mono);font-size:.79em;color:var(--gold);background:rgba(224,177,81,.08);border:1px solid var(--gold-dim);border-radius:4px;padding:1px 6px}
+.oneline{border:1px solid var(--teal-dim);background:linear-gradient(180deg,#0b1615,#0a1210);border-radius:10px;padding:18px 20px;margin:30px 0 18px}
+.oneline .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);display:block;margin-bottom:8px}
+.oneline p{margin:0;font-size:20px;line-height:1.5;color:#fff}
+.plain{color:var(--dim);font-size:16.5px;border-left:2px solid var(--rule);padding-left:14px;margin:0 0 20px}.plain b{color:var(--teal)}
+.concept{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:50px 0 4px;display:flex;align-items:center;gap:10px}
+.concept .num{width:25px;height:25px;border-radius:50%;border:1px solid var(--teal-dim);display:flex;align-items:center;justify-content:center;flex:none}
+h2{font-family:var(--mono);font-weight:600;font-size:21px;margin:8px 0 16px;color:var(--bone)}
+h3{font-family:var(--mono);font-size:15px;color:#fff;margin:25px 0 10px}
+.terminal{margin:16px 0 22px;border:1px solid var(--teal-dim);border-radius:8px;overflow:hidden;background:#07110f}
+.terminal .tab{font-family:var(--mono);font-size:12px;color:var(--teal);background:#0a1614;border-bottom:1px solid var(--teal-dim);padding:8px 14px}
+.terminal pre{margin:0;padding:15px 17px;color:#c5e8e1;font-family:var(--mono);font-size:13px;line-height:1.62;overflow-x:auto;white-space:pre}
+.keybox{border-left:2px solid var(--gold);padding:2px 0 2px 16px;margin:21px 0}.keybox .h{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}.keybox p{margin:0}
+aside.note{border-left:3px solid var(--teal);background:var(--panel);border-radius:0 8px 8px 0;padding:14px 18px;margin:22px 0;color:var(--dim);font-size:16.5px}aside.note b{color:var(--teal)}
+aside.correction{border:1px solid var(--rose-dim);background:linear-gradient(180deg,#1a1013,#140c0f);border-radius:8px;padding:18px 20px;margin:26px 0}aside.correction .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:var(--rose);display:block;margin-bottom:8px}aside.correction p:last-child{margin-bottom:0}
+.compare{width:100%;border-collapse:collapse;margin:19px 0 27px;font-size:15.5px}.compare th{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);text-align:left;border-bottom:1px solid var(--rule);padding:9px 10px}.compare td{vertical-align:top;border-bottom:1px solid var(--rule);padding:11px 10px;color:var(--dim)}.compare td:first-child{font-family:var(--mono);color:var(--gold)}
+.flow{display:grid;gap:9px;margin:22px 0}.flow .row{display:grid;grid-template-columns:34px 1fr;gap:12px;border:1px solid var(--rule);background:var(--panel);border-radius:8px;padding:13px 15px}.flow .n{font-family:var(--mono);width:26px;height:26px;border:1px solid var(--teal-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--teal);font-size:11px}.flow .t{font-family:var(--mono);font-size:13px;color:#fff;margin-bottom:3px}.flow .d{color:var(--dim);font-size:15px;line-height:1.52}
+.packetline{font-family:var(--mono);font-size:14px;color:#fff;background:var(--well);border:1px solid var(--rule);border-radius:6px;padding:10px 12px;margin:10px 0;overflow-x:auto;white-space:nowrap}
+.checkpoint{border:1px solid var(--teal-dim);border-radius:9px;background:#091412;padding:18px 20px;margin:32px 0}.checkpoint .h{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--teal);margin-bottom:8px}.checkpoint p{margin:0;color:#fff}
+.recap{border:1px solid var(--teal-dim);border-radius:10px;background:#0a1210;padding:20px 22px;margin:31px 0}.recap h3{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 13px}.recap ul{margin:0;padding-left:20px}.recap li{margin:0 0 10px}.recap li:last-child{margin:0}
+details.sources{border:1px solid var(--gold-dim);border-radius:9px;background:#15130d;margin:28px 0}details.sources summary{cursor:pointer;padding:15px 18px;font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}details.sources .inside{padding:0 20px 18px;color:var(--dim);font-size:15px}details.sources ul{margin:0;padding-left:20px}details.sources li{margin:0 0 10px}details.sources a{color:var(--gold);text-decoration-color:var(--gold-dim);text-underline-offset:2px}
+.xrefs{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}.xref{font-family:var(--mono);font-size:12px;color:var(--teal);border:1px solid var(--teal-dim);border-radius:20px;padding:4px 12px;background:#0a1614}.xref b{color:var(--faint);font-weight:400;margin-right:6px}
+footer.nav{border-top:1px solid var(--rule);margin-top:60px;padding-top:26px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}.navcard{font-family:var(--mono);font-size:13px}.navcard .k{display:block;color:var(--faint);font-size:11px;letter-spacing:.15em;text-transform:uppercase;margin-bottom:5px}.navcard.next{text-align:right;margin-left:auto}.navcard .ti{color:var(--bone)}
+
+/* Small mechanism diagrams: deliberately simple and readable. */
+.mech{border:1px solid var(--rule);background:var(--well);border-radius:12px;padding:18px;margin:24px 0}.mech .mtitle{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);margin-bottom:15px}.mech .caption{font-size:15px;color:var(--dim);margin:14px 2px 0}.track{position:relative;display:flex;align-items:stretch;gap:28px;min-width:630px;padding:8px 4px 12px}.track-wrap{overflow-x:auto}.node{position:relative;z-index:2;flex:1;min-width:130px;border:1px solid var(--rule);background:var(--panel);border-radius:9px;padding:12px 10px;text-align:center}.node.teal{border-color:var(--teal-dim);background:#0a1614}.node.gold{border-color:var(--gold-dim);background:#17140d}.node.rose{border-color:var(--rose-dim);background:#181013}.node .n1{font-family:var(--mono);font-size:12px;color:#fff}.node .n2{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:4px}.arrow{position:absolute;z-index:1;top:50%;left:12%;right:12%;height:1px;background:var(--rule)}.arrow:after{content:"";position:absolute;right:-2px;top:-4px;border-left:7px solid var(--dim);border-top:4px solid transparent;border-bottom:4px solid transparent}.dot{position:absolute;z-index:4;top:calc(50% - 5px);left:11%;width:10px;height:10px;border-radius:50%;background:var(--teal);box-shadow:0 0 12px rgba(90,196,180,.7);animation:packet 5.2s linear infinite}.dot.return{background:var(--gold);box-shadow:0 0 12px rgba(224,177,81,.7);animation-name:returnPacket;animation-delay:2.6s}.rewrite{font-family:var(--mono);font-size:12px;color:#fff;border-left:2px solid var(--gold);padding:9px 12px;background:#121008;margin:14px 0 0}.rewrite .before{color:var(--dim)}.rewrite .after{color:var(--gold)}
+@keyframes packet{0%,8%{left:11%;opacity:0}12%{opacity:1}82%{left:87%;opacity:1}88%,100%{left:87%;opacity:0}}
+@keyframes returnPacket{0%,8%{left:87%;opacity:0}12%{opacity:1}82%{left:11%;opacity:1}88%,100%{left:11%;opacity:0}}
+.two-case{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}.case{border:1px solid var(--rule);border-radius:9px;background:var(--panel);padding:15px}.case.bad{border-color:var(--rose-dim)}.case.good{border-color:var(--teal-dim)}.case .label{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px}.case.bad .label{color:var(--rose)}.case.good .label{color:var(--teal)}.case p{font-size:15.5px;color:var(--dim);margin:0}.case code{font-family:var(--mono);font-size:12px;color:#fff}
+.layer-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:20px 0}.layer-strip .cell{border:1px solid var(--rule);border-radius:8px;background:var(--panel);padding:12px}.layer-strip .term{font-family:var(--mono);font-size:12px;color:var(--gold);margin-bottom:5px}.layer-strip p{font-size:14.5px;color:var(--dim);line-height:1.45;margin:0}
+@media(prefers-reduced-motion:reduce){.dot{animation:none;display:none}}
+@media(max-width:700px){.two-case{grid-template-columns:1fr}.layer-strip{grid-template-columns:1fr 1fr}.track{min-width:590px}.flow .row{grid-template-columns:30px 1fr}}
+
+.actorbox{border:1px solid var(--teal-dim);background:#091412;border-radius:10px;padding:16px 18px;margin:20px 0}.actorbox .who{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:7px}.actorbox p{margin:0 0 8px;color:var(--dim);font-size:15.5px}.actorbox p:last-child{margin-bottom:0}.actorbox strong{color:#fff}.word{border:1px solid var(--gold-dim);background:#17140d;border-radius:8px;padding:14px 16px;margin:18px 0}.word .term{font-family:var(--mono);font-size:12px;color:var(--gold);margin-bottom:6px}.word p{font-size:15.5px;color:var(--dim);margin:0}.simple-path{margin:22px 0;border:1px solid var(--rule);background:var(--well);border-radius:11px;padding:18px;overflow-x:auto}.simple-path .path{display:flex;align-items:center;gap:10px;min-width:650px}.simple-path .box{position:relative;flex:1;border:1px solid var(--rule);border-radius:8px;background:var(--panel);padding:12px 10px;text-align:center;min-height:77px}.simple-path .box.teal{border-color:var(--teal-dim);background:#0a1614}.simple-path .box.gold{border-color:var(--gold-dim);background:#17140d}.simple-path .box .a{font-family:var(--mono);font-size:12px;color:#fff}.simple-path .box .b{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:5px;line-height:1.35}.simple-path .chev{font-family:var(--mono);color:var(--faint);font-size:18px;flex:none}.simple-path .under{margin-top:13px;color:var(--dim);font-size:14.5px}.packet-card{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}.packet-card .pc{border:1px solid var(--rule);background:var(--panel);border-radius:8px;padding:12px}.packet-card .pc .ph{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}.packet-card code{font-family:var(--mono);font-size:12px;color:#fff}.packet-card .changed{color:var(--gold)}.mini-anim{position:relative;margin:22px 0;border:1px solid var(--rule);background:var(--well);border-radius:11px;padding:18px;overflow-x:auto}.mini-anim .lane{position:relative;display:flex;gap:26px;align-items:center;min-width:660px;padding:7px 0 15px}.mini-anim .lane:before{content:"";position:absolute;left:8%;right:8%;top:50%;height:1px;background:var(--rule)}.mini-anim .stop{z-index:2;position:relative;flex:1;text-align:center;border:1px solid var(--rule);border-radius:8px;background:var(--panel);padding:11px 8px;min-height:67px}.mini-anim .stop b{display:block;font-family:var(--mono);font-size:11.5px;color:#fff}.mini-anim .stop span{display:block;font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:4px}.mini-anim .pulse{position:absolute;z-index:4;top:calc(50% - 4px);left:8%;width:9px;height:9px;border-radius:50%;background:var(--teal);box-shadow:0 0 10px rgba(90,196,180,.8);animation:foundationPacket 5.6s linear infinite}.mini-anim .caption{margin-top:8px;font-size:14.5px;color:var(--dim)}@keyframes foundationPacket{0%,7%{left:8%;opacity:0}12%{opacity:1}84%{left:90%;opacity:1}90%,100%{left:90%;opacity:0}}@media(max-width:650px){.packet-card{grid-template-columns:1fr}}
+
+/* Depth-plus-diagrams rebuild: every new networking term is defined before reuse. */
+.termset{border:1px solid var(--gold-dim);background:#14120d;border-radius:10px;padding:15px 17px;margin:18px 0 24px}
+.termset .label{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:10px}
+.termset dl{margin:0}.termset dt{font-family:var(--mono);font-size:13px;color:#fff;margin-top:10px}.termset dt:first-child{margin-top:0}.termset dd{margin:3px 0 0;color:var(--dim);font-size:15.5px;line-height:1.55}
+.actor{border-left:3px solid var(--teal);background:#0a1513;padding:13px 16px;margin:19px 0;border-radius:0 8px 8px 0}.actor p{margin:0 0 7px;color:var(--dim);font-size:16px}.actor p:last-child{margin-bottom:0}.actor .k{font-family:var(--mono);font-size:12px;color:var(--teal)}
+.secondread{border:1px solid var(--rule);background:var(--panel);border-radius:10px;padding:18px 20px;margin:22px 0}.secondread .label{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}.secondread p:last-child{margin-bottom:0}
+.packetbox{font-family:var(--mono);font-size:13px;line-height:1.6;background:var(--well);border:1px solid var(--rule);border-radius:8px;padding:13px 15px;margin:16px 0;overflow-x:auto;white-space:pre}
+.keyword{color:#fff;font-weight:600}.definition{color:var(--dim)}
+</style>
+<style>
+/* Diagram-first rebuild: every figure is standalone; prose follows below. */
+figure.drawn{margin:22px 0 20px;border:1px solid var(--rule);border-radius:12px;background:#090d12;padding:14px;overflow-x:auto}
+figure.drawn svg{display:block;width:100%;height:auto;min-width:650px}
+figure.drawn figcaption{font-family:var(--mono);font-size:12px;line-height:1.5;color:var(--faint);border-top:1px solid var(--rule);margin-top:10px;padding-top:10px}
+.svg-box{fill:#161b22;stroke:#343c49;stroke-width:1.4}.svg-box-teal{fill:#0a1614;stroke:#2f5f59;stroke-width:1.7}.svg-box-gold{fill:#17140d;stroke:#7a6636;stroke-width:1.7}.svg-box-rose{fill:#181013;stroke:#6e3540;stroke-width:1.7}.svg-box-blue{fill:#0b1320;stroke:#31465f;stroke-width:1.7}
+.svg-title{fill:#ffffff;font-family:var(--mono);font-size:15px;font-weight:600}.svg-label{fill:#c5cbd4;font-family:var(--mono);font-size:13px}.svg-small{fill:#8e98a6;font-family:var(--mono);font-size:11.5px}.svg-gold{fill:#e0b155}.svg-teal{fill:#5ac4b4}.svg-rose{fill:#d76d7f}.svg-line{stroke:#8e98a6;stroke-width:2.1;fill:none}.svg-line-teal{stroke:#5ac4b4;stroke-width:2.4;fill:none}.svg-line-gold{stroke:#e0b155;stroke-width:2.4;fill:none}.svg-line-rose{stroke:#d76d7f;stroke-width:2.4;fill:none}.svg-dash{stroke-dasharray:7 6}.svg-divider{stroke:#262d38;stroke-width:1.3}.svg-chip{fill:#0a0d12;stroke:#343c49;stroke-width:1.2}
+.explain{margin:0 0 18px}.explain strong{color:#fff}.who{border-left:2px solid var(--teal);padding:2px 0 2px 15px;margin:18px 0 22px}.who p{margin:0 0 7px}.who p:last-child{margin-bottom:0}.who .k{font-family:var(--mono);color:var(--teal);font-size:12px}.mechanism-term{font-family:var(--mono);color:var(--gold);font-weight:600}
+@media(max-width:700px){figure.drawn svg{min-width:610px}}
+</style>
+</head>
+<body><nav class="course-nav" style="max-width:1000px;margin:0 auto;padding:16px 24px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font:13px system-ui, sans-serif;border-bottom:1px solid #28313d"><a href="lesson-32-volumes-bind-mounts-tmpfs.html">← Lesson 32</a><a href="../index.html">All lessons</a><span style="text-align:right"><a href="lesson-34-networking-user-defined-bridges-dns-macvlan-ipvlan.html">Lesson 34 →</a></span></nav><div class="wrap">
+<header class="top">
+<div class="course-tag">Part V · Runtime concerns</div>
+<div class="lesson-no">33</div>
+<span class="pill">CORE</span><span class="pill clarity">DEPTH + DIAGRAMS REBUILD</span>
+<h1>Networking I: from a private netns to real packet flow</h1>
+<p class="dek">Same implementation depth as the deeper Lesson 33, but with a strict first-use rule: every new networking term is defined before the lesson relies on it, and each spatial or packet-flow mechanism gets its own drawn diagram.</p>
+</header>
+<div class="oneline"><span class="lbl">Governing idea</span><p><strong>dockerd prepares Linux networking objects and rules; the Linux kernel later moves every real packet through those objects.</strong> We will not use a networking term until its job is clear.</p></div>
+<p class="plain"><b>How to read this rebuild.</b> Each section starts with a drawn diagram. The prose comes underneath it. A gold <em>new words</em> box defines every term that is new to this lesson before the term is reused. Source-level implementation comes after the mechanism is understandable.</p>
+<div class="concept"><span class="num">1</span>Isolation comes before connectivity</div>
+<h2>A process can get a private networking world without getting any connection</h2>
+<div class="termset"><div class="label">New words before we continue</div><dl>
+<dt>network namespace (netns)</dt><dd>A Linux-kernel isolation boundary for networking state. A process uses the interfaces, addresses, routes and sockets belonging to the network namespace it is in.</dd>
+<dt>network stack</dt><dd>The kernel networking state and code used to send, receive, route and deliver network traffic. A netns gives that code a separate set of networking objects; it is not a separate kernel.</dd>
+<dt>interface</dt><dd>A kernel networking device through which traffic enters or leaves a network stack. An interface can be physical, such as a host Ethernet/Wi-Fi device, or virtual, such as a container's <code class="inl">eth0</code>.</dd>
+</dl></div><figure class="drawn"><svg aria-label="Docker networking mechanism diagram" role="img" viewbox="0 0 760 300" xmlns="http://www.w3.org/2000/svg"><defs>
+<marker id="arrow" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#8e98a6"></path></marker>
+<marker id="arrowT" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#5ac4b4"></path></marker>
+<marker id="arrowG" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#e0b155"></path></marker>
+<marker id="arrowR" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#d76d7f"></path></marker></defs>
+<rect class="svg-box-blue" height="205" rx="14" width="300" x="30" y="45"></rect><text class="svg-title" x="50" y="75">Host network namespace</text>
+<rect class="svg-chip" height="48" rx="8" width="115" x="60" y="100"></rect><text class="svg-label" x="82" y="130">host eth0</text>
+<rect class="svg-chip" height="48" rx="8" width="110" x="190" y="100"></rect><text class="svg-label" x="216" y="130">routes</text>
+<rect class="svg-chip" height="48" rx="8" width="115" x="60" y="165"></rect><text class="svg-label" x="92" y="195">sockets</text>
+<rect class="svg-chip" height="48" rx="8" width="110" x="190" y="165"></rect><text class="svg-label" x="215" y="195">ports</text>
+<rect class="svg-box-teal" height="205" rx="14" width="300" x="430" y="45"></rect><text class="svg-title" x="450" y="75">Container network namespace</text>
+<rect class="svg-chip" height="48" rx="8" width="115" x="460" y="100"></rect><text class="svg-label" x="492" y="130">loopback</text>
+<rect class="svg-chip" height="48" rx="8" width="110" x="590" y="100"></rect><text class="svg-label" x="616" y="130">routes</text>
+<rect class="svg-chip" height="48" rx="8" width="115" x="460" y="165"></rect><text class="svg-label" x="492" y="195">sockets</text>
+<rect class="svg-chip" height="48" rx="8" width="110" x="590" y="165"></rect><text class="svg-label" x="615" y="195">ports</text>
+<line class="svg-line-rose svg-dash" x1="350" x2="410" y1="65" y2="235"></line><line class="svg-line-rose svg-dash" x1="410" x2="350" y1="65" y2="235"></line><text class="svg-small svg-rose" x="352" y="275">no packet path yet</text>
+</svg><figcaption>A fresh netns gives a process a separate networking world. It does not automatically connect that world to the host.</figcaption></figure>
+<p>There is still only <strong>one Linux kernel</strong>. A process inside a container does not receive a private kernel. Instead, when that process makes a networking syscall, Linux evaluates it using the process's network namespace. That is why a container can see a different set of interfaces and routes from the host even though both are using the same kernel.</p>
+<p>A fresh netns answers one question only: <strong>which networking world does this process use?</strong> It does not automatically create a cable, a virtual interface, a bridge, an IP address, or a route to another namespace. A perfectly valid fresh netns may have only a loopback interface and no path to the host.</p>
+<div class="actor"><p><span class="k">Who creates the ordinary Docker private netns?</span> dockerd describes the desired namespace in the OCI runtime specification; runc asks the Linux kernel to create that namespace during task creation.</p><p><span class="k">Who makes it useful afterward?</span> dockerd's networking subsystem, libnetwork, configures connectivity around the runtime-created netns.</p></div>
+<p><span class="srcref">OCI Runtime Spec 1.3.0 · Linux namespaces</span> defines create-vs-join semantics. <span class="srcref">Moby 29.6.2 · daemon/oci_linux.go · WithNamespaces</span> chooses Docker's namespace intent.</p>
+<div class="concept"><span class="num">2</span>Place Docker's networking subsystem before naming it</div>
+<h2>Before packets move, place Docker's networking subsystem correctly</h2>
+<div class="termset"><div class="label">New words before we continue</div><dl>
+<dt>libnetwork</dt><dd>Moby's networking subsystem inside the <code class="inl">dockerd</code> process. It is Go code, not a separate daemon, not containerd, not runc, and not kernel code.</dd>
+<dt>Controller</dt><dd>libnetwork's top-level manager for Docker networks and networking drivers.</dd>
+<dt>Network</dt><dd>Docker's logical network object, for example the default bridge network. It is not itself the Linux bridge device.</dd>
+<dt>Endpoint</dt><dd>The logical attachment between one Docker network and one container networking environment.</dd>
+<dt>Sandbox</dt><dd>libnetwork's object representing the networking environment associated with a container. It refers to/configures the real OS networking namespace; it is not the netns itself.</dd>
+<dt>network driver</dt><dd>libnetwork code that knows how to realize a Docker Network using concrete Linux networking mechanisms. Lesson 33 follows the <strong>bridge driver</strong>.</dd>
+</dl></div><figure class="drawn"><svg aria-label="Docker networking mechanism diagram" role="img" viewbox="0 0 760 340" xmlns="http://www.w3.org/2000/svg"><defs>
+<marker id="arrow" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#8e98a6"></path></marker>
+<marker id="arrowT" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#5ac4b4"></path></marker>
+<marker id="arrowG" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#e0b155"></path></marker>
+<marker id="arrowR" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#d76d7f"></path></marker></defs>
+<text class="svg-title" x="30" y="35">Setup time</text>
+<rect class="svg-box-teal" height="70" rx="10" width="220" x="35" y="60"></rect><text class="svg-title" x="70" y="90">dockerd / libnetwork</text><text class="svg-small" x="60" y="114">decides + configures networking</text>
+<line class="svg-line-teal" marker-end="url(#arrowT)" x1="255" x2="355" y1="95" y2="95"></line>
+<rect class="svg-box" height="80" rx="10" width="350" x="365" y="55"></rect><text class="svg-title" x="390" y="85">Linux kernel networking state</text><text class="svg-small" x="390" y="110">veth · bridge · addresses · routes · NAT/filter rules</text>
+<line class="svg-divider" x1="30" x2="730" y1="165" y2="165"></line>
+<text class="svg-title" x="30" y="200">Packet time</text>
+<rect class="svg-box-gold" height="68" rx="10" width="180" x="35" y="225"></rect><text class="svg-title" x="72" y="254">container app</text><text class="svg-small" x="58" y="277">sends a real packet</text>
+<line class="svg-line-gold" marker-end="url(#arrowG)" x1="215" x2="340" y1="259" y2="259"></line>
+<rect class="svg-box-blue" height="88" rx="10" width="365" x="350" y="215"></rect><text class="svg-title" x="405" y="247">Linux kernel executes the path</text><text class="svg-small" x="382" y="272">route lookup · veth · bridge · netfilter · NIC transmit</text>
+</svg><figcaption>libnetwork is control-plane code inside dockerd. It prepares kernel networking state; the Linux kernel handles later packets.</figcaption></figure>
+<p>The most important distinction is <strong>configuration time versus packet time</strong>. During setup, dockerd calls libnetwork. Libnetwork and its bridge/firewall backends create or configure Linux networking objects and install rules. Later, when an application sends a real packet, the Linux kernel—not dockerd—performs route lookups, moves Ethernet frames, evaluates firewall/NAT rules, rewrites packet headers when required, and transmits the traffic.</p>
+<div class="actor"><p><span class="k">Configurer</span> dockerd + libnetwork.</p><p><span class="k">Executor for live packets</span> Linux kernel networking code.</p></div>
+<p><span class="srcref">Moby 29.6.2 · daemon/daemon.go · Daemon.netController</span> places the libnetwork controller inside dockerd; <span class="srcref">daemon/libnetwork/{controller,network,endpoint,sandbox}.go</span> define those logical objects.</p>
+<div class="concept"><span class="num">3</span>Build the connection topology</div>
+<h2>Which Linux objects connect the container's private networking world to the host?</h2>
+<div class="termset"><div class="label">New words before we continue</div><dl>
+<dt>veth pair</dt><dd>Two peer virtual Ethernet interfaces created by Linux. A frame transmitted into one peer appears as received traffic on the other. Putting the peers in different netns creates a virtual link across the namespace boundary.</dd>
+<dt>Linux bridge</dt><dd>A kernel Layer-2 switching device. Docker's legacy/default bridge network normally uses a bridge device named <code class="inl">docker0</code>.</dd>
+<dt>bridge port</dt><dd>An interface attached to a Linux bridge. The host-side peer of a container's veth pair becomes a bridge port.</dd>
+<dt>subnet</dt><dd>A range of IP addresses treated as one IP network. In our example <code class="inl">172.17.0.0/16</code> is the Docker subnet.</dd>
+<dt><code class="inl">/16</code> prefix</dt><dd>The first 16 bits identify the network portion of the IPv4 address. It tells Linux which destinations are considered directly reachable on that subnet.</dd>
+<dt>gateway</dt><dd>The next IP-speaking machine to which a host sends traffic when the final destination is outside its directly connected subnet. In this example the container uses <code class="inl">172.17.0.1</code>, an IP assigned to <code class="inl">docker0</code>.</dd>
+</dl></div><figure class="drawn"><svg aria-label="Docker networking mechanism diagram" role="img" viewbox="0 0 760 360" xmlns="http://www.w3.org/2000/svg"><defs>
+<marker id="arrow" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#8e98a6"></path></marker>
+<marker id="arrowT" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#5ac4b4"></path></marker>
+<marker id="arrowG" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#e0b155"></path></marker>
+<marker id="arrowR" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#d76d7f"></path></marker></defs>
+<rect class="svg-box-teal" height="260" rx="14" width="275" x="25" y="45"></rect><text class="svg-title" x="45" y="75">Container netns</text>
+<rect class="svg-box" height="72" rx="10" width="180" x="70" y="110"></rect><text class="svg-title" x="123" y="139">eth0</text><text class="svg-small" x="97" y="164">172.17.0.2/16</text>
+<rect class="svg-box-gold" height="54" rx="8" width="130" x="95" y="220"></rect><text class="svg-label" x="121" y="252">veth peer A</text>
+<line class="svg-line" marker-end="url(#arrow)" x1="160" x2="160" y1="182" y2="220"></line>
+<rect class="svg-box-blue" height="260" rx="14" width="380" x="355" y="45"></rect><text class="svg-title" x="375" y="75">Host netns</text>
+<rect class="svg-box-gold" height="54" rx="8" width="130" x="380" y="220"></rect><text class="svg-label" x="404" y="252">veth peer B</text>
+<line class="svg-line-gold" marker-end="url(#arrowG)" x1="225" x2="380" y1="247" y2="247"></line><text class="svg-small" x="267" y="233">veth pair</text>
+<rect class="svg-box-teal" height="80" rx="10" width="145" x="555" y="195"></rect><text class="svg-title" x="589" y="226">docker0</text><text class="svg-small" x="578" y="250">172.17.0.1</text>
+<line class="svg-line" marker-end="url(#arrow)" x1="510" x2="555" y1="247" y2="247"></line>
+<rect class="svg-box" height="60" rx="10" width="190" x="510" y="105"></rect><text class="svg-title" x="545" y="133">host IP stack</text><text class="svg-small" x="540" y="155">routing + packet hooks</text>
+<line class="svg-line" marker-end="url(#arrow)" x1="628" x2="628" y1="195" y2="165"></line>
+</svg><figcaption>Bridge-mode connectivity is built from distinct kernel objects: container eth0, a veth pair, docker0, and the host IP stack.</figcaption></figure>
+<p>Assume Docker gives container A <code class="inl">172.17.0.2/16</code>. Inside A's netns, the container-side veth appears as <code class="inl">eth0</code>. The other veth peer lives on the host side and is attached to <code class="inl">docker0</code>. The bridge itself has <code class="inl">172.17.0.1</code> in this example, so that host address can act as A's gateway.</p>
+<p>The veth and bridge have different jobs. <strong>The veth crosses the namespace boundary.</strong> <strong>The bridge decides which attached Ethernet destination should receive a frame.</strong> Neither one is the host's IP router, and neither one performs NAT merely because it exists.</p>
+<div class="concept"><span class="num">4</span>Start with the easy packet</div>
+<h2>How one container reaches another on the same Docker network</h2>
+<div class="termset"><div class="label">New words before we continue</div><dl>
+<dt>IP packet</dt><dd>A unit of Layer-3 traffic containing an IP header, including source and destination IP addresses, plus the higher-level payload.</dd>
+<dt>Ethernet frame</dt><dd>A Layer-2 unit carried on an Ethernet-like link. It wraps the IP packet and has source and destination MAC addresses for the current local link.</dd>
+<dt>MAC address</dt><dd>An address used for Ethernet delivery on the current Layer-2 network. It is different from an IP address: a MAC selects the next local interface/device, while an IP address identifies the packet's network-layer destination.</dd>
+<dt>ARP</dt><dd>Address Resolution Protocol for IPv4. Linux uses it on an Ethernet-like subnet to learn which MAC address corresponds to a local IPv4 address.</dd>
+<dt>Layer 2 (L2)</dt><dd>The Ethernet/link layer. In this lesson, L2 decisions are primarily about MAC addresses and bridge ports.</dd>
+<dt>forwarding database (FDB)</dt><dd>The Linux bridge's MAC-to-port knowledge. It lets the bridge decide which bridge port should receive a frame for a learned destination MAC.</dd>
+</dl></div><figure class="drawn"><svg aria-label="Docker networking mechanism diagram" role="img" viewbox="0 0 760 350" xmlns="http://www.w3.org/2000/svg"><defs>
+<marker id="arrow" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#8e98a6"></path></marker>
+<marker id="arrowT" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#5ac4b4"></path></marker>
+<marker id="arrowG" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#e0b155"></path></marker>
+<marker id="arrowR" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#d76d7f"></path></marker></defs>
+<rect class="svg-box-teal" height="210" rx="14" width="190" x="25" y="65"></rect><text class="svg-title" x="68" y="95">Container A</text><text class="svg-label" x="60" y="125">172.17.0.2</text><rect class="svg-chip" height="48" rx="8" width="130" x="55" y="165"></rect><text class="svg-label" x="91" y="194">eth0</text>
+<rect class="svg-box-gold" height="110" rx="12" width="190" x="285" y="115"></rect><text class="svg-title" x="337" y="150">docker0</text><text class="svg-small" x="320" y="180">switches by destination MAC</text>
+<rect class="svg-box-teal" height="210" rx="14" width="190" x="545" y="65"></rect><text class="svg-title" x="588" y="95">Container B</text><text class="svg-label" x="580" y="125">172.17.0.3</text><rect class="svg-chip" height="48" rx="8" width="130" x="575" y="165"></rect><text class="svg-label" x="611" y="194">eth0</text>
+<line class="svg-line-teal" marker-end="url(#arrowT)" x1="185" x2="285" y1="190" y2="190"></line><line class="svg-line-teal" marker-end="url(#arrowT)" x1="475" x2="575" y1="190" y2="190"></line>
+<circle fill="#5ac4b4" r="6"><animate attributename="cx" dur="3.8s" repeatcount="indefinite" values="190;570"></animate><animate attributename="cy" dur="3.8s" repeatcount="indefinite" values="190;190"></animate></circle>
+<text class="svg-small" x="225" y="315">No host IP routing: both destinations are on the same Docker subnet.</text>
+</svg><figcaption>Same-subnet traffic is switched at Layer 2 by docker0. The host does not route the IP packet between networks.</figcaption></figure>
+<p>Suppose A is <code class="inl">172.17.0.2</code> and B is <code class="inl">172.17.0.3</code>, both on <code class="inl">172.17.0.0/16</code>. Linux sees B as directly reachable on A's local subnet, so A does not send the packet to the gateway. If A does not already know B's MAC address, Linux uses ARP to learn it. Linux then creates an Ethernet frame whose destination MAC is B's.</p>
+<p>The frame crosses A's veth pair to the host-side peer. Because that peer is a port of <code class="inl">docker0</code>, the bridge processes the frame. It looks at the destination MAC, consults its FDB, and forwards the frame out B's host-side veth port. The peer inside B's netns receives it.</p>
+<div class="actor"><p><span class="k">A's networking context</span> route lookup + ARP + frame construction.</p><p><span class="k">veth kernel driver</span> frame transfer between peers.</p><p><span class="k">Linux bridge</span> MAC-based selection of B's bridge port.</p></div>
+<p>No host IP forwarding is required here because the IP packet is not being routed between two different IP networks; it stays on the same Docker subnet and is switched at Layer 2.</p>
+<div class="concept"><span class="num">5</span>Now leave the Docker subnet</div>
+<h2>How the container decides where to send a packet for 1.1.1.1</h2>
+<div class="termset"><div class="label">New words before we continue</div><dl>
+<dt>routing table</dt><dd>A set of rules in a network namespace that tells Linux how to reach destination IP ranges.</dd>
+<dt>route lookup</dt><dd>The kernel's act of comparing the packet's destination IP with the routing table to choose how the packet should leave that networking context.</dd>
+<dt>directly connected route</dt><dd>A route saying that a destination subnet is reachable directly through an interface, without first sending the packet to a router.</dd>
+<dt>default route</dt><dd>The fallback route used when no more-specific route matches the destination. A line such as <code class="inl">default via 172.17.0.1 dev eth0</code> says to use <code class="inl">172.17.0.1</code> as the next IP hop and <code class="inl">eth0</code> as the interface.</dd>
+<dt>next hop</dt><dd>The next IP-speaking machine that should receive this packet on its journey. It is not necessarily the final IP destination.</dd>
+</dl></div><figure class="drawn"><svg aria-label="Docker networking mechanism diagram" role="img" viewbox="0 0 760 430" xmlns="http://www.w3.org/2000/svg"><defs>
+<marker id="arrow" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#8e98a6"></path></marker>
+<marker id="arrowT" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#5ac4b4"></path></marker>
+<marker id="arrowG" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#e0b155"></path></marker>
+<marker id="arrowR" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#d76d7f"></path></marker></defs>
+<rect class="svg-box-teal" height="90" rx="12" width="710" x="25" y="35"></rect><text class="svg-title" x="50" y="67">A wants to send an IP packet to 1.1.1.1</text><text class="svg-label" x="50" y="96">IP header stays: src 172.17.0.2   dst 1.1.1.1</text>
+<line class="svg-line" marker-end="url(#arrow)" x1="380" x2="380" y1="125" y2="165"></line>
+<rect class="svg-box" height="90" rx="10" width="300" x="45" y="175"></rect><text class="svg-title" x="70" y="205">Linux route lookup in A's netns</text><text class="svg-small" x="70" y="232">1.1.1.1 is not in 172.17.0.0/16</text><text class="svg-small svg-gold" x="70" y="252">choose default via 172.17.0.1 dev eth0</text>
+<rect class="svg-box-gold" height="90" rx="10" width="300" x="415" y="175"></rect><text class="svg-title" x="440" y="205">ARP asks for gateway MAC</text><text class="svg-small" x="440" y="232">Who owns 172.17.0.1?</text><text class="svg-small svg-gold" x="440" y="252">Answer: gateway MAC = G</text>
+<line class="svg-line-gold" marker-end="url(#arrowG)" x1="345" x2="415" y1="220" y2="220"></line>
+<rect class="svg-box-blue" height="78" rx="10" width="530" x="115" y="310"></rect><text class="svg-title" x="145" y="338">Frame sent through container eth0</text><text class="svg-label" x="145" y="365">Ethernet dst = gateway MAC G     |     IP dst = 1.1.1.1</text>
+<line class="svg-line" marker-end="url(#arrow)" x1="380" x2="380" y1="265" y2="310"></line>
+</svg><figcaption>The route lookup chooses the next-hop IP. ARP resolves that next hop to a MAC address. The IP destination remains 1.1.1.1.</figcaption></figure>
+<p>Now A wants to reach <code class="inl">1.1.1.1</code>. A's network namespace has routes similar to:</p>
+<div class="terminal"><div class="tab">inside A's netns</div><pre>172.17.0.0/16 dev eth0
+default via 172.17.0.1 dev eth0</pre></div>
+<p>The first route covers destinations in <code class="inl">172.17.x.x</code>. <code class="inl">1.1.1.1</code> is not there, so Linux chooses the default route. That route says: <strong>send the packet to next hop <code class="inl">172.17.0.1</code> through <code class="inl">eth0</code>.</strong></p>
+<p>This does <strong>not</strong> replace the IP destination. The IP header still says:</p>
+<div class="packetbox">IP packet
+  source IP      172.17.0.2
+  destination IP 1.1.1.1
+
+Ethernet frame used for this local hop
+  source MAC      container eth0 MAC
+  destination MAC gateway/docker0 MAC</div>
+<p>Why two different destinations? The IP destination answers <em>where the packet ultimately needs to go</em>. The Ethernet destination answers <em>which device on this local link should receive the frame next</em>. Because the next hop is <code class="inl">172.17.0.1</code>, Linux uses ARP to learn the MAC corresponding to <code class="inl">172.17.0.1</code>, then addresses the local Ethernet frame to that MAC.</p>
+<div class="actor"><p><span class="k">Who performs the route lookup and ARP?</span> The Linux kernel, using A's network namespace.</p><p><span class="k">What stays unchanged?</span> The packet's destination IP remains <code class="inl">1.1.1.1</code>.</p></div>
+<p><span class="srcref">Linux 6.18 · net/ipv4/arp.c · arp_process()</span> is part of the IPv4 ARP receive/update path.</p>
+<div class="concept"><span class="num">6</span>The gateway frame reaches the host</div>
+<h2>How the frame that targeted the gateway enters the host's own IP processing</h2>
+<div class="termset"><div class="label">New words before we continue</div><dl>
+<dt>local delivery</dt><dd>Delivery to the current host itself rather than forwarding the frame out another bridge port.</dd>
+<dt>host network stack</dt><dd>The same Linux kernel networking code, now operating in the host network namespace with the host's interfaces, addresses and routes.</dd>
+</dl></div><figure class="drawn"><svg aria-label="Docker networking mechanism diagram" role="img" viewbox="0 0 760 360" xmlns="http://www.w3.org/2000/svg"><defs>
+<marker id="arrow" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#8e98a6"></path></marker>
+<marker id="arrowT" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#5ac4b4"></path></marker>
+<marker id="arrowG" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#e0b155"></path></marker>
+<marker id="arrowR" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#d76d7f"></path></marker></defs>
+<rect class="svg-box-teal" height="90" rx="10" width="170" x="30" y="70"></rect><text class="svg-title" x="65" y="102">container eth0</text><text class="svg-small" x="53" y="132">frame dst = gateway MAC</text>
+<rect class="svg-box-gold" height="90" rx="10" width="190" x="275" y="70"></rect><text class="svg-title" x="330" y="102">docker0</text><text class="svg-small" x="302" y="132">frame is for local host</text>
+<rect class="svg-box-blue" height="90" rx="10" width="190" x="540" y="70"></rect><text class="svg-title" x="578" y="102">host IP stack</text><text class="svg-small" x="562" y="132">now sees IP dst 1.1.1.1</text>
+<line class="svg-line-teal" marker-end="url(#arrowT)" x1="200" x2="275" y1="115" y2="115"></line><text class="svg-small" x="210" y="97">veth</text>
+<line class="svg-line-gold" marker-end="url(#arrowG)" x1="465" x2="540" y1="115" y2="115"></line>
+<rect class="svg-box" height="70" rx="10" width="210" x="265" y="225"></rect><text class="svg-label" x="287" y="252">bridge local-delivery path</text><text class="svg-small" x="297" y="277">br_pass_frame_up()</text>
+<line class="svg-line svg-dash" x1="370" x2="370" y1="225" y2="165"></line>
+</svg><figcaption>Because the Ethernet destination is the host gateway MAC, docker0 passes the frame upward to the host network stack instead of switching it to another container.</figcaption></figure>
+<p>The frame has crossed the veth and arrived at the bridge. Its destination MAC is the MAC for the host-side gateway. Therefore this is different from A → B. The bridge is not being asked to find another container's bridge port; the frame is addressed to the host.</p>
+<p>The Linux bridge therefore passes the received data upward from Layer-2 bridge processing into the host's own network stack. Once this happens, the host IP code can inspect the IP packet inside the frame. That packet still says <code class="inl">src=172.17.0.2</code>, <code class="inl">dst=1.1.1.1</code>.</p>
+<div class="secondread"><div class="label">Source-level anchor</div><p>Linux 6.18 <span class="srcref">net/bridge/br_input.c · br_pass_frame_up()</span> is the bridge local-delivery function used when the bridge determines that a frame is for the local host. Here, “up” means from bridge/link-layer handling into the host's higher network-stack receive path.</p></div>
+<div class="concept"><span class="num">7</span>The host now has to route</div>
+<h2>What the host does when it receives an IP packet that is not for the host itself</h2>
+<div class="termset"><div class="label">New words before we continue</div><dl>
+<dt>router</dt><dd>A system that receives an IP packet from one network and forwards it toward another network according to an IP routing decision.</dd>
+<dt>IP forwarding</dt><dd>Linux's router behavior for packets that arrive at the host but are not addressed to the host itself: route them onward instead of treating them as local traffic only.</dd>
+<dt>output interface</dt><dd>The host interface chosen by the host's route lookup to transmit the packet toward its next hop. It might be Ethernet, Wi-Fi, a VPN interface, or something else; there is no special Docker interface called an “uplink.”</dd>
+<dt>sysctl</dt><dd>A Linux mechanism for reading/changing kernel runtime settings. The IPv4 forwarding setting is exposed as <code class="inl">net.ipv4.ip_forward</code> and through <code class="inl">/proc/sys/net/ipv4/ip_forward</code>.</dd>
+</dl></div><figure class="drawn"><svg aria-label="Docker networking mechanism diagram" role="img" viewbox="0 0 760 380" xmlns="http://www.w3.org/2000/svg"><defs>
+<marker id="arrow" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#8e98a6"></path></marker>
+<marker id="arrowT" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#5ac4b4"></path></marker>
+<marker id="arrowG" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#e0b155"></path></marker>
+<marker id="arrowR" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#d76d7f"></path></marker></defs>
+<rect class="svg-box-teal" height="88" rx="10" width="190" x="35" y="75"></rect><text class="svg-title" x="72" y="107">packet arrives</text><text class="svg-small" x="55" y="135">from Docker-side network</text>
+<rect class="svg-box-blue" height="128" rx="12" width="210" x="290" y="55"></rect><text class="svg-title" x="320" y="88">host Linux IP stack</text><text class="svg-small" x="318" y="116">dst 1.1.1.1 is not local</text><text class="svg-small svg-gold" x="318" y="141">host route lookup chooses</text><text class="svg-small svg-gold" x="318" y="163">an output interface + next hop</text>
+<rect class="svg-box-gold" height="88" rx="10" width="160" x="565" y="75"></rect><text class="svg-title" x="594" y="107">host interface</text><text class="svg-small" x="590" y="135">selected by route</text>
+<line class="svg-line-teal" marker-end="url(#arrowT)" x1="225" x2="290" y1="119" y2="119"></line><line class="svg-line-gold" marker-end="url(#arrowG)" x1="500" x2="565" y1="119" y2="119"></line>
+<rect class="svg-box" height="78" rx="10" width="320" x="220" y="245"></rect><text class="svg-title" x="255" y="274">net.ipv4.ip_forward = 1</text><text class="svg-small" x="248" y="299">allows Linux to forward received IPv4 packets</text>
+<line class="svg-line svg-dash" x1="380" x2="395" y1="245" y2="183"></line>
+</svg><figcaption>IP forwarding means the host Linux IP stack accepts a packet that arrived from one network and routes it onward through another interface.</figcaption></figure>
+<p>The host has received an IP packet whose destination is <code class="inl">1.1.1.1</code>. That address is not one of the host's local addresses. Linux must therefore decide whether it may act as a router. If IPv4 forwarding is disabled, the host does not forward ordinary received IPv4 traffic between interfaces. If it is enabled, Linux performs a <strong>second route lookup</strong>, this time using the host network namespace's routing table.</p>
+<p>That host route lookup chooses an output interface and, where needed, a next-hop router. For example, if the host normally reaches the Internet through Wi-Fi, the selected output interface might be <code class="inl">wlan0</code>; on another machine it might be <code class="inl">enp3s0</code>. The name is not important—the route lookup chooses it.</p>
+<div class="actor"><p><span class="k">Who enables/checks the prerequisite?</span> During bridge-network setup, dockerd/libnetwork checks or configures the kernel's forwarding setting according to Docker configuration.</p><p><span class="k">Who forwards each real packet?</span> The host Linux IP stack.</p></div>
+<p>Linux 6.18 documents <code class="inl">ip_forward</code> as forwarding packets between interfaces, with <code class="inl">0</code> disabled and <code class="inl">1</code> enabled. Moby 29.6.2 checks/configures this through <span class="srcref">daemon/libnetwork/drivers/bridge/setup_ip_forwarding.go</span>.</p>
+<div class="concept"><span class="num">8</span>Define packet-rule machinery before address rewriting</div>
+<h2>Where Docker's packet rules live, and who executes them</h2>
+<div class="termset"><div class="label">New words before we continue</div><dl>
+<dt>netfilter</dt><dd>A Linux-kernel framework that exposes packet-processing points in the networking path. Kernel networking code can run registered filtering/NAT logic when a packet reaches those points.</dd>
+<dt>hook</dt><dd>One of those packet-processing points. Think “a defined place in the kernel packet path where configured logic can examine this packet.”</dd>
+<dt>rule</dt><dd>A stored instruction with a condition and an action. Example: if a packet matches these addresses/ports, perform this NAT rewrite.</dd>
+<dt>match</dt><dd>The condition part of a rule: packet properties that must be true for the action to run.</dd>
+<dt>action</dt><dd>What the rule tells the kernel to do when the match succeeds—for example accept, drop, or rewrite an address.</dd>
+<dt>firewall</dt><dd>Packet policy that allows, rejects or otherwise controls traffic. Docker uses firewall rules both for access control and to support its networking behavior.</dd>
+<dt>NAT</dt><dd>Network Address Translation: kernel logic that rewrites address and sometimes port fields in packet headers while maintaining enough state for the traffic flow to remain coherent.</dd>
+<dt>iptables / nftables</dt><dd>Linux rule-programming mechanisms. Moby has firewall backends that use them to install Docker networking policy into the kernel. They are not processes through which every packet must travel.</dd>
+</dl></div><figure class="drawn"><svg aria-label="Docker networking mechanism diagram" role="img" viewbox="0 0 760 420" xmlns="http://www.w3.org/2000/svg"><defs>
+<marker id="arrow" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#8e98a6"></path></marker>
+<marker id="arrowT" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#5ac4b4"></path></marker>
+<marker id="arrowG" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#e0b155"></path></marker>
+<marker id="arrowR" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#d76d7f"></path></marker></defs>
+<text class="svg-title" x="35" y="35">Before packets arrive</text>
+<rect class="svg-box-teal" height="70" rx="10" width="205" x="40" y="58"></rect><text class="svg-title" x="77" y="88">dockerd/libnetwork</text><text class="svg-small" x="64" y="112">decides Docker rule policy</text>
+<rect class="svg-box-gold" height="70" rx="10" width="185" x="305" y="58"></rect><text class="svg-title" x="335" y="88">iptables/nftables</text><text class="svg-small" x="330" y="112">rule configuration path</text>
+<rect class="svg-box-blue" height="70" rx="10" width="170" x="550" y="58"></rect><text class="svg-title" x="582" y="88">netfilter rules</text><text class="svg-small" x="570" y="112">stored in kernel</text>
+<line class="svg-line-teal" marker-end="url(#arrowT)" x1="245" x2="305" y1="93" y2="93"></line><line class="svg-line-gold" marker-end="url(#arrowG)" x1="490" x2="550" y1="93" y2="93"></line>
+<line class="svg-divider" x1="30" x2="730" y1="170" y2="170"></line><text class="svg-title" x="35" y="205">Later, for a real packet</text>
+<rect class="svg-box-teal" height="72" rx="10" width="180" x="40" y="235"></rect><text class="svg-title" x="89" y="266">packet</text><text class="svg-small" x="67" y="290">enters kernel path</text>
+<rect class="svg-box-blue" height="92" rx="10" width="190" x="295" y="225"></rect><text class="svg-title" x="334" y="255">netfilter hook</text><text class="svg-small" x="325" y="280">match stored rule</text><text class="svg-small" x="325" y="300">run its action</text>
+<rect class="svg-box-gold" height="72" rx="10" width="160" x="560" y="235"></rect><text class="svg-title" x="603" y="266">result</text><text class="svg-small" x="580" y="290">allow / drop / NAT</text>
+<line class="svg-line-teal" marker-end="url(#arrowT)" x1="220" x2="295" y1="271" y2="271"></line><line class="svg-line-gold" marker-end="url(#arrowG)" x1="485" x2="560" y1="271" y2="271"></line>
+</svg><figcaption>iptables/nftables are rule-configuration mechanisms. Netfilter is the kernel packet-processing framework that evaluates the rules when packets actually pass through.</figcaption></figure>
+<p>At setup time, dockerd/libnetwork decides which networking rules are needed and programs them through its selected firewall backend. At packet time, dockerd is not on the packet path. The Linux kernel reaches the relevant netfilter hook, compares the packet against the stored rules, and executes the matching action.</p>
+<div class="actor"><p><span class="k">Setup-time actor</span> dockerd/libnetwork + iptables or nftables backend.</p><p><span class="k">Packet-time actor</span> Linux kernel netfilter/NAT code.</p></div>
+<aside class="correction"><span class="lbl">Mental-model correction</span><p>Do not imagine <code class="inl">packet → dockerd → packet</code>. Docker prepares kernel state. The kernel handles the live traffic later.</p></aside>
+<div class="concept"><span class="num">9</span>Fix the outbound reply path</div>
+<h2>Why the host changes the source address before sending the packet outward</h2>
+<div class="termset"><div class="label">New words before we continue</div><dl>
+<dt>SNAT</dt><dd>Source Network Address Translation. It changes the packet's <strong>source</strong> address (and, when necessary, source port).</dd>
+<dt>MASQUERADE</dt><dd>A Linux source-NAT action useful when the translated source should be taken from the route's chosen outgoing interface. It is a particular form of source NAT, not a separate packet-transport mechanism.</dd>
+<dt>conntrack</dt><dd>Linux connection tracking: kernel state that records traffic-flow relationships. NAT uses this state so later packets and reply-direction packets receive the translation that belongs to the same flow.</dd>
+<dt>NAT mapping / binding</dt><dd>The remembered relationship between the original packet identity and its translated identity, for example container source address/port ↔ host translated address/port.</dd>
+</dl></div><figure class="drawn"><svg aria-label="Docker networking mechanism diagram" role="img" viewbox="0 0 760 470" xmlns="http://www.w3.org/2000/svg"><defs>
+<marker id="arrow" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#8e98a6"></path></marker>
+<marker id="arrowT" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#5ac4b4"></path></marker>
+<marker id="arrowG" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#e0b155"></path></marker>
+<marker id="arrowR" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#d76d7f"></path></marker></defs>
+<text class="svg-title" x="35" y="35">Outbound packet</text>
+<rect class="svg-box-teal" height="90" rx="10" width="205" x="35" y="60"></rect><text class="svg-title" x="65" y="92">before NAT</text><text class="svg-label" x="58" y="120">src 172.17.0.2</text><text class="svg-label" x="58" y="142">dst 1.1.1.1</text>
+<rect class="svg-box-gold" height="90" rx="10" width="195" x="300" y="60"></rect><text class="svg-title" x="328" y="92">MASQUERADE</text><text class="svg-small" x="325" y="120">kernel chooses source</text><text class="svg-small" x="325" y="140">from output interface</text>
+<rect class="svg-box-blue" height="90" rx="10" width="170" x="555" y="60"></rect><text class="svg-title" x="590" y="92">after NAT</text><text class="svg-label" x="579" y="120">src HOST_IP</text><text class="svg-label" x="579" y="142">dst 1.1.1.1</text>
+<line class="svg-line-gold" marker-end="url(#arrowG)" x1="240" x2="300" y1="105" y2="105"></line><line class="svg-line-gold" marker-end="url(#arrowG)" x1="495" x2="555" y1="105" y2="105"></line>
+<rect class="svg-box" height="78" rx="10" width="330" x="215" y="205"></rect><text class="svg-title" x="250" y="235">conntrack/NAT state remembers mapping</text><text class="svg-small" x="252" y="262">HOST_IP:translated-port ↔ 172.17.0.2:original-port</text>
+<text class="svg-title" x="35" y="335">Reply packet</text>
+<rect class="svg-box-blue" height="72" rx="10" width="170" x="555" y="355"></rect><text class="svg-label" x="584" y="385">dst HOST_IP</text><text class="svg-small" x="584" y="408">reply from Internet</text>
+<rect class="svg-box-gold" height="72" rx="10" width="195" x="300" y="355"></rect><text class="svg-title" x="332" y="385">kernel reverses</text><text class="svg-small" x="340" y="408">stored NAT mapping</text>
+<rect class="svg-box-teal" height="72" rx="10" width="205" x="35" y="355"></rect><text class="svg-label" x="65" y="385">dst 172.17.0.2</text><text class="svg-small" x="69" y="408">deliver to container</text>
+<line class="svg-line-gold" marker-end="url(#arrowG)" x1="555" x2="495" y1="391" y2="391"></line><line class="svg-line-gold" marker-end="url(#arrowG)" x1="300" x2="240" y1="391" y2="391"></line>
+</svg><figcaption>Source NAT fixes the reply path. MASQUERADE is the Linux source-NAT action that chooses the translated source from the outgoing interface.</figcaption></figure>
+<p>Forwarding solved one problem: it allowed the host to route the packet outward. It did <strong>not</strong> solve the reply-path problem. If the packet left unchanged as <code class="inl">src=172.17.0.2, dst=1.1.1.1</code>, the remote server would reply to <code class="inl">172.17.0.2</code>. The surrounding network normally has no route saying “the Docker-internal <code class="inl">172.17.0.0/16</code> network is behind this host,” so the reply would not naturally find the container.</p>
+<p>Docker's normal bridge NAT mode therefore installs a source-NAT rule. When the outbound packet reaches the relevant netfilter/NAT point, the Linux kernel rewrites the source from the container address to an address belonging to the output interface selected by the host route.</p>
+<div class="packetbox">before MASQUERADE
+  src 172.17.0.2:container-port
+  dst 1.1.1.1:server-port
+
+after MASQUERADE
+  src HOST_OUTPUT_ADDRESS:translated-port
+  dst 1.1.1.1:server-port</div>
+<p>The remote server now replies to the host-visible translated source. Conntrack/NAT state remembers which container flow that translated address/port represents. When the reply comes back, the kernel applies the corresponding reverse-direction translation and routes the packet back toward <code class="inl">172.17.0.2</code>.</p>
+<div class="actor"><p><span class="k">Who installs the policy?</span> dockerd/libnetwork bridge firewall setup.</p><p><span class="k">Who rewrites the packet?</span> Linux netfilter/NAT code.</p><p><span class="k">What field changes?</span> The source address, and possibly the source port.</p></div>
+<div class="secondread"><div class="label">Source-level anchor</div><p>Linux 6.18 <span class="srcref">net/netfilter/nf_nat_masquerade.c · nf_nat_masquerade_ipv4()</span> selects the new source for IPv4 masquerading and passes the translated source range to the generic NAT setup path via <span class="srcref">nf_nat_setup_info(..., NF_NAT_MANIP_SRC)</span>. The important meaning of <code class="inl">NF_NAT_MANIP_SRC</code> is simply “this NAT operation manipulates the packet source.”</p></div>
+<div class="concept"><span class="num">10</span>Publish a host port to the container</div>
+<h2>What -p 18080:80 changes in an incoming client packet</h2>
+<div class="termset"><div class="label">New words before we continue</div><dl>
+<dt>port</dt><dd>A transport-layer number used with an IP address and protocol to identify a socket endpoint. In this example nginx listens on TCP port <code class="inl">80</code> inside the container.</dd>
+<dt>published port</dt><dd>A Docker mapping that makes traffic addressed to a host IP/port reach a container IP/port. <code class="inl">-p 18080:80</code> publishes host port 18080 to container port 80.</dd>
+<dt>DNAT</dt><dd>Destination Network Address Translation. It changes the packet's <strong>destination</strong> address and/or destination port.</dd>
+<dt>TCP stack</dt><dd>The kernel's TCP implementation. After a packet reaches the container's IP address and TCP port, the container networking context's TCP stack finds the matching listening socket and delivers the received data to the process.</dd>
+<dt>userland proxy</dt><dd>A normal userspace process that accepts traffic on one side and opens/forwards it to another address. Docker's <code class="inl">docker-proxy</code> can be used for specific mappings where the firewall/NAT path is not sufficient; it is not the definition of ordinary <code class="inl">-p</code>.</dd>
+</dl></div><figure class="drawn"><svg aria-label="Docker networking mechanism diagram" role="img" viewbox="0 0 760 430" xmlns="http://www.w3.org/2000/svg"><defs>
+<marker id="arrow" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#8e98a6"></path></marker>
+<marker id="arrowT" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#5ac4b4"></path></marker>
+<marker id="arrowG" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#e0b155"></path></marker>
+<marker id="arrowR" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#d76d7f"></path></marker></defs>
+<rect class="svg-box-teal" height="90" rx="10" width="165" x="25" y="70"></rect><text class="svg-title" x="68" y="102">client</text><text class="svg-small" x="45" y="132">dst HOST_IP:18080</text>
+<rect class="svg-box-gold" height="110" rx="10" width="205" x="245" y="60"></rect><text class="svg-title" x="315" y="92">DNAT</text><text class="svg-small" x="277" y="120">host kernel rewrites destination</text><text class="svg-small svg-gold" x="284" y="145">→ 172.17.0.2:80</text>
+<rect class="svg-box-blue" height="110" rx="10" width="220" x="505" y="60"></rect><text class="svg-title" x="555" y="92">host route lookup</text><text class="svg-small" x="535" y="120">172.17.0.2 is in Docker subnet</text><text class="svg-small" x="552" y="145">choose docker0 path</text>
+<line class="svg-line-teal" marker-end="url(#arrowT)" x1="190" x2="245" y1="115" y2="115"></line><line class="svg-line-gold" marker-end="url(#arrowG)" x1="450" x2="505" y1="115" y2="115"></line>
+<rect class="svg-box-gold" height="70" rx="10" width="150" x="505" y="235"></rect><text class="svg-title" x="548" y="265">docker0</text><text class="svg-small" x="528" y="289">switch frame to veth</text>
+<rect class="svg-box-teal" height="60" rx="10" width="125" x="600" y="340"></rect><text class="svg-title" x="618" y="367">container</text><text class="svg-small" x="616" y="389">nginx :80</text>
+<line class="svg-line" marker-end="url(#arrow)" x1="615" x2="580" y1="170" y2="235"></line><line class="svg-line-teal" marker-end="url(#arrowT)" x1="580" x2="650" y1="305" y2="340"></line><text class="svg-small" x="615" y="322">veth</text>
+</svg><figcaption>Publishing a port creates a destination rewrite from host address/port to container address/port. The Linux kernel executes that rewrite for matching packets.</figcaption></figure>
+<p>Assume nginx listens inside the container at <code class="inl">172.17.0.2:80</code>, and the Docker host has some host address <code class="inl">HOST_IP</code>. A client connects to <code class="inl">HOST_IP:18080</code>. During networking setup, libnetwork's bridge firewall backend has already installed a rule describing the published-port translation.</p>
+<p>When the client packet arrives later, the host Linux kernel matches that rule and performs DNAT:</p>
+<div class="packetbox">before DNAT
+  destination HOST_IP:18080
+
+after DNAT
+  destination 172.17.0.2:80</div>
+<p>DNAT has only changed the destination fields. It has <strong>not</strong> physically moved the packet to the container. Now the host performs a route lookup for the new destination <code class="inl">172.17.0.2</code>. That route points toward the Docker bridge network. Docker's forwarding policy must allow the published-port traffic. The host emits the packet toward <code class="inl">docker0</code>; the bridge chooses the container's host-side veth port; the peer inside the container receives the frame; and the container TCP stack finally delivers the traffic to nginx's listening socket on port 80.</p>
+<p>Conntrack/NAT state also handles the reply direction so the client continues to observe a conversation with <code class="inl">HOST_IP:18080</code>, even though nginx is actually speaking from <code class="inl">172.17.0.2:80</code>.</p>
+<div class="actor"><p><span class="k">Who installs the mapping rule?</span> dockerd/libnetwork's bridge firewall backend.</p><p><span class="k">Who executes DNAT?</span> Linux netfilter/NAT code when a matching real packet arrives.</p><p><span class="k">What changes?</span> Destination IP/port.</p><p><span class="k">Who delivers after the rewrite?</span> Normal host routing, Linux bridge switching, the veth pair, then the container TCP stack.</p></div>
+<p><span class="srcref">Moby 29.6.2 · daemon/libnetwork/drivers/bridge/internal/iptabler/port.go · setPerPortNAT()</span> constructs the published-port DNAT path; <span class="srcref">setPerPortForwarding()</span> installs the separate forwarding permission.</p>
+<aside class="correction"><span class="lbl">Source-over-folklore correction</span><p><code class="inl">docker-proxy</code> is not what <code class="inl">-p</code> fundamentally means. Current Moby's ordinary bridge path uses kernel DNAT/forwarding rules. The source explicitly hands certain address-family combinations to <code class="inl">docker-proxy</code> instead of installing the normal iptables DNAT path.</p></aside>
+<div class="concept"><span class="num">11</span>Compare Docker network modes</div>
+<h2>How the four Docker network modes choose a networking world</h2>
+<div class="termset"><div class="label">New words before we continue</div><dl>
+<dt>loopback interface</dt><dd>A special local interface, usually named <code class="inl">lo</code>, used for traffic that stays inside the same network namespace. Addresses such as <code class="inl">127.0.0.1</code> are loopback addresses.</dd>
+<dt>shared network namespace</dt><dd>Two containers can be placed in the same netns. They then see the same interfaces, IP addresses, routes, loopback device and port-number space because those objects belong to that one netns.</dd>
+</dl></div><figure class="drawn"><svg aria-label="Docker networking mechanism diagram" role="img" viewbox="0 0 760 500" xmlns="http://www.w3.org/2000/svg"><defs>
+<marker id="arrow" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#8e98a6"></path></marker>
+<marker id="arrowT" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#5ac4b4"></path></marker>
+<marker id="arrowG" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#e0b155"></path></marker>
+<marker id="arrowR" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#d76d7f"></path></marker></defs>
+<text class="svg-title" x="30" y="35">bridge</text><rect class="svg-box-teal" height="78" rx="10" width="700" x="30" y="55"></rect><text class="svg-label" x="55" y="86">private netns</text><text class="svg-label" x="205" y="86">→ veth → Linux bridge → host routing/NAT as needed</text><text class="svg-small" x="55" y="111">container gets its own network stack and Docker attaches it to a bridge network</text>
+<text class="svg-title" x="30" y="175">host</text><rect class="svg-box-gold" height="78" rx="10" width="700" x="30" y="195"></rect><text class="svg-label" x="55" y="226">host netns directly</text><text class="svg-label" x="270" y="226">→ same interfaces, routes, and port space as host</text><text class="svg-small" x="55" y="251">no separate bridge/veth path for the container</text>
+<text class="svg-title" x="30" y="315">none</text><rect class="svg-box-rose" height="90" rx="10" width="330" x="30" y="335"></rect><text class="svg-label" x="55" y="366">private netns</text><text class="svg-small" x="55" y="392">no normal Docker endpoint attached</text>
+<text class="svg-title" x="400" y="315">container:&lt;id&gt;</text><rect class="svg-box-blue" height="90" rx="10" width="330" x="400" y="335"></rect><text class="svg-label" x="425" y="366">join another container's netns</text><text class="svg-small" x="425" y="392">share interfaces, routes, loopback, ports</text>
+</svg><figcaption>The four modes differ first by which network namespace the process uses and whether Docker attaches a normal endpoint.</figcaption></figure>
+<table class="compare"><thead><tr><th>Mode</th><th>Namespace choice</th><th>What follows</th></tr></thead><tbody>
+<tr><td>bridge</td><td>Fresh private netns</td><td>Docker attaches an endpoint, typically via veth + Linux bridge, then configures addressing/routes/firewall/NAT as needed.</td></tr>
+<tr><td>host</td><td>Host's existing netns</td><td>No separate container network stack and no normal container veth/bridge path. The process uses host interfaces, host routes and host port-number space.</td></tr>
+<tr><td>none</td><td>Fresh private netns</td><td>Docker does not attach a normal network endpoint. The namespace stays isolated except for local/loopback configuration.</td></tr>
+<tr><td>container:&lt;id&gt;</td><td>Another container's existing netns</td><td>Both containers share that same kernel networking world.</td></tr>
+</tbody></table>
+<p>The namespace choice explains why two containers using separate bridge netns can both listen on the same container port, while two containers sharing one netns compete for the same address/port combinations.</p>
+<div class="concept"><span class="num">12</span>Second read: exact runtime order</div>
+<h2>Who creates the private networking world, and when Docker wires it</h2>
+<div class="termset"><div class="label">New words before we continue</div><dl>
+<dt>OCI runtime specification</dt><dd>The standardized configuration consumed by an OCI runtime such as runc. Lesson 21 covered the full <code class="inl">config.json</code>; here we care specifically about its Linux namespace entries.</dd>
+<dt>namespace path</dt><dd>An optional filesystem path naming an already-existing namespace, for example <code class="inl">/proc/&lt;pid&gt;/ns/net</code>. In OCI namespace configuration, an entry with no path requests a new namespace; a supplied path requests joining that existing namespace.</dd>
+<dt>task</dt><dd>containerd's running-container execution object. During creation, the runtime can establish the process environment before the configured application is actually started.</dd>
+<dt>PID</dt><dd>Process ID. Once the created task exists, dockerd can use its PID to refer to kernel objects associated with that process, including <code class="inl">/proc/&lt;pid&gt;/ns/net</code>.</dd>
+<dt><code class="inl">CLONE_NEWNET</code></dt><dd>The Linux clone/unshare namespace flag for creating a new network namespace. runc maps the OCI network-namespace request to this kernel namespace type.</dd>
+</dl></div><figure class="drawn"><svg aria-label="Docker networking mechanism diagram" role="img" viewbox="0 0 760 470" xmlns="http://www.w3.org/2000/svg"><defs>
+<marker id="arrow" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#8e98a6"></path></marker>
+<marker id="arrowT" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#5ac4b4"></path></marker>
+<marker id="arrowG" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#e0b155"></path></marker>
+<marker id="arrowR" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#d76d7f"></path></marker></defs>
+<rect class="svg-box-teal" height="75" rx="10" width="125" x="30" y="60"></rect><text class="svg-title" x="57" y="90">dockerd</text><text class="svg-small" x="45" y="115">OCI netns intent</text>
+<rect class="svg-box" height="75" rx="10" width="145" x="195" y="60"></rect><text class="svg-title" x="220" y="90">containerd</text><text class="svg-small" x="212" y="115">task/runtime path</text>
+<rect class="svg-box-gold" height="75" rx="10" width="125" x="380" y="60"></rect><text class="svg-title" x="422" y="90">runc</text><text class="svg-small" x="399" y="115">requests CLONE_NEWNET</text>
+<rect class="svg-box-blue" height="75" rx="10" width="175" x="545" y="60"></rect><text class="svg-title" x="580" y="90">Linux kernel</text><text class="svg-small" x="568" y="115">creates fresh netns</text>
+<line class="svg-line" marker-end="url(#arrow)" x1="155" x2="195" y1="98" y2="98"></line><line class="svg-line" marker-end="url(#arrow)" x1="340" x2="380" y1="98" y2="98"></line><line class="svg-line" marker-end="url(#arrow)" x1="505" x2="545" y1="98" y2="98"></line>
+<line class="svg-line" marker-end="url(#arrow)" x1="632" x2="632" y1="135" y2="210"></line>
+<rect class="svg-box-teal" height="78" rx="10" width="265" x="455" y="220"></rect><text class="svg-title" x="478" y="250">task created; app not started</text><text class="svg-small" x="478" y="276">dockerd now knows task PID/netns path</text>
+<line class="svg-line-teal" marker-end="url(#arrowT)" x1="455" x2="310" y1="259" y2="259"></line>
+<rect class="svg-box-teal" height="88" rx="10" width="270" x="40" y="215"></rect><text class="svg-title" x="62" y="247">dockerd/libnetwork wires networking</text><text class="svg-small" x="65" y="274">veth · bridge · IP · routes · firewall/NAT</text>
+<line class="svg-line-gold" marker-end="url(#arrowG)" x1="175" x2="175" y1="303" y2="365"></line>
+<rect class="svg-box-gold" height="62" rx="10" width="200" x="75" y="375"></rect><text class="svg-title" x="119" y="413">Task.Start</text>
+</svg><figcaption>For an ordinary private network, the runtime creates the netns first. dockerd/libnetwork then wires networking before the configured container process is started.</figcaption></figure>
+<p>For ordinary private networking, Moby's <span class="srcref">daemon/oci_linux.go · WithNamespaces</span> puts a network-namespace entry into the OCI spec with no path. Under OCI Runtime Spec 1.3.0 semantics, that means the runtime must create a new network namespace. For <code class="inl">--network=container:&lt;id&gt;</code>, Moby supplies a path to the existing namespace. For host networking, Moby removes the network-namespace entry so the process remains in the runtime/host network namespace.</p>
+<p>The startup ordering matters because dockerd must configure the runtime-created namespace before the application begins sending traffic. Moby's flow establishes a created task, then calls <code class="inl">initializeCreatedTask</code>, then starts the task.</p>
+<div class="flow">
+<div class="row"><div class="n">1</div><div><div class="t">dockerd builds OCI namespace intent</div><div class="d">Normal bridge: network namespace requested, no existing path.</div></div></div>
+<div class="row"><div class="n">2</div><div><div class="t">containerd/runc create the task context</div><div class="d">runc asks Linux for the requested fresh network namespace.</div></div></div>
+<div class="row"><div class="n">3</div><div><div class="t">dockerd has a created task and PID</div><div class="d">The execution context exists, but the configured application has not yet been started.</div></div></div>
+<div class="row"><div class="n">4</div><div><div class="t">initializeCreatedTask wires networking</div><div class="d">dockerd/libnetwork realizes/configures the endpoint using the task's network namespace.</div></div></div>
+<div class="row"><div class="n">5</div><div><div class="t">Task.Start</div><div class="d">Only after created-task initialization succeeds does the configured container application run.</div></div></div>
+</div>
+<div class="actor"><p><span class="k">Who creates the ordinary private netns?</span> runc asks the Linux kernel to create it, based on the OCI request constructed by dockerd.</p><p><span class="k">Who wires bridge connectivity?</span> dockerd/libnetwork after task creation and before application start.</p></div>
+<p><span class="srcref">Moby 29.6.2 · daemon/start_linux.go · initializeCreatedTask()</span> describes initialization needed for a freshly created task before start. runc 1.3.6 maps the network namespace to <code class="inl">CLONE_NEWNET</code>.</p>
+<div class="concept"><span class="num">13</span>Second read: current virtual-link placement</div>
+<h2>How current Moby places the two ends of the virtual link</h2>
+<div class="termset"><div class="label">New words before we continue</div><dl>
+<dt>netlink</dt><dd>A Linux kernel/userspace communication family used to query and configure networking objects such as links, addresses and routes. Moby uses Go netlink libraries rather than issuing shell <code class="inl">ip</code> commands.</dd>
+<dt><code class="inl">PeerNamespace</code></dt><dd>A netlink veth-creation setting used by current Moby to request that the peer end of a new veth pair be created directly in a specified network namespace.</dd>
+<dt>fallback path</dt><dd>An alternate implementation path used when the preferred direct placement cannot be used. The important invariant is the final topology, not that one exact creation sequence must always occur.</dd>
+</dl></div><figure class="drawn"><svg aria-label="Docker networking mechanism diagram" role="img" viewbox="0 0 760 380" xmlns="http://www.w3.org/2000/svg"><defs>
+<marker id="arrow" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#8e98a6"></path></marker>
+<marker id="arrowT" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#5ac4b4"></path></marker>
+<marker id="arrowG" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#e0b155"></path></marker>
+<marker id="arrowR" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#d76d7f"></path></marker></defs>
+<text class="svg-title" x="35" y="35">Current Moby preferred path</text>
+<rect class="svg-box-blue" height="72" rx="10" width="220" x="40" y="65"></rect><text class="svg-label" x="70" y="96">host-side veth created here</text><text class="svg-small" x="79" y="120">host netns</text>
+<rect class="svg-box-teal" height="72" rx="10" width="220" x="500" y="65"></rect><text class="svg-label" x="528" y="96">peer created directly here</text><text class="svg-small" x="557" y="120">container netns</text>
+<line class="svg-line-teal" marker-end="url(#arrowT)" x1="260" x2="500" y1="101" y2="101"></line><text class="svg-small" x="320" y="85">PeerNamespace</text>
+<line class="svg-divider" x1="30" x2="730" y1="180" y2="180"></line><text class="svg-title" x="35" y="215">Fallback path</text>
+<rect class="svg-box-blue" height="72" rx="10" width="300" x="40" y="245"></rect><text class="svg-label" x="78" y="276">both peers initially created here</text><text class="svg-small" x="137" y="300">host netns</text>
+<rect class="svg-box-teal" height="72" rx="10" width="220" x="500" y="245"></rect><text class="svg-label" x="548" y="276">one peer moved here</text><text class="svg-small" x="557" y="300">container netns</text>
+<line class="svg-line-gold" marker-end="url(#arrowG)" x1="340" x2="500" y1="281" y2="281"></line>
+</svg><figcaption>The invariant is the final placement: one veth peer on the host side, one in the container netns. Current Moby can create the peer directly in the target netns, with a move-later fallback.</figcaption></figure>
+<p>A common explanation says Docker must first create both veth ends in the host netns and then move one into the container. That sequence can happen, but current Moby 29.6.2 does not require it. The bridge driver can open the target container namespace and set the veth peer's namespace during creation so the peer is born directly inside the target netns. Moby also retains a move/configure-later fallback.</p>
+<aside class="correction"><span class="lbl">Source-over-folklore correction</span><p>The invariant is <strong>final placement</strong>: one peer participates in the host bridge topology and the other peer appears in the container netns. “Both must first exist on the host” is not a kernel requirement and is not the only current Moby path.</p></aside>
+<p><span class="srcref">Moby 29.6.2 · daemon/libnetwork/drivers/bridge/bridge_linux.go · veth creation / PeerNamespace path</span>.</p>
+<div class="concept"><span class="num">14</span>Inspect it yourself</div>
+<h2>Observe the exact objects and rules from the diagrams</h2>
+<div class="termset"><div class="label">Command words used below</div><dl>
+<dt><code class="inl">nsenter</code></dt><dd>A userspace tool that runs a command in selected namespaces of another process. <code class="inl">-n</code> selects its network namespace.</dd>
+<dt><code class="inl">ip</code></dt><dd>The iproute2 command used to inspect/configure Linux links, addresses and routes.</dd>
+<dt><code class="inl">bridge</code></dt><dd>The iproute2 bridge command for inspecting Linux bridge ports and related bridge state.</dd>
+<dt><code class="inl">conntrack</code></dt><dd>A userspace inspection tool for the kernel's connection-tracking table, when installed.</dd>
+</dl></div>
+<div class="terminal"><div class="tab">create one bridge-networked container</div><pre>docker run -d --name net33 -p 18080:80 nginx:alpine
+PID=$(docker inspect -f '{{.State.Pid}}' net33)</pre></div>
+<div class="terminal"><div class="tab">1 · compare host and container network namespaces</div><pre>readlink /proc/$$/ns/net
+readlink /proc/$PID/ns/net
+sudo nsenter -t "$PID" -n ip addr
+sudo nsenter -t "$PID" -n ip route</pre></div>
+<p>Inside the container route table, identify the directly connected Docker subnet and the <code class="inl">default via ...</code> line. That line is the concrete gateway decision described in section 5.</p>
+<div class="terminal"><div class="tab">2 · inspect veth peers and the bridge</div><pre>ip link show type veth
+ip -br addr show docker0
+bridge link</pre></div>
+<div class="terminal"><div class="tab">3 · inspect the forwarding prerequisite</div><pre>sysctl net.ipv4.ip_forward</pre></div>
+<div class="terminal"><div class="tab">4 · inspect Docker NAT rules</div><pre># iptables backend
+sudo iptables -t nat -S 2&gt;/dev/null | grep -E 'DOCKER|MASQUERADE|SNAT|DNAT' || true
+
+# nftables backend
+sudo nft list ruleset 2&gt;/dev/null | grep -E -i 'docker|masquerade|snat|dnat' || true</pre></div>
+<p>Read each matching rule as: <strong>what packet fields are matched, and what action will the kernel perform if the match succeeds?</strong></p>
+<div class="terminal"><div class="tab">5 · exercise outbound and published-port paths</div><pre>docker exec net33 sh -c 'wget -qO- https://example.com &gt;/dev/null &amp;&amp; echo outbound-ok'
+curl -I http://127.0.0.1:18080
+
+# optional, if conntrack is installed
+sudo conntrack -L</pre></div>
+<div class="recap"><h3>Check yourself — every term must have an actor and a job</h3><ul>
+<li><strong>network namespace:</strong> selects which networking state a process uses; it does not itself create connectivity.</li>
+<li><strong>libnetwork:</strong> networking configuration code inside dockerd.</li>
+<li><strong>veth:</strong> transfers Ethernet frames between two peer virtual interfaces, often across netns boundaries.</li>
+<li><strong>Linux bridge / docker0:</strong> switches Ethernet frames by MAC/bridge-port decisions; it is distinct from host IP routing.</li>
+<li><strong>gateway:</strong> the next IP hop used when the final destination is outside the local subnet.</li>
+<li><strong>ARP:</strong> resolves a local IPv4 next-hop address to a MAC address.</li>
+<li><strong>IP forwarding:</strong> host-kernel router behavior for a packet received from one network and routed onward toward another.</li>
+<li><strong>netfilter:</strong> kernel packet-processing framework; Docker programs rules, the kernel executes them.</li>
+<li><strong>SNAT/MASQUERADE:</strong> source rewrite that makes the outbound return path come back through the host.</li>
+<li><strong>conntrack:</strong> kernel state that lets NAT remain consistent across later/reply packets of the same flow.</li>
+<li><strong>DNAT:</strong> destination rewrite used by ordinary published-port mappings before normal routing/bridge/veth delivery.</li>
+<li><strong>runc:</strong> creates the ordinary requested private netns; dockerd/libnetwork wires it before <code class="inl">Task.Start</code>.</li>
+</ul></div>
+<details class="sources"><summary>Primary-source appendix — pinned versions and exact anchors</summary><div class="inside"><ul>
+<li><strong>OCI Runtime Specification v1.3.0</strong> · <code>config-linux.md</code> · Linux namespaces: a namespace entry with no path requests creation; a supplied path requests joining the existing namespace.</li>
+<li><strong>Moby docker-v29.6.2</strong> · <code>daemon/oci_linux.go · WithNamespaces</code>: selects ordinary private, host, and container-shared network namespace semantics.</li>
+<li><strong>Moby docker-v29.6.2</strong> · <code>daemon/daemon.go · Daemon.netController</code> and <code>daemon/libnetwork/{controller,network,endpoint,sandbox}.go</code>: libnetwork control objects inside dockerd.</li>
+<li><strong>Moby docker-v29.6.2</strong> · <code>daemon/start_linux.go · initializeCreatedTask</code> plus the start path: initialization of a freshly created task occurs before application start.</li>
+<li><strong>Moby docker-v29.6.2</strong> · <code>daemon/libnetwork/drivers/bridge/bridge_linux.go</code>: bridge endpoint/veth realization, including direct peer placement with a fallback.</li>
+<li><strong>Linux 6.18</strong> · <code>net/ipv4/arp.c · arp_process</code>: IPv4 ARP processing and neighbor-state update path.</li>
+<li><strong>Linux 6.18</strong> · <code>net/bridge/br_input.c · br_pass_frame_up</code>: local bridge delivery into the host networking receive path.</li>
+<li><strong>Linux 6.18</strong> · <code>Documentation/networking/ip-sysctl.rst · ip_forward</code>: IPv4 forwarding between interfaces, 0 disabled / 1 enabled.</li>
+<li><strong>Moby docker-v29.6.2</strong> · <code>daemon/libnetwork/drivers/bridge/setup_ip_forwarding.go</code>: Docker bridge forwarding prerequisite handling.</li>
+<li><strong>Linux 6.18</strong> · <code>net/netfilter/nf_nat_masquerade.c · nf_nat_masquerade_ipv4</code> and <code>net/netfilter/nf_nat_core.c · nf_nat_setup_info</code>: masquerade source selection and NAT mapping setup.</li>
+<li><strong>Moby docker-v29.6.2</strong> · <code>daemon/libnetwork/drivers/bridge/internal/iptabler/port.go · setPerPortNAT / setPerPortForwarding</code>: published-port DNAT and separate forwarding access; the same file explicitly uses <code>docker-proxy</code> for specific cross-address-family cases.</li>
+<li><strong>runc v1.3.6</strong> · namespace syscall mapping: OCI network namespace → Linux <code>CLONE_NEWNET</code>.</li>
+</ul></div></details>
+<div class="xrefs"><span class="xref"><b>back</b>Lesson 6 · Namespaces</span><span class="xref"><b>back</b>Lesson 8 · docker exec &amp; setns</span><span class="xref"><b>back</b>Lesson 23 · run pipeline end-to-end</span><span class="xref"><b>forward</b>Lesson 34 · Networking II</span></div>
+<footer class="nav"><div class="navcard"><span class="k">Previous</span><span class="ti">32 · Volumes, bind mounts &amp; tmpfs</span></div><div class="navcard next"><span class="k">Next</span><span class="ti">34 · Networking II: user-defined bridges, embedded DNS, macvlan/ipvlan</span></div></footer>
+</div></body></html>
