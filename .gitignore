@@ -1,0 +1,7 @@
+secrets/*
+!secrets/.gitkeep
+
+*.swp
+*.swo
+*~
+.DS_Store
